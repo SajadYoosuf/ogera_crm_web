@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-10-02 — `2ce70d2` (branch `phase1`)
+
+**Restructure repo into backend / web / mobile folders**
+
+Author: sajad yoosuf
+Previous commit on this side: `da568aa` Redesign contacts page and wire it to the FastAPI backend (2026-10-02)
+
+### Summary
+
+The web app moved from the repo root into `ogera_crm_web/`, so one repo now holds the backend, web and mobile folders. No application code changed; git records most of the move as renames, so file history carries over. Notes: [docs/changes/2026-10-02-contacts-redesign-api.md](docs/changes/2026-10-02-contacts-redesign-api.md) (earlier change, moved with the app).
+
+### Files
+
+Git lists these as new paths under `ogera_crm_web/` because the old paths were outside the folder; most are renames of files that lived at the repo root.
+
+| Status | File | Change |
+| --- | --- | --- |
+| Renamed | `src/`, `public/`, `tests/`, `e2e/`, `scripts/` | Moved under `ogera_crm_web/` unchanged. |
+| Renamed | `package.json`, `package-lock.json`, `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `postcss.config.mjs`, `vitest.config.mts`, `playwright.config.ts` | Project config moved with the app. |
+| Renamed | `docs/`, `README.md`, `API.md`, `AGENTS.md`, `CLAUDE.md`, `CHANGELOG.md` | Documentation moved with the app. |
+| Added | `.claude/skills/responsive-ui/`, `.claude/skills/ui-states/` | Web UI skills, now tracked. |
+| Added | `.gitignore` | Web-specific ignores (`.env*`, Playwright output); the root `.gitignore` now covers `node_modules/` and `.next/`. |
+| Deleted | `src/app/api/**`, `src/lib/auth/`, `src/lib/sales.ts`, `migrations/`, `tests/api/*route*` | Old Next.js API routes, SQL migrations and server-side code. Already removed from the working tree when the web app moved to the FastAPI backend; recorded here. |
+
+### Notes
+
+- Run commands (`npm run dev`, `npx eslint`) from `ogera_crm_web/` now.
+- The old Professionals page (`src/app/dashboard/professionals/`) still exists and depends on the deleted `/api/professionals` routes.
+- The previous commit above lived at the old layout, so a path-scoped history of `ogera_crm_web/` starts at this commit; use `git log --follow` on a file to see its earlier history.
+- Pairs with the backend entry for `2ce70d2` and the root `.gitignore` / `.claude/skills/feature-workflow` additions.
+
 ## 2026-10-02 — `da568aa` (branch `phase1`)
 
 **Redesign contacts page and wire it to the FastAPI backend**
