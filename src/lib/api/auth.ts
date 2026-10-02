@@ -1,0 +1,126 @@
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(/\/+$/, "");
+
+const REQUEST_TIMEOUT_MS = 15_000;
+
+export type Employee = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  is_field_staff: boolean;
+  phone: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+export type LoginResponse = {
+  access_token: string;
+  token_type: string;
+  employee: Employee;
+};
+
+export type ApiErrorKind =
+  | "offline" // browser reports no connection
+  | "network" // request never reached the server (down, CORS, DNS)
+  | "timeout"
+  | "invalid_credentials" // 401
+  | "inactive_account" // 403 on login
+  | "forbidden" // 403 on a protected route (role not allowed)
+  | "validation" // 422
+  | "server" // 5xx
+  | "unknown";
+
+export class ApiError extends Error {
+  constructor(
+    public kind: ApiErrorKind,
+    message: string,
+    public status?: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+
+  /** Worth offering a "try again" for the same input. */
+  get retryable() {
+    return this.kind === "offline" || this.kind === "network" || this.kind === "timeout" || this.kind === "server";
+  }
+}
+
+/** FastAPI errors are `{ detail: string }` or, for 422, `{ detail: [{ msg, loc }] }`. */
+function extractDetail(body: unknown): string | null {
+  if (!body || typeof body !== "object" || !("detail" in body)) return null;
+  const detail = (body as { detail: unknown }).detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((item) => (item && typeof item === "object" && "msg" in item ? String((item as { msg: unknown }).msg) : null))
+      .filter(Boolean);
+    return msgs.length ? msgs.join(". ") : null;
+  }
+  return null;
+}
+
+function errorFromResponse(status: number, body: unknown): ApiError {
+  const detail = extractDetail(body);
+  if (status === 401) return new ApiError("invalid_credentials", "Incorrect email or password.", status);
+  if (status === 403) return new ApiError("inactive_account", "This account is inactive. Contact your administrator.", status);
+  if (status === 422) return new ApiError("validation", detail ?? "Please check the email and password you entered.", status);
+  if (status >= 500) return new ApiError("server", "The server ran into a problem. Please try again in a moment.", status);
+  return new ApiError("unknown", detail ?? "Something went wrong. Please try again.", status);
+}
+
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    throw new ApiError("offline", "You're offline. Check your internet connection and try again.");
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError("timeout", "The server took too long to respond. Please try again.");
+    }
+    throw new ApiError("network", "Can't reach the server. Check your connection and try again.");
+  } finally {
+    clearTimeout(timer);
+  }
+
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    // Non-JSON or empty body; handled below by status.
+  }
+
+  if (!response.ok) throw errorFromResponse(response.status, body);
+  if (response.status === 204) return undefined as T;
+  if (body === null) throw new ApiError("unknown", "Received an unexpected response from the server.", response.status);
+  return body as T;
+}
+
+/** POST /auth/login */
+export function login(email: string, password: string): Promise<LoginResponse> {
+  return request<LoginResponse>("/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+/** GET /auth/me — 401 here means the token is missing, invalid, or expired. */
+export async function getMe(accessToken: string): Promise<Employee> {
+  try {
+    return await request<Employee>("/auth/me", { headers: { Authorization: `Bearer ${accessToken}` } });
+  } catch (error) {
+    if (error instanceof ApiError && error.kind === "invalid_credentials") {
+      throw new ApiError("invalid_credentials", "Your session has expired. Please sign in again.", 401);
+    }
+    throw error;
+  }
+}
