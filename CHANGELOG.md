@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-05 — `bf76cde` (branch `phase1`)
+
+**Add hover tooltip listing pending contact details**
+
+Author: sajad yoosuf
+Previous commit on this side: `f6ca49e` Show a table skeleton while contacts load (2026-10-05)
+
+### Summary
+The Verified / Unverified badge shows a tooltip on hover and focus. Unverified lists the details still to fill in; Verified says all are complete.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/app/contacts/page.tsx` | `VerifiedBadge` gets a fixed-position tooltip (not clipped by the table wrapper), keyboard focus support and an aria-label |
+
+### Notes
+Web only. Checked with eslint and tsc, not in a browser.
+
 ## 2026-10-05 — `f6ca49e` (branch `phase1`)
 
 **Show a table skeleton while contacts load**
