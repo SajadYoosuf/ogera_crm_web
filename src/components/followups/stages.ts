@@ -62,7 +62,7 @@ export function formatMoment(value: string) {
 
 /** The one-click "next step" on a card; Won, Lost and Repeat Customer are where a lead stops. */
 export const NEXT_STAGE: Partial<Record<StageSlug, StageSlug>> = {
-  new_lead: "aware", aware: "interested", interested: "quoted", quoted: "negotiating", negotiating: "won",
+  new_lead: "interested", aware: "interested", interested: "quoted", quoted: "negotiating", negotiating: "won",
 };
 
 /** Accent colour of each column's top bar. */
