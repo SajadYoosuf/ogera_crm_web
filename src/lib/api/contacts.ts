@@ -20,6 +20,9 @@ export type ApiContact = {
   assigned_to: NameRef;
   created_by: NameRef | null;
   created_at: string;
+  /** Computed by the backend: false while any required detail is pending. */
+  is_verified: boolean;
+  missing_fields: string[];
 };
 
 export type ContactList = { items: ApiContact[]; total: number; skip: number; limit: number };

@@ -24,6 +24,7 @@ type ContactSource = string;
 interface Contact {
   id: number; kind: ApiContactType; profession?: string; name: string; phone: string; stage?: string; source?: string;
   address?: string; district?: string; assignedTo?: string; assignedToId?: number; createdAt: string;
+  isVerified: boolean; missingFields: string[];
 }
 interface ContactForm {
   name: string; phone: string; contactType: ApiContactType; source: ContactSource;
@@ -38,7 +39,14 @@ const fromApi = (contact: ApiContact): Contact => ({
   id: contact.id, name: contact.name, phone: contact.phone, kind: contact.contact_type, profession: contact.profession_type || undefined,
   source: contact.lead_source?.name, address: contact.address || undefined, district: contact.district,
   stage: contact.lead_stage?.stage, assignedTo: contact.assigned_to?.name, assignedToId: contact.assigned_to?.id, createdAt: contact.created_at,
+  isVerified: contact.is_verified, missingFields: contact.missing_fields ?? [],
 });
+const pendingLabel = (contact: Contact) => `Pending: ${contact.missingFields.map((field) => field.replaceAll("_", " ")).join(", ")}`;
+function VerifiedBadge({ contact }: { contact: Contact }) {
+  return contact.isVerified
+    ? <span className="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border-emerald-200">Verified</span>
+    : <span title={pendingLabel(contact)} className="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wider bg-amber-50 text-amber-700 border-amber-200">Unverified</span>;
+}
 const displayLocation = (contact: Contact) => contact.address || contact.district || "Location not added";
 const toForm = (contact: Contact): ContactForm => ({
   name: contact.name, phone: contact.phone, contactType: contact.kind, source: contact.source ?? "",
@@ -351,6 +359,7 @@ export default function ContactsPage() {
                     <th scope="col" className="px-4 py-3.5">Location</th>
                     <th scope="col" className="px-4 py-3.5">Source</th>
                     <th scope="col" className="px-4 py-3.5">Stage</th>
+                    <th scope="col" className="px-4 py-3.5">Status</th>
                     <th scope="col" className="px-4 py-3.5">Added</th>
                     <th scope="col" className="px-4 py-3.5 text-right"><span className="sr-only">Actions</span></th>
                   </tr>
@@ -375,6 +384,7 @@ export default function ContactsPage() {
                       <td className="px-4 py-3.5 text-gray-600 max-w-[16rem] truncate">{displayLocation(contact)}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap text-gray-600">{contact.source || "—"}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap text-gray-600 capitalize">{contact.stage ? contact.stage.replaceAll("_", " ") : "—"}</td>
+                      <td className="px-4 py-3.5 whitespace-nowrap"><VerifiedBadge contact={contact} /></td>
                       <td className="px-4 py-3.5 whitespace-nowrap text-gray-500">{new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(new Date(contact.createdAt))}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap text-right">
                         <button type="button" onClick={(event) => { event.stopPropagation(); openEditor(contact); }} aria-label={`Edit ${contact.name || contact.phone}`} title="Edit" className="p-2 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors">
@@ -403,6 +413,7 @@ export default function ContactsPage() {
                   <div className="min-w-0 flex-1 pr-[4.5rem]">
                     <h3 className="font-bold text-[#0a192f] truncate group-hover:text-blue-700 transition-colors">{contact.name || "Unnamed contact"}</h3>
                     <span className={`mt-1.5 inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wider ${contact.kind === "partner" ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>{contact.kind === "partner" && contact.profession ? contact.profession : KIND_LABELS[contact.kind] ?? contact.kind}</span>
+                    <span className="ml-1.5 align-top"><VerifiedBadge contact={contact} /></span>
                   </div>
                 </div>
                 <div className="mt-4 space-y-1.5 text-xs text-gray-500">
