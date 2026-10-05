@@ -103,16 +103,6 @@ export default function FollowupBoard() {
     document.getElementById(`stage-${slug}`)?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
   };
 
-  if (isLoading) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm py-16 px-6 flex flex-col items-center text-center">
-        <span className="w-9 h-9 rounded-full border-[3px] border-gray-200 border-t-blue-600 animate-spin" />
-        <h2 className="mt-4 text-base font-bold text-[#0a192f]">Loading leads</h2>
-        <p className="mt-2 text-sm text-gray-500">Fetching the latest pipeline from your workspace.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#071428] via-[#0c2148] to-[#1a4a8a] text-white shadow-xl shadow-blue-950/10">
@@ -130,7 +120,7 @@ export default function FollowupBoard() {
             <dl className="grid grid-cols-3 gap-2">
               {[["Active", activeCount, "text-white"], ["Overdue", overdueCount, overdueCount ? "text-amber-300" : "text-white"], ["Won", wonCount, "text-emerald-300"]].map(([label, value, tone]) => (
                 <div key={label as string} className="rounded-xl bg-white/10 px-4 py-2 ring-1 ring-white/10 backdrop-blur-sm text-center sm:min-w-20">
-                  <dd className={`text-xl font-extrabold leading-none ${tone}`}>{value}</dd>
+                  <dd className={`text-xl font-extrabold leading-none ${tone}`}>{isLoading ? "–" : value}</dd>
                   <dt className="mt-1 text-[10px] font-bold uppercase tracking-wider text-white/60">{label}</dt>
                 </div>
               ))}
@@ -151,8 +141,8 @@ export default function FollowupBoard() {
           {search && <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="p-2 mr-1 text-gray-400 hover:text-gray-700"><svg {...iconProps}><path d="M18 6 6 18M6 6l12 12" /></svg></button>}
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:ml-auto">
-          <FilterSelect label="Assigned to" value={assignee} onChange={setAssignee} className="w-full sm:w-60"
-            options={[{ value: "", label: "Everyone" }, ...assignees.map((name) => ({ value: name, label: name }))]}
+          <FilterSelect label="Owner" value={assignee} onChange={setAssignee} className="w-full sm:w-52"
+            options={[{ value: "", label: "All" }, ...assignees.map((name) => ({ value: name, label: name }))]}
             icon={<><circle cx="12" cy="8" r="3.25" /><path d="M5 20v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1" /></>} />
           <button type="button" aria-pressed={onlyOverdue} onClick={() => setOnlyOverdue((value) => !value)}
             className={`inline-flex items-center justify-center gap-2 min-h-11 px-3.5 rounded-xl border text-sm font-bold transition-colors ${onlyOverdue ? "border-amber-300 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>
@@ -163,18 +153,45 @@ export default function FollowupBoard() {
         </div>
       </section>
 
-      {error && (
-        <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl border border-rose-200 bg-rose-50 text-sm text-rose-700">
-          <span>{error}</span>
-          <button type="button" onClick={() => { setIsLoading(true); void load(); }} className="self-start sm:self-auto min-h-11 px-4 rounded-lg border border-rose-200 bg-white font-semibold hover:bg-rose-100">Try again</button>
+      {error && !isLoading ? (
+        <div role="alert" className="bg-white rounded-2xl border border-gray-200 shadow-sm py-16 px-6 flex flex-col items-center text-center">
+          <span className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+            <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" /></svg>
+          </span>
+          <h2 className="mt-5 text-lg font-extrabold text-[#0a192f] tracking-tight">Something went wrong</h2>
+          <p className="mt-2 max-w-sm text-sm text-gray-500 leading-relaxed">{error}</p>
+          <button type="button" onClick={() => { setIsLoading(true); void load(); }} className="mt-6 inline-flex items-center justify-center min-h-11 px-4 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">Try again</button>
         </div>
-      )}
-
-      {!error && leads.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm py-16 px-6 flex flex-col items-center text-center">
-          <h2 className="text-base font-bold text-[#0a192f]">No consumer leads yet</h2>
+      ) : isLoading ? (
+        <div aria-busy="true" aria-label="Loading leads" className="space-y-6">
+          <div className="flex gap-2 overflow-hidden animate-pulse">
+            {Array.from({ length: 8 }, (_, index) => <span key={index} className="h-11 w-32 shrink-0 rounded-xl bg-gray-200" />)}
+          </div>
+          <div className="flex gap-4 overflow-hidden">
+            {Array.from({ length: 4 }, (_, column) => (
+              <div key={column} className="w-full sm:w-[300px] shrink-0 rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden animate-pulse">
+                <div className="h-1 bg-gray-200" />
+                <div className="px-4 py-3 bg-white border-b border-gray-200 space-y-2"><div className="h-3.5 w-24 rounded bg-gray-200" /><div className="h-3 w-48 rounded bg-gray-100" /></div>
+                <div className="p-3 space-y-3">
+                  {Array.from({ length: column === 0 ? 3 : 2 }, (_, card) => (
+                    <div key={card} className="rounded-xl border border-gray-200 bg-white p-3.5">
+                      <div className="flex items-center gap-3"><span className="h-9 w-9 rounded-full bg-gray-200" /><span className="flex-1 space-y-2"><span className="block h-3.5 w-2/3 rounded bg-gray-200" /><span className="block h-3 w-1/2 rounded bg-gray-100" /></span></div>
+                      <span className="mt-3 block h-5 w-28 rounded bg-gray-100" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : leads.length === 0 ? (
+        <div role="status" className="bg-white rounded-2xl border border-gray-200 shadow-sm py-16 px-6 flex flex-col items-center text-center">
+          <span className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19" /><circle cx="10" cy="8" r="3.25" /><path d="M17.5 11.5h3M19 10v3" /></svg>
+          </span>
+          <h2 className="mt-5 text-lg font-extrabold text-[#0a192f] tracking-tight">No consumer leads yet</h2>
           <p className="mt-2 max-w-sm text-sm text-gray-500 leading-relaxed">Consumer contacts you add appear here as New Leads.</p>
-          <Link href="/contacts" className="mt-5 inline-flex min-h-11 items-center px-4 rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700">Go to Contacts</Link>
+          <Link href="/contacts" className="mt-6 inline-flex min-h-11 items-center px-4 rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700">Go to Contacts</Link>
         </div>
       ) : (
         <>
