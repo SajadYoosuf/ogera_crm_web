@@ -26,8 +26,6 @@ export default function FollowupBoard() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [assignee, setAssignee] = useState("");
-  const [onlyOverdue, setOnlyOverdue] = useState(false);
-  const [activeStage, setActiveStage] = useState<StageSlug>("new_lead");
   const [panel, setPanel] = useState<{ id: number; target?: StageSlug } | null>(null);
   const [userId] = useState(currentUserId);
   const [now, setNow] = useState(0); // refreshed with each load so the clocks stay pure during render
@@ -49,9 +47,6 @@ export default function FollowupBoard() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const isOverdue = useCallback((lead: ApiContact) =>
-    Boolean(lead.lead_stage && stageClock(columnFor(lead.lead_stage.stage), lead.lead_stage.changed_at, now)?.overdue), [now]);
-
   const assignees = useMemo(
     () => [...new Set(leads.map((lead) => lead.assigned_to?.name).filter((name): name is string => Boolean(name)))].sort((a, b) => a.localeCompare(b)),
     [leads],
@@ -61,9 +56,8 @@ export default function FollowupBoard() {
     const needle = search.trim().toLowerCase();
     return leads.filter((lead) =>
       (!assignee || lead.assigned_to?.name === assignee) &&
-      (!onlyOverdue || isOverdue(lead)) &&
       (!needle || lead.name.toLowerCase().includes(needle) || lead.phone.includes(needle) || (lead.district ?? "").toLowerCase().includes(needle)));
-  }, [leads, search, assignee, onlyOverdue, isOverdue]);
+  }, [leads, search, assignee]);
 
   const byStage = useMemo(() => {
     const groups = new Map<StageSlug, ApiContact[]>(STAGES.map((stage) => [stage.slug, []]));
@@ -71,11 +65,7 @@ export default function FollowupBoard() {
     return groups;
   }, [visible]);
 
-  const count = (slug: StageSlug) => byStage.get(slug)?.length ?? 0;
-  const overdueCount = leads.filter(isOverdue).length;
-  const activeCount = leads.filter((lead) => !["won", "lost", "repeat_customer"].includes(columnFor(lead.lead_stage?.stage))).length;
-  const wonCount = leads.filter((lead) => columnFor(lead.lead_stage?.stage) === "won").length;
-  const hasFilters = Boolean(search.trim() || assignee || onlyOverdue);
+  const hasFilters = Boolean(search.trim() || assignee);
   const panelLead = panel ? leads.find((lead) => lead.id === panel.id) ?? null : null;
 
   async function moveLead(lead: ApiContact, slug: StageSlug) {
@@ -97,12 +87,6 @@ export default function FollowupBoard() {
     if (lead) void moveLead(lead, slug);
   };
 
-  // On desktop the strip jumps to the column; on phones only the chosen column is shown.
-  const focusStage = (slug: StageSlug) => {
-    setActiveStage(slug);
-    document.getElementById(`stage-${slug}`)?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
-  };
-
   return (
     <div className="space-y-6">
       <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#071428] via-[#0c2148] to-[#1a4a8a] text-white shadow-xl shadow-blue-950/10">
@@ -117,14 +101,6 @@ export default function FollowupBoard() {
             <p className="mt-2 text-sm sm:text-[15px] text-white/65 leading-relaxed">Move consumer leads from first contact to a closed sale.</p>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
-            <dl className="grid grid-cols-3 gap-2">
-              {[["Active", activeCount, "text-white"], ["Overdue", overdueCount, overdueCount ? "text-amber-300" : "text-white"], ["Won", wonCount, "text-emerald-300"]].map(([label, value, tone]) => (
-                <div key={label as string} className="rounded-xl bg-white/10 px-4 py-2 ring-1 ring-white/10 backdrop-blur-sm text-center sm:min-w-20">
-                  <dd className={`text-xl font-extrabold leading-none ${tone}`}>{isLoading ? "–" : value}</dd>
-                  <dt className="mt-1 text-[10px] font-bold uppercase tracking-wider text-white/60">{label}</dt>
-                </div>
-              ))}
-            </dl>
             <Link href="/contacts" className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl bg-white text-[#0a192f] text-sm font-bold shadow-lg shadow-black/20 hover:bg-sky-50 active:scale-[.98] transition-all">
               <svg {...iconProps} strokeWidth={2.2}><path d="M12 5v14M5 12h14" /></svg>
               Add lead
@@ -144,12 +120,7 @@ export default function FollowupBoard() {
           <FilterSelect label="Owner" value={assignee} onChange={setAssignee} className="w-full sm:w-52"
             options={[{ value: "", label: "All" }, ...assignees.map((name) => ({ value: name, label: name }))]}
             icon={<><circle cx="12" cy="8" r="3.25" /><path d="M5 20v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1" /></>} />
-          <button type="button" aria-pressed={onlyOverdue} onClick={() => setOnlyOverdue((value) => !value)}
-            className={`inline-flex items-center justify-center gap-2 min-h-11 px-3.5 rounded-xl border text-sm font-bold transition-colors ${onlyOverdue ? "border-amber-300 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>
-            <span className={`h-2 w-2 rounded-full ${overdueCount ? "bg-amber-500" : "bg-gray-300"}`} />
-            Needs attention ({overdueCount})
-          </button>
-          {hasFilters && <button type="button" onClick={() => { setSearch(""); setAssignee(""); setOnlyOverdue(false); }} className="min-h-11 px-3 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">Clear filters</button>}
+          {hasFilters && <button type="button" onClick={() => { setSearch(""); setAssignee(""); }} className="min-h-11 px-3 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">Clear filters</button>}
         </div>
       </section>
 
@@ -164,9 +135,6 @@ export default function FollowupBoard() {
         </div>
       ) : isLoading ? (
         <div aria-busy="true" aria-label="Loading leads" className="space-y-6">
-          <div className="flex gap-2 overflow-hidden animate-pulse">
-            {Array.from({ length: 8 }, (_, index) => <span key={index} className="h-11 w-32 shrink-0 rounded-xl bg-gray-200" />)}
-          </div>
           <div className="flex gap-4 overflow-hidden">
             {Array.from({ length: 4 }, (_, column) => (
               <div key={column} className="w-full sm:w-[300px] shrink-0 rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden animate-pulse">
@@ -195,28 +163,13 @@ export default function FollowupBoard() {
         </div>
       ) : (
         <>
-          {/* Pipeline strip: counts per stage, and the way to pick a stage on a phone. */}
-          <nav aria-label="Pipeline stages" className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            {STAGES.map((stage) => {
-              const selected = stage.slug === activeStage;
-              return (
-                <button key={stage.slug} type="button" aria-pressed={selected} onClick={() => focusStage(stage.slug)}
-                  className={`shrink-0 inline-flex items-center gap-2 min-h-11 px-3.5 rounded-xl border text-sm font-bold transition-colors ${selected ? "border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-600/20" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>
-                  <span className={`h-2 w-2 rounded-full ${selected ? "bg-white" : stage.dot}`} />
-                  {stage.label}
-                  <span className={`min-w-6 rounded-full px-1.5 py-0.5 text-center text-[11px] font-bold ${selected ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"}`}>{count(stage.slug)}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          <div className="flex flex-col sm:flex-row gap-4 sm:overflow-x-auto sm:pb-3 sm:items-start">
+          <div className="flex gap-4 overflow-x-auto pb-3 items-start snap-x snap-mandatory sm:snap-none">
             {STAGES.map((stage) => {
               const stageLeads = byStage.get(stage.slug) ?? [];
               const next = NEXT_STAGE[stage.slug];
               return (
                 <section key={stage.slug} id={`stage-${stage.slug}`} aria-label={stage.label} onDragOver={(event) => event.preventDefault()} onDrop={(event) => drop(event, stage.slug)}
-                  className={`w-full sm:w-[300px] sm:shrink-0 flex-col rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden ${stage.slug === activeStage ? "flex" : "hidden sm:flex"}`}>
+                  className="w-[85vw] sm:w-[300px] shrink-0 snap-start flex flex-col rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden">
                   <div className={`h-1 ${STAGE_BAR[stage.slug]}`} />
                   <div className="px-4 pt-3 pb-3 bg-white border-b border-gray-200">
                     <div className="flex items-center justify-between gap-2">
@@ -226,7 +179,7 @@ export default function FollowupBoard() {
                     <p className="mt-1 text-[11px] leading-snug text-gray-500">{stage.description}</p>
                   </div>
 
-                  <div className="p-3 space-y-3 sm:max-h-[calc(100vh-27rem)] sm:min-h-40 sm:overflow-y-auto">
+                  <div className="p-3 space-y-3 max-h-[calc(100vh-22rem)] min-h-40 overflow-y-auto">
                     {stageLeads.map((lead) => {
                       const clock = lead.lead_stage ? stageClock(stage.slug, lead.lead_stage.changed_at, now) : null;
                       return (
