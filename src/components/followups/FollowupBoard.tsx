@@ -29,7 +29,7 @@ export default function FollowupBoard() {
   const [assignee, setAssignee] = useState("");
   const [panel, setPanel] = useState<{ id: number; target?: StageSlug } | null>(null);
   const [userId] = useState(currentUserId);
-  const [staffNames, setStaffNames] = useState<string[] | null>(null); // null until loaded, or when the viewer cannot read the staff list
+  const [staff, setStaff] = useState<{ id: number; name: string; role: string }[] | null>(null); // null until loaded, or when the viewer cannot read the staff list
   const [now, setNow] = useState(0); // refreshed with each load so the clocks stay pure during render
 
   const load = useCallback(async () => {
@@ -42,7 +42,7 @@ export default function FollowupBoard() {
         listAllEmployees(accessToken).catch(() => null),
       ]);
       setLeads(leadRows);
-      if (staff) setStaffNames(staff.employees.filter((employee) => employee.is_active && employee.role !== "admin").map((employee) => employee.name));
+      if (staff) setStaff(staff.employees.filter((employee) => employee.is_active).map(({ id, name, role }) => ({ id, name, role })));
       setNow(Date.now());
     } catch (caught) {
       setError(errorText(caught));
@@ -56,9 +56,12 @@ export default function FollowupBoard() {
 
   // Owners are the managers and other staff; admins are not listed. Without the staff list, fall back to who owns leads.
   const assignees = useMemo(
-    () => [...new Set(staffNames ?? leads.map((lead) => lead.assigned_to?.name).filter((name): name is string => Boolean(name)))].sort((a, b) => a.localeCompare(b)),
-    [leads, staffNames],
+    () => [...new Set(staff ? staff.filter((member) => member.role !== "admin").map((member) => member.name) : leads.map((lead) => lead.assigned_to?.name).filter((name): name is string => Boolean(name)))].sort((a, b) => a.localeCompare(b)),
+    [leads, staff],
   );
+
+  // Leads are handed to sales executives and other staff, never to admins or managers.
+  const owners = useMemo(() => staff?.filter((member) => member.role !== "admin" && member.role !== "manager").sort((a, b) => a.name.localeCompare(b.name)) ?? null, [staff]);
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -249,7 +252,7 @@ export default function FollowupBoard() {
       )}
 
       {panelLead && (
-        <LeadPanel key={`${panelLead.id}-${panel?.target ?? ""}`} lead={panelLead} userId={userId} initialTarget={panel?.target} onClose={() => setPanel(null)} onChanged={load} />
+        <LeadPanel key={`${panelLead.id}-${panel?.target ?? ""}`} lead={panelLead} userId={userId} owners={owners} initialTarget={panel?.target} onClose={() => setPanel(null)} onChanged={load} />
       )}
     </div>
   );

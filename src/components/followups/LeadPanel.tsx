@@ -4,15 +4,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import FilterSelect from "@/components/FilterSelect";
 import { ApiError } from "@/lib/api/auth";
-import type { ApiContact } from "@/lib/api/contacts";
+import { updateContact, type ApiContact } from "@/lib/api/contacts";
 import { changeStage, getStageHistory, type StageEntry } from "@/lib/api/leads";
+import ActivityLog from "./ActivityLog";
 import { LOSS_REASONS, STAGES, columnFor, formatMoment, stageClock, stageMeta, type StageSlug } from "./stages";
 
 const errorText = (caught: unknown) => (caught instanceof ApiError ? caught.message : "Something went wrong. Please try again.");
 
 /** Drawer on desktop, full-width sheet on phones: lead details, stage history and the stage change form. */
-export default function LeadPanel({ lead, userId, initialTarget, onClose, onChanged }: {
-  lead: ApiContact; userId: number | null; initialTarget?: StageSlug; onClose: () => void; onChanged: () => Promise<void>;
+export default function LeadPanel({ lead, userId, owners, initialTarget, onClose, onChanged }: {
+  lead: ApiContact; userId: number | null; owners: { id: number; name: string }[] | null; initialTarget?: StageSlug; onClose: () => void; onChanged: () => Promise<void>;
 }) {
   const current = columnFor(lead.lead_stage?.stage);
   const [target, setTarget] = useState<StageSlug | null>(initialTarget && initialTarget !== current ? initialTarget : null);
@@ -22,6 +23,8 @@ export default function LeadPanel({ lead, userId, initialTarget, onClose, onChan
   const [historyError, setHistoryError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+  const [ownerError, setOwnerError] = useState("");
+  const [isChangingOwner, setIsChangingOwner] = useState(false);
 
   useEffect(() => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
@@ -65,10 +68,26 @@ export default function LeadPanel({ lead, userId, initialTarget, onClose, onChan
     else void submit(slug, false);
   };
 
+  async function changeOwner(value: string) {
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    if (!accessToken) { setOwnerError("Sign in again to continue."); return; }
+    setIsChangingOwner(true); setOwnerError("");
+    try {
+      await updateContact(accessToken, lead.id, { assigned_to: Number(value) });
+      await onChanged();
+    } catch (caught) { setOwnerError(errorText(caught)); } finally { setIsChangingOwner(false); }
+  }
+
+  // The current owner stays listed even when it is an admin or manager, so the dropdown never looks empty.
+  const ownerOptions = [
+    ...(lead.assigned_to && !owners?.some((owner) => owner.id === lead.assigned_to.id) ? [{ id: lead.assigned_to.id, name: lead.assigned_to.name }] : []),
+    ...(owners ?? []),
+  ].map((owner) => ({ value: String(owner.id), label: owner.name }));
+
   const meta = stageMeta(current);
   const clock = lead.lead_stage ? stageClock(current, lead.lead_stage.changed_at) : null;
   const details: [string, string | null | undefined][] = [
-    ["Phone", lead.phone], ["District", lead.district], ["Address", lead.address], ["Source", lead.lead_source?.name], ["Assigned to", lead.assigned_to?.name],
+    ["Phone", lead.phone], ["District", lead.district], ["Address", lead.address], ["Source", lead.lead_source?.name],
   ];
 
   return (
@@ -118,6 +137,20 @@ export default function LeadPanel({ lead, userId, initialTarget, onClose, onChan
             )}
             {error && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
           </section>
+
+          <section>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Owner</h3>
+            {owners ? (
+              <FilterSelect label="Assigned to" value={lead.assigned_to ? String(lead.assigned_to.id) : ""} onChange={(value) => { if (value) void changeOwner(value); }} className="mt-3 w-full"
+                options={ownerOptions} icon={<><circle cx="12" cy="8" r="3.25" /><path d="M5 20v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1" /></>} />
+            ) : (
+              <p className="mt-3 text-sm font-medium text-gray-900">{lead.assigned_to?.name ?? "Unassigned"}</p>
+            )}
+            <p className="mt-1.5 text-xs text-gray-500">{isChangingOwner ? "Saving…" : "Hand this lead to a sales executive or other staff."}</p>
+            {ownerError && <p role="alert" className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{ownerError}</p>}
+          </section>
+
+          <ActivityLog contactId={lead.id} />
 
           <section>
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Details</h3>
