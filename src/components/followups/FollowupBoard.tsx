@@ -73,6 +73,8 @@ export default function FollowupBoard() {
     return groups;
   }, [visible]);
 
+  const activeCount = leads.filter((lead) => !["won", "lost", "repeat_customer"].includes(columnFor(lead.lead_stage?.stage))).length;
+  const overdueCount = leads.filter((lead) => lead.lead_stage && stageClock(columnFor(lead.lead_stage.stage), lead.lead_stage.changed_at, now)?.overdue).length;
   const hasFilters = Boolean(search.trim() || assignee);
   const panelLead = panel ? leads.find((lead) => lead.id === panel.id) ?? null : null;
 
@@ -109,6 +111,14 @@ export default function FollowupBoard() {
             <p className="mt-2 text-sm sm:text-[15px] text-white/65 leading-relaxed">Move consumer leads from first contact to a closed sale.</p>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
+            <dl className="grid grid-cols-2 gap-2">
+              {([["Active", activeCount, "text-white"], ["Overdue", overdueCount, overdueCount ? "text-amber-300" : "text-white"]] as const).map(([label, value, tone]) => (
+                <div key={label} className="rounded-xl bg-white/10 px-4 py-2 ring-1 ring-white/10 backdrop-blur-sm text-center sm:min-w-24">
+                  <dd className={`text-xl font-extrabold leading-none ${tone}`}>{isLoading ? "–" : value}</dd>
+                  <dt className="mt-1 text-[10px] font-bold uppercase tracking-wider text-white/60">{label}</dt>
+                </div>
+              ))}
+            </dl>
             <Link href="/contacts" className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl bg-white text-[#0a192f] text-sm font-bold shadow-lg shadow-black/20 hover:bg-sky-50 active:scale-[.98] transition-all">
               <svg {...iconProps} strokeWidth={2.2}><path d="M12 5v14M5 12h14" /></svg>
               Add lead
