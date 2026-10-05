@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-05 — `48b3df0` (branch `phase1`)
+
+**Add verified / unverified filter to contacts**
+
+Author: sajad yoosuf
+Previous commit on this side: `bf76cde` Add hover tooltip listing pending contact details (2026-10-05)
+
+### Summary
+The contacts filter bar gets a Status dropdown (Verified / Unverified) that drives the new `verified` API parameter.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/lib/api/contacts.ts` | `listContacts` accepts `verified` |
+| Modified | `src/app/contacts/page.tsx` | Status filter added to the filter bar and the load call |
+
+### Notes
+Web part of a commit that also touched the backend. Checked with eslint and tsc, not in a browser.
+
 ## 2026-10-05 — `bf76cde` (branch `phase1`)
 
 **Add hover tooltip listing pending contact details**
