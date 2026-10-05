@@ -13,8 +13,8 @@ import { useRouter } from "next/navigation";
 import { canManageEmployees, listAllEmployees, type Employee } from "@/lib/api/employees";
 import { createContact, deleteContact as deleteContactApi, getContact, listContacts, listLeadSources, updateContact, type ApiContact, type ApiContactType, type LeadSource } from "@/lib/api/contacts";
 
-type Filters = { type: string; profession: string; source: string; district: string; assignedTo: string; createdBy: string };
-const NO_FILTERS: Filters = { type: "", profession: "", source: "", district: "", assignedTo: "", createdBy: "" };
+type Filters = { type: string; profession: string; source: string; district: string; assignedTo: string; createdBy: string; verified: string };
+const NO_FILTERS: Filters = { type: "", profession: "", source: "", district: "", assignedTo: "", createdBy: "", verified: "" };
 const PAGE_SIZE = 12;
 const KIND_LABELS: Record<string, string> = { consumer: "Consumer", partner: "Partner", dealer: "Dealer" };
 const TYPE_TABS = [{ value: "", label: "All" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }, { value: "dealer", label: "Dealer" }];
@@ -127,6 +127,7 @@ export default function ContactsPage() {
         district: filters.district || undefined,
         assigned_to: filters.assignedTo ? Number(filters.assignedTo) : undefined,
         created_by: filters.createdBy ? Number(filters.createdBy) : undefined,
+        verified: filters.verified ? filters.verified === "verified" : undefined,
         search: submittedSearch || undefined,
       });
       setContacts(result.items.map(fromApi)); setTotal(result.total);
@@ -168,6 +169,7 @@ export default function ContactsPage() {
 
   const employeeFilterOptions = useMemo(() => employees.map((employee) => ({ value: String(employee.id), label: employee.name })), [employees]);
   const filterGroups: FilterGroup[] = [
+    { key: "verified", label: "Status", value: filters.verified, options: [{ value: "verified", label: "Verified" }, { value: "unverified", label: "Unverified" }] },
     { key: "source", label: "Lead source", value: filters.source, options: leadSources.map((item) => ({ value: String(item.id), label: item.name })) },
     { key: "district", label: "District", value: filters.district, options: KERALA_DISTRICTS.map((name) => ({ value: name, label: name })) },
     // Only admins and managers can read the employee list, so only they get the people filters.

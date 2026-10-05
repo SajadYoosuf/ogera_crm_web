@@ -28,7 +28,7 @@ export type ApiContact = {
 export type ContactList = { items: ApiContact[]; total: number; skip: number; limit: number };
 
 /** GET /contacts — one page. */
-export async function listContacts(accessToken: string, params: { skip?: number; limit?: number; contact_type?: ApiContactType; profession_type?: string; search?: string; lead_source_id?: number; district?: string; assigned_to?: number; created_by?: number } = {}) {
+export async function listContacts(accessToken: string, params: { skip?: number; limit?: number; contact_type?: ApiContactType; profession_type?: string; search?: string; lead_source_id?: number; district?: string; assigned_to?: number; created_by?: number; verified?: boolean } = {}) {
   const query = new URLSearchParams({ skip: String(params.skip ?? 0), limit: String(params.limit ?? 10) });
   if (params.contact_type) query.set("contact_type", params.contact_type);
   if (params.profession_type) query.set("profession_type", params.profession_type);
@@ -37,6 +37,7 @@ export async function listContacts(accessToken: string, params: { skip?: number;
   if (params.district) query.set("district", params.district);
   if (params.assigned_to !== undefined) query.set("assigned_to", String(params.assigned_to));
   if (params.created_by !== undefined) query.set("created_by", String(params.created_by));
+  if (params.verified !== undefined) query.set("verified", String(params.verified));
   const label = `[contacts api] GET /contacts?${query}`;
   const started = performance.now();
   trace("log", `${label} → request`, { url: `${API_BASE_URL}/contacts?${query}`, headers: { Authorization: "Bearer ***" } });
