@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-10-05 — `f6ca49e` (branch `phase1`)
+
+**Show a table skeleton while contacts load**
+
+Author: sajad yoosuf
+Previous commit on this side: `d39dc1b` Add verified / unverified status to contacts (2026-10-05)
+
+### Summary
+Desktop and tablet show one skeleton table with the real headers while contacts load; phones keep the card skeleton.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/app/contacts/page.tsx` | Loading state renders a header-matched skeleton table (12 rows) at `md` and up |
+
+### Notes
+Web only. Checked with eslint and tsc, not in a browser.
+
+## 2026-10-05 — `d39dc1b` (branch `phase1`)
+
+**Add verified / unverified status to contacts**
+
+Author: sajad yoosuf
+Previous commit on this side: `c93ee92` docs: update changelog for 2ce70d2 (2026-10-03)
+
+### Summary
+The contacts page gets a Status column showing Verified or Unverified. Notes: [docs/changes/2026-10-05-contact-verification.md](docs/changes/2026-10-05-contact-verification.md).
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/lib/api/contacts.ts` | `ApiContact` gains `is_verified` and `missing_fields` |
+| Modified | `src/app/contacts/page.tsx` | Status column on the table and a badge on phone cards; Unverified lists the pending fields |
+| Added | `docs/changes/2026-10-05-contact-verification.md` | Change notes |
+
+### Notes
+The same commit also touched the backend, which supplies the fields. No filter by status yet.
+
 ## 2026-10-02 — `2ce70d2` (branch `phase1`)
 
 **Restructure repo into backend / web / mobile folders**
