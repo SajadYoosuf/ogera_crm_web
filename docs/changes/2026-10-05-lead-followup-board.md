@@ -15,3 +15,6 @@ Order creation on Won, payment tracking, editable stages, mobile app (follows se
 
 ## Verification
 `npx eslint` and `npx tsc --noEmit` on changed files; manual drag/move on desktop and phone widths.
+
+## Update: design pass
+First version looked like the old generic board. Reworked to follow the Contacts page: gradient header with eyebrow, title and KPI chips (Active / Overdue / Won); toolbar with a `lg:max-w-md` search and the shared `FilterSelect` (no full-width native dropdowns); a pipeline strip of stage tabs with counts; columns with a colour bar; cards with avatar, clock chip, call and WhatsApp buttons and a one-click next-stage button; a "Needs attention" filter. Mobile uses the strip to pick one column. Not yet checked visually in a browser.

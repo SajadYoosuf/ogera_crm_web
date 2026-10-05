@@ -59,3 +59,22 @@ export function formatMoment(value: string) {
   if (Number.isNaN(moment.getTime())) return "";
   return moment.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
+
+/** The one-click "next step" on a card; Won, Lost and Repeat Customer are where a lead stops. */
+export const NEXT_STAGE: Partial<Record<StageSlug, StageSlug>> = {
+  new_lead: "aware", aware: "interested", interested: "quoted", quoted: "negotiating", negotiating: "won",
+};
+
+/** Accent colour of each column's top bar. */
+export const STAGE_BAR: Record<StageSlug, string> = {
+  new_lead: "bg-blue-500", aware: "bg-sky-500", interested: "bg-indigo-500", quoted: "bg-amber-500",
+  negotiating: "bg-orange-500", won: "bg-emerald-500", lost: "bg-rose-500", repeat_customer: "bg-teal-500",
+};
+
+export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
+
+/** wa.me wants digits only; bare 10-digit numbers are Indian mobiles. */
+export function whatsappLink(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  return `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}`;
+}
