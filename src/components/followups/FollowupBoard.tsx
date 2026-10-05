@@ -4,6 +4,7 @@ import Link from "next/link";
 import { DragEvent, useCallback, useEffect, useMemo, useState } from "react";
 import FilterSelect from "@/components/FilterSelect";
 import { ApiError } from "@/lib/api/auth";
+import { listAllEmployees } from "@/lib/api/employees";
 import type { ApiContact } from "@/lib/api/contacts";
 import { changeStage, listConsumerLeads } from "@/lib/api/leads";
 import LeadPanel from "./LeadPanel";
@@ -28,6 +29,7 @@ export default function FollowupBoard() {
   const [assignee, setAssignee] = useState("");
   const [panel, setPanel] = useState<{ id: number; target?: StageSlug } | null>(null);
   const [userId] = useState(currentUserId);
+  const [staffNames, setStaffNames] = useState<string[] | null>(null); // null until loaded, or when the viewer cannot read the staff list
   const [now, setNow] = useState(0); // refreshed with each load so the clocks stay pure during render
 
   const load = useCallback(async () => {
@@ -35,7 +37,12 @@ export default function FollowupBoard() {
     if (!accessToken) { setError("Sign in to load your leads."); setIsLoading(false); return; }
     setError("");
     try {
-      setLeads(await listConsumerLeads(accessToken));
+      const [leadRows, staff] = await Promise.all([
+        listConsumerLeads(accessToken),
+        listAllEmployees(accessToken).catch(() => null),
+      ]);
+      setLeads(leadRows);
+      if (staff) setStaffNames(staff.employees.filter((employee) => employee.is_active && employee.role !== "admin").map((employee) => employee.name));
       setNow(Date.now());
     } catch (caught) {
       setError(errorText(caught));
@@ -47,9 +54,10 @@ export default function FollowupBoard() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  // Owners are the managers and other staff; admins are not listed. Without the staff list, fall back to who owns leads.
   const assignees = useMemo(
-    () => [...new Set(leads.map((lead) => lead.assigned_to?.name).filter((name): name is string => Boolean(name)))].sort((a, b) => a.localeCompare(b)),
-    [leads],
+    () => [...new Set(staffNames ?? leads.map((lead) => lead.assigned_to?.name).filter((name): name is string => Boolean(name)))].sort((a, b) => a.localeCompare(b)),
+    [leads, staffNames],
   );
 
   const visible = useMemo(() => {
