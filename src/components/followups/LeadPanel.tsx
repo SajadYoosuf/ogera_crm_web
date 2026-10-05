@@ -111,7 +111,7 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onClose
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Move to stage</h3>
             <p className="mt-1 text-xs text-gray-500">{meta.description}</p>
             <FilterSelect label="Move to" value={target ?? ""} onChange={(value) => { if (value) pick(value as StageSlug); else setTarget(null); }} className="mt-3 w-full"
-              options={[{ value: "", label: isSaving ? "Saving…" : "Select stage" }, ...STAGES.filter((stage) => stage.slug !== current).map((stage) => ({ value: stage.slug, label: stage.label, dot: stage.dot }))]}
+              options={[{ value: "", label: isSaving ? "Saving…" : "Select stage" }, ...STAGES.filter((stage, index) => index > STAGES.findIndex((item) => item.slug === current)).map((stage) => ({ value: stage.slug, label: stage.label, dot: stage.dot }))]}
               icon={<path d="M5 12h14M13 6l6 6-6 6" />} />
 
             {(target === "lost" || target === "aware") && (
