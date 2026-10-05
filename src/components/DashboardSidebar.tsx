@@ -58,7 +58,7 @@ const menuItems: MenuItem[] = [
   },
   {
     id: "followups",
-    label: "Sales Followup",
+    label: "Lead Followup",
     href: "/dashboard/followups",
     category: "CORE",
     roles: ["admin", "sales_head"],

@@ -32,7 +32,7 @@ export default function FollowupsPage() {
             <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="11" x="4" y="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
           </span>
           <h2 className="mt-4 text-base font-bold text-[#0a192f]">Restricted area</h2>
-          <p className="mt-2 max-w-sm text-sm text-gray-500 leading-relaxed">Sales follow-up is available to admins and sales heads only.</p>
+          <p className="mt-2 max-w-sm text-sm text-gray-500 leading-relaxed">Lead followup is available to admins and sales heads only.</p>
         </div>
       )}
     </div>
