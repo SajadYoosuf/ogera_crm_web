@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import FilterSelect from "@/components/FilterSelect";
 import { ApiError } from "@/lib/api/auth";
 import type { ApiContact } from "@/lib/api/contacts";
 import { changeStage, getStageHistory, type StageEntry } from "@/lib/api/leads";
@@ -90,14 +91,9 @@ export default function LeadPanel({ lead, userId, initialTarget, onClose, onChan
           <section>
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Move to stage</h3>
             <p className="mt-1 text-xs text-gray-500">{meta.description}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {STAGES.filter((stage) => stage.slug !== current).map((stage) => (
-                <button key={stage.slug} type="button" disabled={isSaving} onClick={() => pick(stage.slug)}
-                  className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors disabled:opacity-50 ${target === stage.slug ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>
-                  <span className={`h-2 w-2 rounded-full ${stage.dot}`} />{stage.label}
-                </button>
-              ))}
-            </div>
+            <FilterSelect label="Move to" value={target ?? ""} onChange={(value) => { if (value) pick(value as StageSlug); else setTarget(null); }} className="mt-3 w-full"
+              options={[{ value: "", label: isSaving ? "Saving…" : "Select stage" }, ...STAGES.filter((stage) => stage.slug !== current).map((stage) => ({ value: stage.slug, label: stage.label, dot: stage.dot }))]}
+              icon={<path d="M5 12h14M13 6l6 6-6 6" />} />
 
             {(target === "lost" || target === "aware") && (
               <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
