@@ -323,7 +323,41 @@ export default function ContactsPage() {
           <button type="button" onClick={() => void loadContacts()} className="mt-6 inline-flex items-center justify-center min-h-11 px-4 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">Try again</button>
         </div>
       ) : isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" aria-busy="true" aria-label="Loading contacts">
+        <>
+        {/* Desktop: one skeleton table that matches the real one, headers included. */}
+        <div className="hidden md:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" aria-busy="true" aria-label="Loading contacts">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 text-gray-500 text-[11px] font-extrabold tracking-wider uppercase border-b border-gray-200">
+                <tr>
+                  {["Contact", "Type", "Location", "Source", "Stage", "Status", "Added"].map((label, index) => (
+                    <th key={label} scope="col" className={index === 0 ? "px-5 py-3.5" : "px-4 py-3.5"}>{label}</th>
+                  ))}
+                  <th scope="col" className="px-4 py-3.5"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 animate-pulse">
+                {Array.from({ length: PAGE_SIZE }, (_, row) => (
+                  <tr key={row}>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <span className="w-10 h-10 shrink-0 rounded-xl bg-gray-200" />
+                        <span className="flex-1 space-y-2"><span className="block h-3.5 w-32 rounded bg-gray-200" /><span className="block h-3 w-20 rounded bg-gray-100" /></span>
+                      </div>
+                    </td>
+                    {["w-16", "w-40", "w-16", "w-16", "w-16", "w-20"].map((width, cell) => (
+                      <td key={cell} className="px-4 py-3.5"><span className={`block h-3.5 ${width} rounded bg-gray-100`} /></td>
+                    ))}
+                    <td className="px-4 py-3.5"><span className="block h-4 w-12 rounded bg-gray-100 ml-auto" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Phones keep cards, matching the real phone layout. */}
+        <div className="grid grid-cols-1 gap-4 md:hidden" aria-busy="true" aria-label="Loading contacts">
           {Array.from({ length: 6 }, (_, index) => (
             <div key={index} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 animate-pulse">
               <div className="flex items-center gap-4">
@@ -334,6 +368,7 @@ export default function ContactsPage() {
             </div>
           ))}
         </div>
+        </>
       ) : contacts.length === 0 ? (
         <div role="status" className="bg-white rounded-2xl border border-gray-200 shadow-sm py-16 px-6 flex flex-col items-center text-center">
           <span className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
