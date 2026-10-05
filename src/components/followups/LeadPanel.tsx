@@ -130,7 +130,7 @@ export default function LeadPanel({ lead, userId, initialTarget, onClose, onChan
                 <div key={label} className="flex justify-between gap-4 px-4 py-2.5 text-sm">
                   <dt className="shrink-0 text-gray-500">{label}</dt>
                   <dd className="min-w-0 break-words text-right font-medium text-gray-900">
-                    {label === "Phone" && value ? <a href={`tel:${value}`} className="text-blue-600 hover:underline">{value}</a> : value || "—"}
+                    {value || "—"}
                   </dd>
                 </div>
               ))}
