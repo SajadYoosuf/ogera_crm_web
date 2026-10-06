@@ -4,6 +4,7 @@ import { useState } from "react";
 import FilterSelect from "@/components/FilterSelect";
 import { ApiError } from "@/lib/api/auth";
 import { scheduleFollowup } from "@/lib/api/activities";
+import { DatePickerField, TimePickerField } from "@/components/SchedulePickers";
 import { DATE_CHIPS, SCHEDULABLE_TYPES, isoDate } from "./activities";
 
 type Errors = { date?: string; assignee?: string };
@@ -60,13 +61,14 @@ export default function FollowupScheduleForm({ contactId, staff, defaultAssignee
             );
           })}
         </div>
-        <input type="date" aria-label="Due date" value={date} min={today} onChange={(event) => { setDate(event.target.value); setErrors((current) => ({ ...current, date: undefined })); }} className="crm-input" aria-invalid={Boolean(errors.date)} />
+        <DatePickerField label="Due date" value={date} min={today} invalid={Boolean(errors.date)} onChange={(value) => { setDate(value); setErrors((current) => ({ ...current, date: undefined })); }} />
         {errors.date && <span role="alert" className="text-xs font-semibold text-red-600">{errors.date}</span>}
       </div>
 
-      <label className="crm-field-label">Due time (optional)
-        <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="crm-input" />
-      </label>
+      <div className="crm-field-label">
+        <span>Due time (optional)</span>
+        <TimePickerField label="Due time" value={time} onChange={setTime} />
+      </div>
 
       <label className="crm-field-label">Note (optional)
         <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className="crm-textarea"

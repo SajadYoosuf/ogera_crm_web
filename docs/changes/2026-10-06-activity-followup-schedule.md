@@ -23,3 +23,6 @@ Employee-only view (assign-to hidden, own tasks only), deleting activities, boar
 - Pending tasks that are not due yet show no action buttons; due-today tasks show Mark Done; overdue tasks show Mark Done and Reschedule (as specified).
 - GPS for a field visit is captured silently with a 5 second limit.
 - Tests: `tests/followups/activities.test.ts` (helpers), `tests/components/lead-activity.test.tsx` (9 panel flows). The full suite still has 17 failures in `staff-live-map.test.tsx` that predate this change.
+
+## Update 2026-10-07: date and time pickers
+The native date and time inputs in the Schedule Follow-up form and the Reschedule mini-form are replaced by `DatePickerField` (one-month calendar, past days disabled) and `TimePickerField` (half-hour slots from 8:00 am to 9:00 pm, plus "No specific time") in `src/components/SchedulePickers.tsx`. Both open as a floating panel on desktop and a bottom sheet on phones; Escape closes only the picker, not the lead panel. The Today / Tomorrow / In 3 days / Next week chips stay.

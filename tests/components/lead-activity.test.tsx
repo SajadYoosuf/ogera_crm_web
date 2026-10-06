@@ -16,6 +16,8 @@ const lead = {
   assigned_to: { id: 7, name: "Sajad" }, created_by: null, created_at: "2026-10-01T09:00:00", is_verified: true, missing_fields: [],
 } as ApiContact;
 
+const longDay = (date: Date) => date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+
 const OWNERS = [{ id: 7, name: "Sajad" }, { id: 8, name: "Rajan" }];
 
 const item = (overrides: Partial<ActivityItem>): ActivityItem => ({
@@ -106,6 +108,27 @@ describe("lead panel activity section", () => {
     expect(bodyOf("POST")).toEqual({ type: "phone_call", scheduled_date: isoDate(1), assigned_to: 7, status: "pending" });
   });
 
+  it("schedules a follow-up with a time chosen from the time list", async () => {
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "+ Schedule Follow-up" }));
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Due time:/ }));
+    fireEvent.click(screen.getByRole("option", { name: "10:30 am" }));
+    fireEvent.click(screen.getByRole("button", { name: "Schedule" }));
+    await waitFor(() => expect(calls("POST")).toHaveLength(1));
+    expect(bodyOf("POST")).toMatchObject({ scheduled_date: isoDate(), scheduled_time: "10:30" });
+  });
+
+  it("does not let a past day be picked in the calendar", async () => {
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "+ Schedule Follow-up" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Due date:/ }));
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const cell = screen.queryByRole("gridcell", { name: longDay(yesterday) });
+    // Yesterday is in this month unless today is the 1st; either way it must be disabled or absent.
+    if (cell) expect((cell as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("never offers an internal note when scheduling", async () => {
     renderPanel();
     fireEvent.click(await screen.findByRole("button", { name: "+ Schedule Follow-up" }));
@@ -133,9 +156,10 @@ describe("lead panel activity section", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Pick the new due date.")).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText("Due date"), { target: { value: isoDate(2) } });
+    fireEvent.click(screen.getByRole("button", { name: /^Due date:/ }));
+    fireEvent.click(screen.getByRole("gridcell", { name: longDay(new Date()) })); // today is the first day that can be picked
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(bodyOf("PATCH")).toEqual({ scheduled_date: isoDate(2) }));
+    await waitFor(() => expect(bodyOf("PATCH")).toEqual({ scheduled_date: isoDate() }));
   });
 
   it("shows no action buttons on a task that is not due yet", async () => {

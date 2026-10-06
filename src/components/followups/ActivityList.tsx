@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { DatePickerField, TimePickerField } from "@/components/SchedulePickers";
 import type { ActivityItem } from "@/lib/api/activities";
 import { formatClock, formatDay, formatWhen, isoDate, typeLabel } from "./activities";
 
@@ -133,12 +134,12 @@ export default function ActivityList({ items, error, onRetry, onMarkDone, onResc
             {rescheduling?.id === item.id && (
               <div className="mt-3 space-y-3 rounded-xl bg-gray-50 p-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="crm-field-label">Due date
-                    <input type="date" value={rescheduling.date} min={today} onChange={(event) => setRescheduling({ ...rescheduling, date: event.target.value, error: "" })} className="crm-input" aria-invalid={Boolean(rescheduling.error)} />
-                  </label>
-                  <label className="crm-field-label">Due time (optional)
-                    <input type="time" value={rescheduling.time} onChange={(event) => setRescheduling({ ...rescheduling, time: event.target.value })} className="crm-input" />
-                  </label>
+                  <div className="crm-field-label"><span>Due date</span>
+                    <DatePickerField label="Due date" value={rescheduling.date} min={today} invalid={Boolean(rescheduling.error)} onChange={(value) => setRescheduling({ ...rescheduling, date: value, error: "" })} />
+                  </div>
+                  <div className="crm-field-label"><span>Due time (optional)</span>
+                    <TimePickerField label="Due time" value={rescheduling.time} onChange={(value) => setRescheduling({ ...rescheduling, time: value })} />
+                  </div>
                 </div>
                 {rescheduling.error && <p role="alert" className="text-xs font-semibold text-red-600">{rescheduling.error}</p>}
                 <div className="flex items-center gap-2">
