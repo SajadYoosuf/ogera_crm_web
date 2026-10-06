@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import FilterSelect from "@/components/FilterSelect";
 import { ApiError } from "@/lib/api/auth";
@@ -120,7 +119,6 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
                 </div>
               ))}
             </dl>
-            <Link href="/contacts" className="mt-3 inline-block text-sm font-semibold text-blue-600 hover:underline">Edit in Contacts</Link>
           </section>
 
           <section>
