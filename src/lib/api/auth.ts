@@ -37,6 +37,7 @@ export class ApiError extends Error {
     public kind: ApiErrorKind,
     message: string,
     public status?: number,
+    public missingFields?: string[],
   ) {
     super(message);
     this.name = "ApiError";
@@ -62,7 +63,17 @@ function extractDetail(body: unknown): string | null {
   return null;
 }
 
+/** A 409 can carry `detail: { message, missing_fields }` (a lead moved on before its details were complete). */
+function extractMissing(body: unknown): { message: string; missing: string[] } | null {
+  const detail = body && typeof body === "object" && "detail" in body ? (body as { detail: unknown }).detail : null;
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return null;
+  const { message, missing_fields: missing } = detail as { message?: unknown; missing_fields?: unknown };
+  return typeof message === "string" && Array.isArray(missing) ? { message, missing: missing.map(String) } : null;
+}
+
 function errorFromResponse(status: number, body: unknown): ApiError {
+  const incomplete = status === 409 ? extractMissing(body) : null;
+  if (incomplete) return new ApiError("unknown", incomplete.message, status, incomplete.missing);
   const detail = extractDetail(body);
   if (status === 401) return new ApiError("invalid_credentials", "Incorrect email or password.", status);
   if (status === 403) return new ApiError("inactive_account", "This account is inactive. Contact your administrator.", status);

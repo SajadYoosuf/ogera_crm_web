@@ -12,8 +12,8 @@ import { LOSS_REASONS, STAGES, columnFor, formatMoment, stageClock, stageMeta, t
 const errorText = (caught: unknown) => (caught instanceof ApiError ? caught.message : "Something went wrong. Please try again.");
 
 /** Drawer on desktop, full-width sheet on phones: lead details, stage history and the stage change form. */
-export default function LeadPanel({ lead, userId, owners, initialTarget, onClose, onChanged }: {
-  lead: ApiContact; userId: number | null; owners: { id: number; name: string }[] | null; initialTarget?: StageSlug; onClose: () => void; onChanged: () => Promise<void>;
+export default function LeadPanel({ lead, userId, owners, initialTarget, onUnverified, onClose, onChanged }: {
+  lead: ApiContact; userId: number | null; owners: { id: number; name: string }[] | null; initialTarget?: StageSlug; onUnverified: (stage: StageSlug, missing: string[]) => void; onClose: () => void; onChanged: () => Promise<void>;
 }) {
   const current = columnFor(lead.lead_stage?.stage);
   const [target, setTarget] = useState<StageSlug | null>(initialTarget && initialTarget !== current ? initialTarget : null);
@@ -57,7 +57,8 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onClose
       await onChanged();
       setTarget(null); setLossReason(""); setNote("");
     } catch (caught) {
-      setError(errorText(caught));
+      if (caught instanceof ApiError && caught.missingFields) onUnverified(slug, caught.missingFields);
+      else setError(errorText(caught));
     } finally { setIsSaving(false); }
   }
 

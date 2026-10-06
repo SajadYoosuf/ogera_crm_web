@@ -79,3 +79,9 @@ export function whatsappLink(phone: string) {
   const digits = phone.replace(/\D/g, "");
   return `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}`;
 }
+
+/** Contact details the backend can report as missing before a lead moves on. */
+export const FIELD_LABELS: Record<string, string> = {
+  name: "Name", phone: "Phone number", district: "District", address: "Address", lead_source: "Lead source",
+  location: "GPS location", created_by: "Added by", house_stage: "House stage", work_area: "Work area",
+};

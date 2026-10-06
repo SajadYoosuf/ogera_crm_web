@@ -8,6 +8,7 @@ import { listAllEmployees } from "@/lib/api/employees";
 import type { ApiContact } from "@/lib/api/contacts";
 import { changeStage, listConsumerLeads } from "@/lib/api/leads";
 import LeadPanel from "./LeadPanel";
+import UnverifiedDialog from "./UnverifiedDialog";
 import { NEXT_STAGE, STAGES, STAGE_BAR, columnFor, initials, stageClock, stageMeta, whatsappLink, type StageSlug } from "./stages";
 
 const errorText = (caught: unknown) => (caught instanceof ApiError ? caught.message : "Leads could not be loaded. Please try again.");
@@ -27,6 +28,7 @@ export default function FollowupBoard() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [assignee, setAssignee] = useState("");
+  const [blocked, setBlocked] = useState<{ leadName: string; stage: StageSlug; missing: string[] } | null>(null);
   const [panel, setPanel] = useState<{ id: number; target?: StageSlug } | null>(null);
   const [userId] = useState(currentUserId);
   const [staff, setStaff] = useState<{ id: number; name: string; role: string }[] | null>(null); // null until loaded, or when the viewer cannot read the staff list
@@ -90,7 +92,10 @@ export default function FollowupBoard() {
     try {
       await changeStage(accessToken, lead.id, userId, { stage: slug });
       await load();
-    } catch (caught) { setError(caught instanceof ApiError ? caught.message : "The stage could not be changed. Please try again."); }
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.missingFields) { setBlocked({ leadName: lead.name, stage: slug, missing: caught.missingFields }); return; }
+      setError(caught instanceof ApiError ? caught.message : "The stage could not be changed. Please try again.");
+    }
   }
 
   const drop = (event: DragEvent<HTMLElement>, slug: StageSlug) => {
@@ -252,8 +257,10 @@ export default function FollowupBoard() {
       )}
 
       {panelLead && (
-        <LeadPanel key={`${panelLead.id}-${panel?.target ?? ""}`} lead={panelLead} userId={userId} owners={owners} initialTarget={panel?.target} onClose={() => setPanel(null)} onChanged={load} />
+        <LeadPanel key={`${panelLead.id}-${panel?.target ?? ""}`} lead={panelLead} userId={userId} owners={owners} initialTarget={panel?.target} onUnverified={(stage, missing) => setBlocked({ leadName: panelLead.name, stage, missing })} onClose={() => setPanel(null)} onChanged={load} />
       )}
+
+      {blocked && <UnverifiedDialog leadName={blocked.leadName} stageLabel={stageMeta(blocked.stage).label} missing={blocked.missing} onClose={() => setBlocked(null)} />}
     </div>
   );
 }
