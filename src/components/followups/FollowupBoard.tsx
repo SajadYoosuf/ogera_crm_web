@@ -138,7 +138,7 @@ export default function FollowupBoard() {
           {search && <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="p-2 mr-1 text-gray-400 hover:text-gray-700"><svg {...iconProps}><path d="M18 6 6 18M6 6l12 12" /></svg></button>}
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:ml-auto">
-          <FilterSelect label="Owner" value={assignee} onChange={setAssignee} className="w-full sm:w-52"
+          <FilterSelect label="Assigned to" value={assignee} onChange={setAssignee} className="w-full sm:w-52"
             options={[{ value: "", label: "All" }, ...assignees.map((name) => ({ value: name, label: name }))]}
             icon={<><circle cx="12" cy="8" r="3.25" /><path d="M5 20v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1" /></>} />
           {hasFilters && <button type="button" onClick={() => { setSearch(""); setAssignee(""); }} className="min-h-11 px-3 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">Clear filters</button>}
@@ -222,7 +222,7 @@ export default function FollowupBoard() {
                                 {clock.label}
                               </p>
                             )}
-                            <p className="mt-2 text-[11px] text-gray-500 truncate">Owner: <span className="font-semibold text-gray-700">{lead.assigned_to?.name ?? "Unassigned"}</span></p>
+                            <p className="mt-2 text-[11px] text-gray-500 truncate">Assigned to: <span className="font-semibold text-gray-700">{lead.assigned_to?.name ?? "Unassigned"}</span></p>
                           </div>
                           <div className="flex items-center gap-1.5 border-t border-gray-100 px-2.5 py-2" onClick={(event) => event.stopPropagation()}>
                             <a href={whatsappLink(lead.phone)} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${lead.name}`} className="grid h-9 w-9 place-items-center rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors">

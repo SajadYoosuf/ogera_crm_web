@@ -139,14 +139,14 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onClose
           </section>
 
           <section>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Owner</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Lead assigned to</h3>
             {owners ? (
-              <FilterSelect label="Assigned to" value={lead.assigned_to ? String(lead.assigned_to.id) : ""} onChange={(value) => { if (value) void changeOwner(value); }} className="mt-3 w-full"
+              <FilterSelect label="Lead assigned to" value={lead.assigned_to ? String(lead.assigned_to.id) : ""} onChange={(value) => { if (value) void changeOwner(value); }} className="mt-3 w-full"
                 options={ownerOptions} icon={<><circle cx="12" cy="8" r="3.25" /><path d="M5 20v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1" /></>} />
             ) : (
               <p className="mt-3 text-sm font-medium text-gray-900">{lead.assigned_to?.name ?? "Unassigned"}</p>
             )}
-            <p className="mt-1.5 text-xs text-gray-500">{isChangingOwner ? "Saving…" : "Hand this lead to a sales executive or other staff."}</p>
+            <p className="mt-1.5 text-xs text-gray-500">{isChangingOwner ? "Saving…" : "Admins and managers are not listed; pick a sales executive or other staff."}</p>
             {ownerError && <p role="alert" className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{ownerError}</p>}
           </section>
 
