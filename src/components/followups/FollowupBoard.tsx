@@ -116,12 +116,6 @@ export default function FollowupBoard() {
             <h1 className="mt-2 text-[26px] sm:text-[34px] font-extrabold tracking-tight leading-tight">Lead Followup</h1>
             <p className="mt-2 text-sm sm:text-[15px] text-white/65 leading-relaxed">Move consumer leads from first contact to a closed sale.</p>
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
-            <Link href="/contacts?add=1&returnTo=/dashboard/followups" className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl bg-white text-[#0a192f] text-sm font-bold shadow-lg shadow-black/20 hover:bg-sky-50 active:scale-[.98] transition-all">
-              <svg {...iconProps} strokeWidth={2.2}><path d="M12 5v14M5 12h14" /></svg>
-              Add lead
-            </Link>
-          </div>
         </div>
       </header>
 
