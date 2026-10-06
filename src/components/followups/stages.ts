@@ -1,10 +1,12 @@
 /** The consumer lead pipeline. Slugs match the backend `StageEnum`; order is the board's column order. */
-export type StageSlug = "new_lead" | "aware" | "interested" | "quoted" | "negotiating" | "won" | "lost" | "repeat_customer";
+export type StageSlug = "new_lead" | "first_call" | "connected" | "aware" | "interested" | "quoted" | "negotiating" | "won" | "lost" | "repeat_customer";
 
 export type StageMeta = { slug: StageSlug; label: string; description: string; dot: string; badge: string };
 
 export const STAGES: StageMeta[] = [
   { slug: "new_lead", label: "New Lead", description: "Just entered. Not yet contacted. 24h clock ticking.", dot: "bg-blue-500", badge: "bg-blue-50 text-blue-700" },
+  { slug: "first_call", label: "First Call", description: "First call attempted. Waiting to reach them.", dot: "bg-violet-500", badge: "bg-violet-50 text-violet-700" },
+  { slug: "connected", label: "Connected", description: "Spoke to them. Qualify the need and decide the next step.", dot: "bg-cyan-500", badge: "bg-cyan-50 text-cyan-700" },
   { slug: "aware", label: "Aware", description: "Contacted. Needs education before they're ready to hear a price.", dot: "bg-sky-500", badge: "bg-sky-50 text-sky-700" },
   { slug: "interested", label: "Interested", description: "Understands the product. Ready for demo or detailed info.", dot: "bg-indigo-500", badge: "bg-indigo-50 text-indigo-700" },
   { slug: "quoted", label: "Quoted", description: "Quote sent. Now the 3-day follow-up clock starts.", dot: "bg-amber-500", badge: "bg-amber-50 text-amber-700" },
@@ -24,10 +26,9 @@ export const LOSS_REASONS = [
 
 export const stageMeta = (slug: StageSlug) => STAGES.find((stage) => stage.slug === slug) ?? STAGES[0];
 
-/** Rows saved before this pipeline (first_call, referral) or with no stage still land in a column. */
+/** Rows saved before this pipeline (referral) or with no stage still land in a column. */
 export function columnFor(stage: string | null | undefined): StageSlug {
   if (stage && STAGES.some((item) => item.slug === stage)) return stage as StageSlug;
-  if (stage === "first_call") return "aware";
   if (stage === "referral") return "repeat_customer";
   return "new_lead";
 }
@@ -62,12 +63,12 @@ export function formatMoment(value: string) {
 
 /** The one-click "next step" on a card; Won, Lost and Repeat Customer are where a lead stops. */
 export const NEXT_STAGE: Partial<Record<StageSlug, StageSlug>> = {
-  new_lead: "interested", aware: "interested", interested: "quoted", quoted: "negotiating", negotiating: "won",
+  new_lead: "first_call", first_call: "connected", connected: "interested", aware: "interested", interested: "quoted", quoted: "negotiating", negotiating: "won",
 };
 
 /** Accent colour of each column's top bar. */
 export const STAGE_BAR: Record<StageSlug, string> = {
-  new_lead: "bg-blue-500", aware: "bg-sky-500", interested: "bg-indigo-500", quoted: "bg-amber-500",
+  new_lead: "bg-blue-500", first_call: "bg-violet-500", connected: "bg-cyan-500", aware: "bg-sky-500", interested: "bg-indigo-500", quoted: "bg-amber-500",
   negotiating: "bg-orange-500", won: "bg-emerald-500", lost: "bg-rose-500", repeat_customer: "bg-teal-500",
 };
 
