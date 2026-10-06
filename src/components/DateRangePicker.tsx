@@ -27,16 +27,20 @@ export default function DateRangePicker({ label, from, to, onChange, className =
   const [view, setView] = useState(() => ({ y: parse(from || today).y, m: parse(from || today).m }));
   const [anchor, setAnchor] = useState<string | null>(null); // first click of a range in progress
   const [hover, setHover] = useState<string | null>(null);
+  const [top, setTop] = useState(0); // where the popover starts below the button (tablet and desktop)
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const down = (event: MouseEvent | TouchEvent) => { if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false); };
     const key = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    const close = () => setOpen(false);
     document.addEventListener("mousedown", down);
     document.addEventListener("touchstart", down);
     document.addEventListener("keydown", key);
-    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("touchstart", down); document.removeEventListener("keydown", key); };
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("touchstart", down); document.removeEventListener("keydown", key); window.removeEventListener("resize", close); window.removeEventListener("scroll", close, true); };
   }, [open]);
 
   const cells = useMemo(() => {
@@ -69,7 +73,7 @@ export default function DateRangePicker({ label, from, to, onChange, className =
   const summary = !hasValue ? "All time" : from && to ? (from === to ? short(from, true) : `${short(from, parse(from).y !== parse(to).y)} – ${short(to, true)}`) : from ? `From ${short(from, true)}` : `Until ${short(to, true)}`;
 
   function toggle() {
-    if (!open) { setView({ y: parse(from || today).y, m: parse(from || today).m }); setAnchor(null); setHover(null); }
+    if (!open) { setTop((rootRef.current?.getBoundingClientRect().bottom ?? 0) + 8); setView({ y: parse(from || today).y, m: parse(from || today).m }); setAnchor(null); setHover(null); }
     setOpen((current) => !current);
   }
 
@@ -113,7 +117,7 @@ export default function DateRangePicker({ label, from, to, onChange, className =
       {open && (
         <>
           <div className="fixed inset-0 z-[1290] bg-slate-900/30 sm:hidden" aria-hidden="true" />
-          <div role="dialog" aria-label={`Choose ${label.toLowerCase()} range`} className="fixed inset-x-0 bottom-0 z-[1300] rounded-t-2xl border border-gray-200 bg-white p-4 shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:top-[calc(100%+0.5rem)] sm:w-[22rem] sm:rounded-2xl">
+          <div role="dialog" aria-label={`Choose ${label.toLowerCase()} range`} style={{ top }} className="fixed inset-x-0 bottom-0 z-[1300] rounded-t-2xl border border-gray-200 bg-white p-4 shadow-2xl max-sm:top-auto! sm:inset-x-auto sm:bottom-auto sm:right-[50px] sm:w-[22rem] sm:max-w-[calc(100vw-5rem)] sm:rounded-2xl">
             <div className="flex flex-wrap gap-1.5 pb-3">
               {presets.map((preset) => {
                 const active = preset.from === from && preset.to === to;
