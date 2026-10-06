@@ -10,10 +10,9 @@ import { formatMoment } from "./stages";
 
 const errorText = (caught: unknown) => (caught instanceof ApiError ? caught.message : "Something went wrong. Please try again.");
 const kindIcon = <path d="M4 6h16M4 12h16M4 18h10" />;
-const subtypeIcon = <path d="M5 12.5 10 17.5 19 7" />;
 
-type Draft = { kind: string; subtype: string; notes: string; schedule: boolean; dueAt: string };
-const blankDraft = (overrides: Partial<Draft> = {}): Draft => ({ kind: "phone_call", subtype: "check_interest", notes: "", schedule: false, dueAt: "", ...overrides });
+type Draft = { kind: string; notes: string; schedule: boolean; dueAt: string };
+const blankDraft = (overrides: Partial<Draft> = {}): Draft => ({ kind: "phone_call", notes: "", schedule: false, dueAt: "", ...overrides });
 
 /** Activity log for one lead: log what was done, schedule the next task, and close tasks with an outcome. */
 export default function ActivityLog({ contactId }: { contactId: number }) {
@@ -22,8 +21,6 @@ export default function ActivityLog({ contactId }: { contactId: number }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [closingId, setClosingId] = useState<number | null>(null);
-  const [outcome, setOutcome] = useState("");
   const [promptNext, setPromptNext] = useState(false);
 
   const load = useCallback(async () => {
@@ -40,18 +37,17 @@ export default function ActivityLog({ contactId }: { contactId: number }) {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const meta = draft ? kindMeta(draft.kind) : null;
-  const setKind = (kind: string) => setDraft((current) => current && { ...current, kind, subtype: kindMeta(kind).subtypes[0]?.value ?? "" });
+  const setKind = (kind: string) => setDraft((current) => current && { ...current, kind });
 
   async function save() {
-    if (!draft || !meta) return;
+    if (!draft) return;
     const accessToken = sessionStorage.getItem("ogera_access_token");
     if (!accessToken) { setFormError("Sign in again to continue."); return; }
     if (draft.kind === "internal_note" && !draft.notes.trim()) { setFormError("Write the note first."); return; }
     if (draft.schedule && !draft.dueAt) { setFormError("Pick when the task is due."); return; }
     setIsSaving(true); setFormError("");
     try {
-      const input: ActivityInput = { kind: draft.kind, ...(draft.subtype ? { subtype: draft.subtype } : {}), ...(draft.notes.trim() ? { notes: draft.notes.trim() } : {}) };
+      const input: ActivityInput = { kind: draft.kind, ...(draft.notes.trim() ? { notes: draft.notes.trim() } : {}) };
       if (draft.schedule) input.due_at = `${draft.dueAt}:00`;
       // A field visit is logged where it happened; skip the position when the browser will not share it.
       if (draft.kind === "field_visit" && !draft.schedule) {
@@ -69,8 +65,8 @@ export default function ActivityLog({ contactId }: { contactId: number }) {
     if (!accessToken) { setLoadError("Sign in again to continue."); return; }
     setIsSaving(true);
     try {
-      await completeActivity(accessToken, contactId, activity.id, outcome.trim());
-      setClosingId(null); setOutcome(""); setPromptNext(true);
+      await completeActivity(accessToken, contactId, activity.id);
+      setPromptNext(true);
       await load();
     } catch (caught) { setLoadError(errorText(caught)); } finally { setIsSaving(false); }
   }
@@ -89,15 +85,10 @@ export default function ActivityLog({ contactId }: { contactId: number }) {
         )}
       </div>
 
-      {draft && meta && (
+      {draft && (
         <div className="mt-3 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
           <FilterSelect label="Type" value={draft.kind} onChange={setKind} className="w-full" icon={kindIcon}
             options={ACTIVITY_KINDS.map((item) => ({ value: item.kind, label: item.label, dot: item.dot }))} />
-          <p className="-mt-1 text-xs text-gray-500">{meta.hint}</p>
-          {meta.subtypes.length > 0 && (
-            <FilterSelect label="Purpose" value={draft.subtype} onChange={(subtype) => setDraft({ ...draft, subtype })} className="w-full" icon={subtypeIcon}
-              options={meta.subtypes} />
-          )}
           <label className="crm-field-label">{draft.kind === "internal_note" ? "Note" : "Notes (optional)"}
             <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} className="crm-textarea" />
           </label>
@@ -168,19 +159,9 @@ export default function ActivityLog({ contactId }: { contactId: number }) {
                 {item.latitude !== null && item.longitude !== null && (
                   <a href={`https://www.google.com/maps?q=${item.latitude},${item.longitude}`} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-blue-600 hover:underline">View visit location</a>
                 )}
-                {open && (closingId === item.id ? (
-                  <div className="mt-3 space-y-2">
-                    <label className="crm-field-label">Outcome (optional)
-                      <textarea value={outcome} onChange={(event) => setOutcome(event.target.value)} rows={2} className="crm-textarea" />
-                    </label>
-                    <div className="flex gap-2">
-                      <button type="button" disabled={isSaving} onClick={() => void markDone(item)} className="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">{isSaving ? "Saving…" : "Mark done"}</button>
-                      <button type="button" disabled={isSaving} onClick={() => { setClosingId(null); setOutcome(""); }} className="min-h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <button type="button" onClick={() => { setClosingId(item.id); setOutcome(""); }} className="mt-3 min-h-9 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 hover:bg-gray-50">Mark done</button>
-                ))}
+                {open && (
+                  <button type="button" disabled={isSaving} onClick={() => void markDone(item)} className="mt-3 min-h-9 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{isSaving ? "Saving…" : "Mark done"}</button>
+                )}
               </li>
             );
           })}
