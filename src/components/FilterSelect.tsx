@@ -44,7 +44,7 @@ export default function FilterSelect({ label, value, onChange, options, icon, cl
       </button>
 
       {open && (
-        <ul role="listbox" aria-label={label} className="absolute right-0 z-30 mt-2 max-h-80 w-full min-w-60 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
+        <ul role="listbox" aria-label={label} className="absolute right-0 z-30 mt-2 max-h-[min(30rem,calc(100vh-14rem))] w-full min-w-60 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
           {options.map((option) => {
             const selected = option.value === value;
             return (
