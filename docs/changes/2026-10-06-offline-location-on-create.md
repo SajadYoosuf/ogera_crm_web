@@ -1,15 +1,14 @@
-# Offline location picker on contact creation
+# Offline contacts are entered on mobile only
 
 ## Why
-Offline (field visit) contacts needed the browser's GPS to save, and blocked saving when it was denied. The location is now needed only when an offline contact is created, and the user can set it themselves.
+Offline (field visit) contacts are entered only in the mobile app, which reads the GPS position natively. The web app does not need to read a location or collect latitude and longitude at all.
 
 ## What changes
-- `src/app/contacts/page.tsx`: when creating a contact with the Offline source, a Location block appears with "Use my current location" (reads the browser position only, no address lookup) and editable Latitude / Longitude fields. Saving needs valid coordinates. The address stays a typed field. Editing an existing contact shows no location fields.
-- The automatic, blocking GPS capture on save is removed.
-- Backend part: see the backend notes of the same name.
+- `src/app/contacts/page.tsx`: the browser GPS capture on save is removed. The Source dropdown no longer offers Offline when adding a new contact, so the web cannot create an Offline contact (which the backend would refuse without coordinates). Editing a contact that already has the Offline source still shows it.
+- Backend part: see the backend notes of the same name (location needed only on creation; imported offline contacts without GPS are verified).
 
 ## Out of scope
-A map picker, reverse geocoding the address.
+The mobile app's capture of latitude and longitude (unchanged).
 
 ## Verification
-eslint, tsc, `npm test`; manual: create an Offline contact with and without coordinates; edit an imported Offline contact without any location.
+eslint, tsc, `npm test`; browser check: the new-contact Source list has no Offline; editing an Offline contact keeps it.
