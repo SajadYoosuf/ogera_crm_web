@@ -109,6 +109,21 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
 
         <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
           <section>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Contact information</h3>
+            <dl className="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-200">
+              {details.map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4 px-4 py-2.5 text-sm">
+                  <dt className="shrink-0 text-gray-500">{label}</dt>
+                  <dd className="min-w-0 break-words text-right font-medium text-gray-900">
+                    {value || "—"}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <Link href="/contacts" className="mt-3 inline-block text-sm font-semibold text-blue-600 hover:underline">Edit in Contacts</Link>
+          </section>
+
+          <section>
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Move to stage</h3>
             <p className="mt-1 text-xs text-gray-500">{meta.description}</p>
             <FilterSelect label="Move to" value={target ?? ""} onChange={(value) => { if (value) pick(value as StageSlug); else setTarget(null); }} className="mt-3 w-full"
@@ -152,21 +167,6 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
           </section>
 
           <ActivityLog contactId={lead.id} />
-
-          <section>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Details</h3>
-            <dl className="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-200">
-              {details.map(([label, value]) => (
-                <div key={label} className="flex justify-between gap-4 px-4 py-2.5 text-sm">
-                  <dt className="shrink-0 text-gray-500">{label}</dt>
-                  <dd className="min-w-0 break-words text-right font-medium text-gray-900">
-                    {value || "—"}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            <Link href="/contacts" className="mt-3 inline-block text-sm font-semibold text-blue-600 hover:underline">Edit in Contacts</Link>
-          </section>
 
           <section>
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Stage history</h3>
