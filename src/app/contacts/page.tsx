@@ -8,7 +8,6 @@ import FilterSelect from "@/components/FilterSelect";
 import SelectField from "@/components/SelectField";
 import { ApiError } from "@/lib/api/auth";
 import { trace } from "@/lib/api/devlog";
-import { getGPSLocationAndGeocode } from "@/lib/location";
 import { useRouter } from "next/navigation";
 import { canManageEmployees, listAllEmployees, type Employee } from "@/lib/api/employees";
 import { createContact, deleteContact as deleteContactApi, getContact, listContacts, listLeadSources, updateContact, type ApiContact, type ApiContactType, type LeadSource } from "@/lib/api/contacts";
@@ -29,11 +28,12 @@ interface Contact {
 interface ContactForm {
   name: string; phone: string; contactType: ApiContactType; source: ContactSource;
   address: string; district: string; houseStage: string; referredByContactId: number | null; assignedTo: string;
+  latitude: string; longitude: string; // only used when creating an Offline contact
 }
 
 const blankContact: ContactForm = {
   name: "", phone: "", contactType: "consumer", source: "",
-  address: "", district: "", houseStage: "", referredByContactId: null, assignedTo: "",
+  address: "", district: "", houseStage: "", referredByContactId: null, assignedTo: "", latitude: "", longitude: "",
 };
 const fromApi = (contact: ApiContact): Contact => ({
   id: contact.id, name: contact.name, phone: contact.phone, kind: contact.contact_type, profession: contact.profession_type || undefined,
@@ -84,7 +84,7 @@ function VerifiedBadge({ contact }: { contact: Contact }) {
 const displayLocation = (contact: Contact) => contact.address || contact.district || "Location not added";
 const toForm = (contact: Contact): ContactForm => ({
   name: contact.name, phone: contact.phone, contactType: contact.kind, source: contact.source ?? "",
-  address: contact.address ?? "", district: contact.district ?? "", houseStage: "", referredByContactId: null,
+  address: contact.address ?? "", district: contact.district ?? "", houseStage: "", referredByContactId: null, latitude: "", longitude: "",
   assignedTo: contact.assignedToId === undefined ? "" : String(contact.assignedToId),
 });
 
@@ -246,6 +246,21 @@ export default function ContactsPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  const [isLocating, setIsLocating] = useState(false);
+  // Reads the browser position only; the address is typed by the user, so no reverse geocoding is needed.
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) { setFormError("This browser cannot share a location. Type the latitude and longitude."); return; }
+    setIsLocating(true); setFormError("");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        updateForm("latitude", position.coords.latitude.toFixed(6)); updateForm("longitude", position.coords.longitude.toFixed(6));
+        setIsLocating(false);
+      },
+      () => { setFormError("Could not read your location. Allow location access, or type the latitude and longitude."); setIsLocating(false); },
+      { timeout: 10_000, maximumAge: 60_000 },
+    );
+  };
+
   const closeEditor = () => { setEditor(null); if (returnTo) router.push(returnTo); };
 
   const searchReferral = useCallback(async (query: string): Promise<PickerItem[]> => {
@@ -288,10 +303,15 @@ export default function ContactsPage() {
       if (editor.contact) {
         await updateContact(accessToken, editor.contact.id, body);
       } else {
-        // Offline (field visit) leads must carry the GPS position of the visit.
-        const coordinates = source?.slug === "offline" ? await getGPSLocationAndGeocode().catch(() => null) : null;
-        if (source?.slug === "offline" && !coordinates) { setFormError("Allow location access to save an Offline contact."); return; }
-        await createContact(accessToken, { ...body, ...(coordinates ? { latitude: Number(coordinates.latitude), longitude: Number(coordinates.longitude) } : {}) });
+        // A new Offline (field visit) contact needs the location of the visit; existing ones are never asked again.
+        let coordinates: { latitude: number; longitude: number } | null = null;
+        if (source?.slug === "offline") {
+          const latitude = Number(values.latitude); const longitude = Number(values.longitude);
+          const valid = values.latitude.trim() !== "" && values.longitude.trim() !== "" && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180;
+          if (!valid) { setFormError("Pick the visit location: use your current location, or enter a latitude (-90 to 90) and longitude (-180 to 180)."); return; }
+          coordinates = { latitude, longitude };
+        }
+        await createContact(accessToken, { ...body, ...(coordinates ?? {}) });
       }
       if (!editor.contact && returnTo) { setEditor(null); router.push(returnTo); return; }
       setEditor(null); await loadContacts();
@@ -590,6 +610,26 @@ export default function ContactsPage() {
                     Address
                     <textarea value={editor.values.address} onChange={(event) => updateForm("address", event.target.value)} placeholder="Street, area or landmark" rows={2} className={textareaClass} />
                   </label>
+
+                  {!editor.contact && matchedSource?.slug === "offline" && (
+                    <div className="sm:col-span-2 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-gray-700">Visit location</span>
+                        <button type="button" onClick={useCurrentLocation} disabled={isLocating} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-60">
+                          {isLocating ? "Locating…" : "Use my current location"}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className={labelClass}>Latitude
+                          <input value={editor.values.latitude} onChange={(event) => updateForm("latitude", event.target.value)} inputMode="decimal" placeholder="e.g. 11.0510" className={inputClass} />
+                        </label>
+                        <label className={labelClass}>Longitude
+                          <input value={editor.values.longitude} onChange={(event) => updateForm("longitude", event.target.value)} inputMode="decimal" placeholder="e.g. 76.0711" className={inputClass} />
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500">Needed once, when an Offline contact is created. Type the address above yourself.</p>
+                    </div>
+                  )}
 
                   {canAssign && assigneeOptions.length > 0 ? (
                     <div className="sm:col-span-2">
