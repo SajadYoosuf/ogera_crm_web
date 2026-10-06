@@ -28,6 +28,9 @@ export default function FollowupBoard() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [assignee, setAssignee] = useState("");
+  const [source, setSource] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [blocked, setBlocked] = useState<{ leadName: string; stage: StageSlug; missing: string[] } | null>(null);
   const [panel, setPanel] = useState<{ id: number; target?: StageSlug } | null>(null);
   const [userId] = useState(currentUserId);
@@ -62,6 +65,11 @@ export default function FollowupBoard() {
     [leads, staff],
   );
 
+  const sources = useMemo(
+    () => [...new Set(leads.map((lead) => lead.lead_source?.name).filter((name): name is string => Boolean(name)))].sort((a, b) => a.localeCompare(b)),
+    [leads],
+  );
+
   // Leads are handed to sales executives and other staff, never to admins or managers.
   const owners = useMemo(() => staff?.filter((member) => member.role !== "admin" && member.role !== "manager").sort((a, b) => a.name.localeCompare(b.name)) ?? null, [staff]);
 
@@ -69,8 +77,11 @@ export default function FollowupBoard() {
     const needle = search.trim().toLowerCase();
     return leads.filter((lead) =>
       (!assignee || lead.assigned_to?.name === assignee) &&
+      (!source || lead.lead_source?.name === source) &&
+      (!dateFrom || lead.created_at.slice(0, 10) >= dateFrom) &&
+      (!dateTo || lead.created_at.slice(0, 10) <= dateTo) &&
       (!needle || lead.name.toLowerCase().includes(needle) || lead.phone.includes(needle) || (lead.district ?? "").toLowerCase().includes(needle)));
-  }, [leads, search, assignee]);
+  }, [leads, search, assignee, source, dateFrom, dateTo]);
 
   const byStage = useMemo(() => {
     const groups = new Map<StageSlug, ApiContact[]>(STAGES.map((stage) => [stage.slug, []]));
@@ -78,7 +89,7 @@ export default function FollowupBoard() {
     return groups;
   }, [visible]);
 
-  const hasFilters = Boolean(search.trim() || assignee);
+  const hasFilters = Boolean(search.trim() || assignee || source || dateFrom || dateTo);
   const panelLead = panel ? leads.find((lead) => lead.id === panel.id) ?? null : null;
 
   async function moveLead(lead: ApiContact, slug: StageSlug) {
@@ -119,18 +130,27 @@ export default function FollowupBoard() {
         </div>
       </header>
 
-      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col gap-3 lg:flex-row lg:items-center">
+      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
         <div className="flex items-center h-11 w-full lg:max-w-md rounded-xl border border-gray-200 bg-gray-50 overflow-hidden focus-within:border-blue-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-600/15 transition-colors">
           <label className="sr-only" htmlFor="lead-search">Search leads</label>
           <svg className="w-4 h-4 ml-3.5 mr-2 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="10.75" cy="10.75" r="6.25" /><path d="m16 16 4.25 4.25" /></svg>
           <input id="lead-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, phone or district" className="flex-1 min-w-0 h-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400" />
           {search && <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="p-2 mr-1 text-gray-400 hover:text-gray-700"><svg {...iconProps}><path d="M18 6 6 18M6 6l12 12" /></svg></button>}
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:ml-auto">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:ml-auto">
           <FilterSelect label="Assigned to" value={assignee} onChange={setAssignee} className="w-full sm:w-52"
             options={[{ value: "", label: "All" }, ...assignees.map((name) => ({ value: name, label: name }))]}
             icon={<><circle cx="12" cy="8" r="3.25" /><path d="M5 20v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1" /></>} />
-          {hasFilters && <button type="button" onClick={() => { setSearch(""); setAssignee(""); }} className="min-h-11 px-3 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">Clear filters</button>}
+          <FilterSelect label="Source" value={source} onChange={setSource} className="w-full sm:w-52"
+            options={[{ value: "", label: "All" }, ...sources.map((name) => ({ value: name, label: name }))]}
+            icon={<path d="M4 6h16M7 12h10M10 18h4" />} />
+          {([["From", dateFrom, setDateFrom, undefined, dateTo], ["To", dateTo, setDateTo, dateFrom, undefined]] as const).map(([label, value, onChange, min, max]) => (
+            <label key={label} className="flex items-center gap-2 min-h-11 rounded-xl border border-gray-200 bg-white px-3.5 text-sm shadow-xs transition-colors hover:border-gray-300 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/15">
+              <span className="font-medium text-gray-400">{label}</span>
+              <input type="date" value={value} min={min || undefined} max={max || undefined} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 bg-transparent font-bold text-gray-900 outline-none" />
+            </label>
+          ))}
+          {hasFilters && <button type="button" onClick={() => { setSearch(""); setAssignee(""); setSource(""); setDateFrom(""); setDateTo(""); }} className="min-h-11 px-3 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">Clear filters</button>}
         </div>
       </section>
 
