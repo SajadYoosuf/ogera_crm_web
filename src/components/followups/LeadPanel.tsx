@@ -10,7 +10,7 @@ import ActivityList from "./ActivityList";
 import ActivityLogForm from "./ActivityLogForm";
 import FollowupPrompt from "./FollowupPrompt";
 import FollowupScheduleForm from "./FollowupScheduleForm";
-import { LOSS_REASONS, STAGES, columnFor, formatMoment, stageClock, stageMeta, type StageSlug } from "./stages";
+import { LOSS_REASONS, STAGES, columnFor, formatMoment, stageMeta, type StageSlug } from "./stages";
 
 const errorText = (caught: unknown) => (caught instanceof ApiError ? caught.message : "Something went wrong. Please try again.");
 
@@ -130,7 +130,6 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
   ].map((owner) => ({ value: String(owner.id), label: owner.name }));
 
   const meta = stageMeta(current);
-  const clock = lead.lead_stage ? stageClock(current, lead.lead_stage.changed_at) : null;
   const details: [string, string | null | undefined][] = [
     ["Phone", lead.phone], ["District", lead.district], ["Address", lead.address], ["Source", lead.lead_source?.name],
   ];
@@ -143,7 +142,6 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
             <h2 className="truncate text-lg font-extrabold text-[#0a192f]">{lead.name}</h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider ${meta.badge}`}><span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />{meta.label}</span>
-              {clock && <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${clock.overdue ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{clock.label}</span>}
             </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-gray-400 hover:bg-gray-50 hover:text-gray-700">

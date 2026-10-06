@@ -10,7 +10,7 @@ import { listLeadSources, type ApiContact } from "@/lib/api/contacts";
 import { changeStage, listConsumerLeads } from "@/lib/api/leads";
 import LeadPanel from "./LeadPanel";
 import UnverifiedDialog from "./UnverifiedDialog";
-import { NEXT_STAGE, STAGES, STAGE_BAR, columnFor, initials, stageClock, stageMeta, whatsappLink, type StageSlug } from "./stages";
+import { NEXT_STAGE, STAGES, STAGE_BAR, columnFor, initials, stageMeta, whatsappLink, type StageSlug } from "./stages";
 
 const errorText = (caught: unknown) => (caught instanceof ApiError ? caught.message : "Leads could not be loaded. Please try again.");
 
@@ -37,7 +37,6 @@ export default function FollowupBoard() {
   const [panel, setPanel] = useState<{ id: number; target?: StageSlug } | null>(null);
   const [userId] = useState(currentUserId);
   const [staff, setStaff] = useState<{ id: number; name: string; role: string }[] | null>(null); // null until loaded, or when the viewer cannot read the staff list
-  const [now, setNow] = useState(0); // refreshed with each load so the clocks stay pure during render
 
   const load = useCallback(async () => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
@@ -52,7 +51,6 @@ export default function FollowupBoard() {
       setLeads(leadRows);
       if (sourceNames) setAllSources(sourceNames);
       if (staff) setStaff(staff.employees.filter((employee) => employee.is_active).map(({ id, name, role }) => ({ id, name, role })));
-      setNow(Date.now());
     } catch (caught) {
       setError(errorText(caught));
     } finally { setIsLoading(false); }
@@ -211,11 +209,10 @@ export default function FollowupBoard() {
 
                   <div className="p-3 space-y-3 max-h-[calc(100vh-22rem)] min-h-40 overflow-y-auto">
                     {stageLeads.map((lead) => {
-                      const clock = lead.lead_stage ? stageClock(stage.slug, lead.lead_stage.changed_at, now) : null;
                       return (
                         <article key={lead.id} draggable onDragStart={(event) => event.dataTransfer.setData("text/plain", String(lead.id))}
                           onClick={() => setPanel({ id: lead.id })}
-                          className={`group rounded-xl border bg-white shadow-sm hover:shadow-md cursor-pointer sm:cursor-grab transition-all ${clock?.overdue ? "border-amber-300" : "border-gray-200 hover:border-blue-200"}`}>
+                          className={`group rounded-xl border bg-white shadow-sm hover:shadow-md cursor-pointer sm:cursor-grab transition-all border-gray-200 hover:border-blue-200`}>
                           <div className="p-3.5">
                             <div className="flex items-start gap-3">
                               <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-extrabold ${stageMeta(stage.slug).badge}`}>{initials(lead.name)}</span>
@@ -225,12 +222,6 @@ export default function FollowupBoard() {
                               </div>
                               {!lead.is_verified && <span title="Some details are still missing" className="shrink-0 h-2 w-2 mt-1.5 rounded-full bg-amber-400" />}
                             </div>
-                            {clock && (
-                              <p className={`mt-3 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold ${clock.overdue ? "bg-amber-50 text-amber-800" : "bg-gray-100 text-gray-600"}`}>
-                                <svg {...iconProps} className="w-3.5 h-3.5"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-                                {clock.label}
-                              </p>
-                            )}
                             <p className="mt-2 text-[11px] text-gray-500 truncate">Assigned to: <span className="font-semibold text-gray-700">{lead.assigned_to?.name ?? "Unassigned"}</span></p>
                           </div>
                           <div className="flex items-center gap-1.5 border-t border-gray-100 px-2.5 py-2" onClick={(event) => event.stopPropagation()}>
