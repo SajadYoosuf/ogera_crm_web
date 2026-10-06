@@ -210,9 +210,15 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
           <section>
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#0a192f]">Activity</h3>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              {([["log", "+ Log Activity"], ["schedule", "+ Schedule Follow-up"]] as const).map(([form, label]) => (
+              {([
+                { form: "log", label: "+ Log Activity", on: "border-blue-600 bg-blue-50 text-blue-700", off: "border-blue-200 bg-white text-blue-700 hover:bg-blue-50", icon: <path d="M9 11l3 3 8-8M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /> },
+                { form: "schedule", label: "+ Schedule Follow-up", on: "border-violet-600 bg-violet-50 text-violet-700", off: "border-violet-200 bg-white text-violet-700 hover:bg-violet-50", icon: <path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 19 20H5a1.5 1.5 0 0 1-1.5-1.5v-12A1.5 1.5 0 0 1 5 5ZM8 3v4M16 3v4M3.5 10h17" /> },
+              ] as const).map(({ form, label, on, off, icon }) => (
                 <button key={form} type="button" aria-expanded={activityForm === form} onClick={() => openActivityForm(form)}
-                  className={`min-h-11 rounded-xl border px-3 text-sm font-semibold transition-colors ${activityForm === form ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>{label}</button>
+                  className={`inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-2 text-[13px] font-semibold transition-colors ${activityForm === form ? on : off}`}>
+                  <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icon}</svg>
+                  {label}
+                </button>
               ))}
             </div>
 

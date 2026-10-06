@@ -46,46 +46,56 @@ export default function FollowupScheduleForm({ contactId, staff, defaultAssignee
   }
 
   return (
-    <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="mt-3 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" aria-label="Schedule follow-up">
-      <FilterSelect label="Type" value={type} onChange={setType} className="w-full" options={SCHEDULABLE_TYPES}
-        icon={<path d="M4 6h16M4 12h16M4 18h10" />} />
+    <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="mt-3 overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-sm" aria-label="Schedule follow-up">
+      <div className="flex items-center gap-2 bg-violet-50 px-4 py-2.5 text-sm font-bold text-violet-800">
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M8 3v4M16 3v4M3.5 10h17M12 14v3l2 1" /></svg>
+        Plan the next follow-up
+      </div>
+      <div className="space-y-5 p-4">
+        <section className="space-y-2">
+          <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-violet-700">What</h4>
+          <FilterSelect label="Type" value={type} onChange={setType} className="w-full" options={SCHEDULABLE_TYPES} icon={<path d="M4 6h16M4 12h16M4 18h10" />} />
+          <label className="crm-field-label">Note (optional)
+            <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className="crm-textarea"
+              placeholder="Context for this follow-up e.g. confirm final price, ask about 200L" />
+          </label>
+        </section>
 
-      <div className="crm-field-label">
-        <span>Due date</span>
-        <div className="flex flex-wrap gap-1.5">
-          {DATE_CHIPS.map((chip) => {
-            const value = isoDate(chip.days);
-            return (
-              <button key={chip.label} type="button" onClick={() => { setDate(value); setErrors((current) => ({ ...current, date: undefined })); }}
-                className={`min-h-9 rounded-full px-3 text-xs font-semibold transition-colors ${date === value ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>{chip.label}</button>
-            );
-          })}
+        <section className="space-y-2">
+          <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-violet-700">When</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {DATE_CHIPS.map((chip) => {
+              const value = isoDate(chip.days);
+              return (
+                <button key={chip.label} type="button" onClick={() => { setDate(value); setErrors((current) => ({ ...current, date: undefined })); }}
+                  className={`min-h-9 rounded-full px-3 text-xs font-semibold transition-colors ${date === value ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>{chip.label}</button>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="crm-field-label"><span>Due date</span>
+              <DatePickerField label="Due date" value={date} min={today} invalid={Boolean(errors.date)} onChange={(value) => { setDate(value); setErrors((current) => ({ ...current, date: undefined })); }} />
+            </div>
+            <div className="crm-field-label"><span>Due time (optional)</span>
+              <TimePickerField label="Due time" value={time} onChange={setTime} />
+            </div>
+          </div>
+          {errors.date && <p role="alert" className="text-xs font-semibold text-red-600">{errors.date}</p>}
+        </section>
+
+        <section className="space-y-2">
+          <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-violet-700">Who</h4>
+          <FilterSelect label="Assign to" value={assignee} onChange={(value) => { setAssignee(value); setErrors((current) => ({ ...current, assignee: undefined })); }} className="w-full"
+            options={staff.map((member) => ({ value: String(member.id), label: member.name }))}
+            icon={<><circle cx="12" cy="8" r="3.25" /><path d="M5 20v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1" /></>} />
+          {errors.assignee && <p role="alert" className="text-xs font-semibold text-red-600">{errors.assignee}</p>}
+        </section>
+
+        {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+        <div className="flex items-center gap-2">
+          <button type="submit" disabled={isSaving} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60">{isSaving ? "Saving…" : "Schedule"}</button>
+          <button type="button" disabled={isSaving} onClick={onCancel} className="min-h-11 px-3 text-sm font-semibold text-violet-700 underline-offset-2 hover:underline">Cancel</button>
         </div>
-        <DatePickerField label="Due date" value={date} min={today} invalid={Boolean(errors.date)} onChange={(value) => { setDate(value); setErrors((current) => ({ ...current, date: undefined })); }} />
-        {errors.date && <span role="alert" className="text-xs font-semibold text-red-600">{errors.date}</span>}
-      </div>
-
-      <div className="crm-field-label">
-        <span>Due time (optional)</span>
-        <TimePickerField label="Due time" value={time} onChange={setTime} />
-      </div>
-
-      <label className="crm-field-label">Note (optional)
-        <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className="crm-textarea"
-          placeholder="Context for this follow-up e.g. confirm final price, ask about 200L" />
-      </label>
-
-      <div>
-        <FilterSelect label="Assign to" value={assignee} onChange={(value) => { setAssignee(value); setErrors((current) => ({ ...current, assignee: undefined })); }} className="w-full"
-          options={staff.map((member) => ({ value: String(member.id), label: member.name }))}
-          icon={<><circle cx="12" cy="8" r="3.25" /><path d="M5 20v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1" /></>} />
-        {errors.assignee && <p role="alert" className="mt-1.5 text-xs font-semibold text-red-600">{errors.assignee}</p>}
-      </div>
-
-      {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-      <div className="flex items-center gap-2">
-        <button type="submit" disabled={isSaving} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">{isSaving ? "Saving…" : "Schedule"}</button>
-        <button type="button" disabled={isSaving} onClick={onCancel} className="min-h-11 px-3 text-sm font-semibold text-blue-600 underline-offset-2 hover:underline">Cancel</button>
       </div>
     </form>
   );

@@ -26,3 +26,6 @@ Employee-only view (assign-to hidden, own tasks only), deleting activities, boar
 
 ## Update 2026-10-07: date and time pickers
 The native date and time inputs in the Schedule Follow-up form and the Reschedule mini-form are replaced by `DatePickerField` (one-month calendar, past days disabled) and `TimePickerField` (half-hour slots from 8:00 am to 9:00 pm, plus "No specific time") in `src/components/SchedulePickers.tsx`. Both open as a floating panel on desktop and a bottom sheet on phones; Escape closes only the picker, not the lead panel. The Today / Tomorrow / In 3 days / Next week chips stay.
+
+## Update 2026-10-07: two different interfaces
+Log Activity and Schedule Follow-up no longer look alike. Log Activity (blue): "Log what happened" with a tile per activity type (icon and label) and a notes box. Schedule Follow-up (violet): "Plan the next follow-up" in What / When / Who steps (type and note, date chips with date and time pickers, assignee). The two entry buttons have their own icon and colour. Activity icons are shared through `ActivityIcons.tsx`.
