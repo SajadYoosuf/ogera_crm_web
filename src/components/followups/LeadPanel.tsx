@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import FilterSelect from "@/components/FilterSelect";
 import { ApiError } from "@/lib/api/auth";
 import { updateContact, type ApiContact } from "@/lib/api/contacts";
+import { listActivities, markFollowupDone, rescheduleFollowup, type ActivityItem } from "@/lib/api/activities";
 import { changeStage, getStageHistory, type StageEntry } from "@/lib/api/leads";
-import ActivityLog from "./ActivityLog";
+import ActivityList from "./ActivityList";
+import ActivityLogForm from "./ActivityLogForm";
+import FollowupPrompt from "./FollowupPrompt";
+import FollowupScheduleForm from "./FollowupScheduleForm";
 import { LOSS_REASONS, STAGES, columnFor, formatMoment, stageClock, stageMeta, type StageSlug } from "./stages";
 
 const errorText = (caught: unknown) => (caught instanceof ApiError ? caught.message : "Something went wrong. Please try again.");
@@ -24,6 +28,47 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
   const [error, setError] = useState("");
   const [ownerError, setOwnerError] = useState("");
   const [isChangingOwner, setIsChangingOwner] = useState(false);
+
+  // Activity section: two independent forms, one prompt at a time, and the combined list.
+  const [activities, setActivities] = useState<ActivityItem[] | null>(null);
+  const [activityError, setActivityError] = useState("");
+  const [activityForm, setActivityForm] = useState<"log" | "schedule" | null>(null);
+  const [prompt, setPrompt] = useState<string | null>(null);
+
+  const loadActivities = useCallback(async () => {
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    if (!accessToken) { setActivityError("Sign in again to continue."); return; }
+    try {
+      setActivities(await listActivities(accessToken, lead.id));
+      setActivityError("");
+    } catch (caught) { setActivityError(errorText(caught)); }
+  }, [lead.id]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void loadActivities(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadActivities]);
+
+  const openActivityForm = (form: "log" | "schedule") => { setPrompt(null); setActivityForm((current) => (current === form ? null : form)); };
+
+  async function markDone(item: ActivityItem) {
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    if (!accessToken) { setActivityError("Sign in again to continue."); return; }
+    try {
+      await markFollowupDone(accessToken, lead.id, item.id);
+      await loadActivities();
+      setActivityForm(null); setPrompt("Follow-up marked done");
+    } catch (caught) { setActivityError(errorText(caught)); }
+  }
+
+  async function reschedule(item: ActivityItem, date: string, time: string) {
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    if (!accessToken) throw new Error("Sign in again to continue.");
+    await rescheduleFollowup(accessToken, lead.id, item.id, date, time || undefined);
+    await loadActivities();
+  }
+
+  const dismissPrompt = useCallback(() => setPrompt(null), [setPrompt]);
 
   useEffect(() => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
@@ -164,7 +209,28 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
             {ownerError && <p role="alert" className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{ownerError}</p>}
           </section>
 
-          <ActivityLog contactId={lead.id} />
+          <section>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#0a192f]">Activity</h3>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {([["log", "+ Log Activity"], ["schedule", "+ Schedule Follow-up"]] as const).map(([form, label]) => (
+                <button key={form} type="button" aria-expanded={activityForm === form} onClick={() => openActivityForm(form)}
+                  className={`min-h-11 rounded-xl border px-3 text-sm font-semibold transition-colors ${activityForm === form ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>{label}</button>
+              ))}
+            </div>
+
+            {activityForm === "log" && (
+              <ActivityLogForm contactId={lead.id} onCancel={() => setActivityForm(null)}
+                onSaved={async () => { await loadActivities(); setActivityForm(null); setPrompt("Activity saved"); }} />
+            )}
+            {activityForm === "schedule" && (
+              <FollowupScheduleForm contactId={lead.id} staff={owners ?? (lead.assigned_to ? [{ id: lead.assigned_to.id, name: lead.assigned_to.name }] : [])}
+                defaultAssignee={lead.assigned_to?.id ?? null} onCancel={() => setActivityForm(null)}
+                onSaved={async () => { await loadActivities(); setActivityForm(null); }} />
+            )}
+            {prompt && !activityForm && <FollowupPrompt title={prompt} onSchedule={() => { setPrompt(null); setActivityForm("schedule"); }} onSkip={dismissPrompt} />}
+
+            <ActivityList items={activities} error={activityError} onRetry={() => void loadActivities()} onMarkDone={markDone} onReschedule={reschedule} />
+          </section>
 
           <section>
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Stage history</h3>

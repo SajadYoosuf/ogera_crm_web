@@ -1,0 +1,90 @@
+"use client";
+
+import { useState } from "react";
+import FilterSelect from "@/components/FilterSelect";
+import { ApiError } from "@/lib/api/auth";
+import { scheduleFollowup } from "@/lib/api/activities";
+import { DATE_CHIPS, SCHEDULABLE_TYPES, isoDate } from "./activities";
+
+type Errors = { date?: string; assignee?: string };
+
+/** Set a future task for a staff member. An internal note cannot be scheduled, so it is not offered. */
+export default function FollowupScheduleForm({ contactId, staff, defaultAssignee, onSaved, onCancel }: {
+  contactId: number; staff: { id: number; name: string }[]; defaultAssignee: number | null; onSaved: () => Promise<void>; onCancel: () => void;
+}) {
+  const [type, setType] = useState("phone_call");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [note, setNote] = useState("");
+  const [assignee, setAssignee] = useState(() => String(staff.find((member) => member.id === defaultAssignee)?.id ?? staff[0]?.id ?? ""));
+  const [today] = useState(() => isoDate());
+  const [errors, setErrors] = useState<Errors>({});
+  const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function save() {
+    const found: Errors = {};
+    if (!date) found.date = "Pick a due date.";
+    else if (date < today) found.date = "The due date cannot be in the past.";
+    if (!assignee) found.assignee = "Choose who this is assigned to.";
+    setErrors(found);
+    if (found.date || found.assignee) return;
+
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    if (!accessToken) { setError("Sign in again to continue."); return; }
+    setIsSaving(true); setError("");
+    try {
+      await scheduleFollowup(accessToken, contactId, {
+        type, scheduled_date: date, assigned_to: Number(assignee),
+        ...(time ? { scheduled_time: time } : {}), ...(note.trim() ? { notes: note.trim() } : {}),
+      });
+      await onSaved();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "The follow-up could not be scheduled. Please try again.");
+    } finally { setIsSaving(false); }
+  }
+
+  return (
+    <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="mt-3 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" aria-label="Schedule follow-up">
+      <FilterSelect label="Type" value={type} onChange={setType} className="w-full" options={SCHEDULABLE_TYPES}
+        icon={<path d="M4 6h16M4 12h16M4 18h10" />} />
+
+      <div className="crm-field-label">
+        <span>Due date</span>
+        <div className="flex flex-wrap gap-1.5">
+          {DATE_CHIPS.map((chip) => {
+            const value = isoDate(chip.days);
+            return (
+              <button key={chip.label} type="button" onClick={() => { setDate(value); setErrors((current) => ({ ...current, date: undefined })); }}
+                className={`min-h-9 rounded-full px-3 text-xs font-semibold transition-colors ${date === value ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>{chip.label}</button>
+            );
+          })}
+        </div>
+        <input type="date" aria-label="Due date" value={date} min={today} onChange={(event) => { setDate(event.target.value); setErrors((current) => ({ ...current, date: undefined })); }} className="crm-input" aria-invalid={Boolean(errors.date)} />
+        {errors.date && <span role="alert" className="text-xs font-semibold text-red-600">{errors.date}</span>}
+      </div>
+
+      <label className="crm-field-label">Due time (optional)
+        <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="crm-input" />
+      </label>
+
+      <label className="crm-field-label">Note (optional)
+        <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className="crm-textarea"
+          placeholder="Context for this follow-up e.g. confirm final price, ask about 200L" />
+      </label>
+
+      <div>
+        <FilterSelect label="Assign to" value={assignee} onChange={(value) => { setAssignee(value); setErrors((current) => ({ ...current, assignee: undefined })); }} className="w-full"
+          options={staff.map((member) => ({ value: String(member.id), label: member.name }))}
+          icon={<><circle cx="12" cy="8" r="3.25" /><path d="M5 20v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1" /></>} />
+        {errors.assignee && <p role="alert" className="mt-1.5 text-xs font-semibold text-red-600">{errors.assignee}</p>}
+      </div>
+
+      {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+      <div className="flex items-center gap-2">
+        <button type="submit" disabled={isSaving} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">{isSaving ? "Saving…" : "Schedule"}</button>
+        <button type="button" disabled={isSaving} onClick={onCancel} className="min-h-11 px-3 text-sm font-semibold text-blue-600 underline-offset-2 hover:underline">Cancel</button>
+      </div>
+    </form>
+  );
+}

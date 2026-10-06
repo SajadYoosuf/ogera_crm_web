@@ -1,35 +1,55 @@
-/** Activity kinds and their subtypes. Slugs match the backend `ACTIVITY_SUBTYPES`. */
-export type ActivityKindMeta = {
-  kind: string;
-  label: string;
-  hint: string;
-  dot: string;
-  subtypes: { value: string; label: string }[];
-};
-
-export const ACTIVITY_KINDS: ActivityKindMeta[] = [
-  { kind: "phone_call", label: "Phone call", hint: "Log the outcome after", dot: "bg-blue-500",
-    subtypes: [{ value: "check_interest", label: "Check interest" }, { value: "quote_followup", label: "Quote follow-up" }, { value: "payment_chase", label: "Payment chase" }] },
-  { kind: "field_visit", label: "Field visit", hint: "GPS-logged, in person", dot: "bg-emerald-500",
-    subtypes: [{ value: "consumer_visit", label: "Consumer visit" }, { value: "dealer_meeting", label: "Dealer meeting" }, { value: "partner_intro", label: "Partner intro" }] },
-  { kind: "whatsapp", label: "WhatsApp message", hint: "Send and log in one step", dot: "bg-green-500",
-    subtypes: [{ value: "send_quote", label: "Send quote" }, { value: "payment_reminder", label: "Payment reminder" }, { value: "festival_offer", label: "Festival offer" }] },
-  { kind: "quote", label: "Send quote", hint: "Opens quote builder", dot: "bg-amber-500",
-    subtypes: [{ value: "new_quote", label: "New quote" }, { value: "revised_price", label: "Revised price" }] },
-  { kind: "demo", label: "Demo / sample", hint: "Product show", dot: "bg-indigo-500",
-    subtypes: [{ value: "showroom_demo", label: "Showroom demo" }, { value: "sample_given", label: "Sample given" }] },
-  { kind: "internal_note", label: "Internal note", hint: "No contact needed", dot: "bg-gray-400", subtypes: [] },
+/** Activity types. Slugs match the backend `ActivityType`. */
+export const ACTIVITY_TYPES = [
+  { value: "phone_call", label: "Phone call" },
+  { value: "field_visit", label: "Field visit" },
+  { value: "whatsapp", label: "WhatsApp message" },
+  { value: "quote", label: "Send quote" },
+  { value: "demo", label: "Demo / sample" },
+  { value: "internal_note", label: "Internal note" },
 ];
 
-export const kindMeta = (kind: string) => ACTIVITY_KINDS.find((item) => item.kind === kind) ?? ACTIVITY_KINDS[ACTIVITY_KINDS.length - 1];
+/** An internal note is a record only; it cannot be scheduled. */
+export const SCHEDULABLE_TYPES = ACTIVITY_TYPES.filter((type) => type.value !== "internal_note");
 
-export const subtypeLabel = (kind: string, subtype: string | null) =>
-  kindMeta(kind).subtypes.find((item) => item.value === subtype)?.label ?? null;
+export const typeLabel = (type: string) => ACTIVITY_TYPES.find((item) => item.value === type)?.label ?? type;
 
-/** Task states from the backend: pending = not yet due, due_today floats to the top, overdue alerts. */
-export const TASK_STATE: Record<string, { label: string; chip: string }> = {
-  pending: { label: "Pending", chip: "bg-gray-100 text-gray-600" },
-  due_today: { label: "Due today", chip: "bg-blue-50 text-blue-700" },
-  overdue: { label: "Overdue", chip: "bg-rose-50 text-rose-700" },
-  done: { label: "Done", chip: "bg-emerald-50 text-emerald-700" },
-};
+/** Local calendar date as YYYY-MM-DD, `offsetDays` from today. Dates travel as plain strings so they never drift across a timezone. */
+export function isoDate(offsetDays = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+export const DATE_CHIPS = [
+  { label: "Today", days: 0 },
+  { label: "Tomorrow", days: 1 },
+  { label: "In 3 days", days: 3 },
+  { label: "Next week", days: 7 },
+];
+
+/** "Mon 29 Sep" for a YYYY-MM-DD date. */
+export function formatDay(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+}
+
+/** "10:30am" for an HH:MM[:SS] time. */
+export function formatClock(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return value;
+  const suffix = hours >= 12 ? "pm" : "am";
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")}${suffix}`;
+}
+
+/** "Today 10:22am", "Yesterday 4:05pm" or "29 Sep 10:22am" for a server timestamp. */
+export function formatWhen(value: string, now = new Date()) {
+  const moment = new Date(value);
+  if (Number.isNaN(moment.getTime())) return "";
+  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  const clock = formatClock(`${moment.getHours()}:${moment.getMinutes()}`);
+  if (sameDay(moment, now)) return `Today ${clock}`;
+  if (sameDay(moment, yesterday)) return `Yesterday ${clock}`;
+  return `${moment.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${clock}`;
+}
