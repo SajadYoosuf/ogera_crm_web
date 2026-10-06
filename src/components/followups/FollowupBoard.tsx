@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { DragEvent, useCallback, useEffect, useMemo, useState } from "react";
+import DateRangePicker from "@/components/DateRangePicker";
 import FilterSelect from "@/components/FilterSelect";
 import { ApiError } from "@/lib/api/auth";
 import { listAllEmployees } from "@/lib/api/employees";
-import type { ApiContact } from "@/lib/api/contacts";
+import { listLeadSources, type ApiContact } from "@/lib/api/contacts";
 import { changeStage, listConsumerLeads } from "@/lib/api/leads";
 import LeadPanel from "./LeadPanel";
 import UnverifiedDialog from "./UnverifiedDialog";
@@ -29,6 +30,7 @@ export default function FollowupBoard() {
   const [search, setSearch] = useState("");
   const [assignee, setAssignee] = useState("");
   const [source, setSource] = useState("");
+  const [allSources, setAllSources] = useState<string[] | null>(null); // every active lead source, so the filter lists them all
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [blocked, setBlocked] = useState<{ leadName: string; stage: StageSlug; missing: string[] } | null>(null);
@@ -42,11 +44,13 @@ export default function FollowupBoard() {
     if (!accessToken) { setError("Sign in to load your leads."); setIsLoading(false); return; }
     setError("");
     try {
-      const [leadRows, staff] = await Promise.all([
+      const [leadRows, staff, sourceNames] = await Promise.all([
         listConsumerLeads(accessToken),
         listAllEmployees(accessToken).catch(() => null),
+        listLeadSources(accessToken).then((items) => items.map((item) => item.name)).catch(() => null),
       ]);
       setLeads(leadRows);
+      if (sourceNames) setAllSources(sourceNames);
       if (staff) setStaff(staff.employees.filter((employee) => employee.is_active).map(({ id, name, role }) => ({ id, name, role })));
       setNow(Date.now());
     } catch (caught) {
@@ -65,9 +69,10 @@ export default function FollowupBoard() {
     [leads, staff],
   );
 
+  // All active sources from the API; if that call fails, fall back to the sources the leads use.
   const sources = useMemo(
-    () => [...new Set(leads.map((lead) => lead.lead_source?.name).filter((name): name is string => Boolean(name)))].sort((a, b) => a.localeCompare(b)),
-    [leads],
+    () => [...new Set(allSources ?? leads.map((lead) => lead.lead_source?.name).filter((name): name is string => Boolean(name)))].sort((a, b) => a.localeCompare(b)),
+    [leads, allSources],
   );
 
   // Leads are handed to sales executives and other staff, never to admins or managers.
@@ -144,12 +149,7 @@ export default function FollowupBoard() {
           <FilterSelect label="Source" value={source} onChange={setSource} className="w-full sm:w-52"
             options={[{ value: "", label: "All" }, ...sources.map((name) => ({ value: name, label: name }))]}
             icon={<path d="M4 6h16M7 12h10M10 18h4" />} />
-          {([["From", dateFrom, setDateFrom, undefined, dateTo], ["To", dateTo, setDateTo, dateFrom, undefined]] as const).map(([label, value, onChange, min, max]) => (
-            <label key={label} className="flex items-center gap-2 min-h-11 rounded-xl border border-gray-200 bg-white px-3.5 text-sm shadow-xs transition-colors hover:border-gray-300 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/15">
-              <span className="font-medium text-gray-400">{label}</span>
-              <input type="date" value={value} min={min || undefined} max={max || undefined} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 bg-transparent font-bold text-gray-900 outline-none" />
-            </label>
-          ))}
+          <DateRangePicker label="Created" from={dateFrom} to={dateTo} onChange={(from, to) => { setDateFrom(from); setDateTo(to); }} className="w-full sm:w-72" />
           {hasFilters && <button type="button" onClick={() => { setSearch(""); setAssignee(""); setSource(""); setDateFrom(""); setDateTo(""); }} className="min-h-11 px-3 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">Clear filters</button>}
         </div>
       </section>
