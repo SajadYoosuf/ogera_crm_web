@@ -114,6 +114,8 @@ export default function ContactsPage() {
   const [formError, setFormError] = useState("");
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [selectedReferral, setSelectedReferral] = useState<PickerItem | null>(null);
+  // Set when the page was opened from another page's "Add" button; the modal then hands the user back there.
+  const [returnTo, setReturnTo] = useState<string | null>(null);
 
   const loadContacts = useCallback(async () => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
@@ -232,6 +234,20 @@ export default function ContactsPage() {
       });
   };
 
+  // /contacts?add=1&returnTo=/some/page opens the add form straight away.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("add") !== "1") return;
+      const back = params.get("returnTo");
+      setReturnTo(back && back.startsWith("/") && !back.startsWith("//") ? back : null);
+      openEditor();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const closeEditor = () => { setEditor(null); if (returnTo) router.push(returnTo); };
+
   const searchReferral = useCallback(async (query: string): Promise<PickerItem[]> => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
     if (!accessToken) return [];
@@ -277,6 +293,7 @@ export default function ContactsPage() {
         if (source?.slug === "offline" && !coordinates) { setFormError("Allow location access to save an Offline contact."); return; }
         await createContact(accessToken, { ...body, ...(coordinates ? { latitude: Number(coordinates.latitude), longitude: Number(coordinates.longitude) } : {}) });
       }
+      if (!editor.contact && returnTo) { setEditor(null); router.push(returnTo); return; }
       setEditor(null); await loadContacts();
     } catch (caught) {
       if (caught instanceof ApiError && caught.kind === "invalid_credentials") { router.push("/"); return; }
@@ -525,7 +542,7 @@ export default function ContactsPage() {
           <section className="w-full h-dvh md:w-full md:h-auto md:max-w-xl md:max-h-[90vh] bg-gray-50 md:rounded-2xl md:shadow-2xl flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="contact-form-title">
             <header className="relative overflow-hidden bg-gradient-to-br from-[#071428] via-[#0c2148] to-[#1a4a8a] px-5 py-5 text-white shrink-0">
               <div className="pointer-events-none absolute -bottom-20 -right-10 w-56 h-56 rounded-full bg-[#1d7ac4]/30 blur-3xl" />
-              <button type="button" onClick={() => setEditor(null)} aria-label="Close" className="absolute top-4 right-4 z-10 p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+              <button type="button" onClick={closeEditor} aria-label="Close" className="absolute top-4 right-4 z-10 p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
               <h2 id="contact-form-title" className="relative pr-10 text-xl font-extrabold tracking-tight">{editor.contact ? "Edit contact" : "Add contact"}</h2>
@@ -619,7 +636,7 @@ export default function ContactsPage() {
               </div>
 
               <footer className="grid grid-cols-2 gap-3 px-4 py-4 border-t border-gray-100 bg-white shrink-0 sm:flex sm:justify-end sm:px-5">
-                <button type="button" disabled={isSaving} onClick={() => setEditor(null)} className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors">Cancel</button>
+                <button type="button" disabled={isSaving} onClick={closeEditor} className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors">Cancel</button>
                 <button type="submit" disabled={isSaving || editor.loading} className="inline-flex items-center justify-center gap-2 min-h-11 px-5 rounded-xl bg-gradient-to-br from-[#1d7ac4] to-[#1462a0] text-white text-sm font-bold shadow-md shadow-blue-600/25 hover:opacity-90 active:scale-[.98] disabled:opacity-60 transition-all">
                   {isSaving && <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />}
                   {isSaving ? "Saving…" : editor.contact ? "Save changes" : "Add contact"}
