@@ -1,5 +1,11 @@
 export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(/\/+$/, "");
 
+// Shown once in the browser console so a deployment can be checked: which backend is this build calling,
+// and was NEXT_PUBLIC_API_BASE_URL set when it was built (otherwise it falls back to localhost).
+if (typeof window !== "undefined") {
+  console.info(`[Ogera CRM] API base URL: ${API_BASE_URL}${process.env.NEXT_PUBLIC_API_BASE_URL ? "" : " (NEXT_PUBLIC_API_BASE_URL was not set at build time)"}`);
+}
+
 const REQUEST_TIMEOUT_MS = 15_000;
 
 export type Employee = {
@@ -109,6 +115,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     // Non-JSON or empty body; handled below by status.
   }
 
+  if (!response.ok) console.warn(`[Ogera CRM] ${init.method ?? "GET"} ${API_BASE_URL}${path} -> ${response.status}`);
   if (!response.ok) throw errorFromResponse(response.status, body);
   if (response.status === 204) return undefined as T;
   if (body === null) throw new ApiError("unknown", "Received an unexpected response from the server.", response.status);
