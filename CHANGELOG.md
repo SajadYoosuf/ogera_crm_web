@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-10-07 — `4914a08`..`cc64a9e` (branch `phase1`)
+
+**Lead Followup page (replaces Sales Followup), lead panel with activity log and follow-up tasks, new pickers, tests**
+
+Author: sajad yoosuf
+Previous commit on this side: `48b3df0` Add verified / unverified filter to contacts (2026-10-05)
+
+### Summary
+The old board called an API that does not exist; it is rebuilt over consumer contacts with the agreed stages. Notes: [lead-followup-board](docs/changes/2026-10-05-lead-followup-board.md), [lead-activities](docs/changes/2026-10-05-lead-activities.md), [activity-followup-schedule](docs/changes/2026-10-06-activity-followup-schedule.md), [offline-location-on-create](docs/changes/2026-10-06-offline-location-on-create.md).
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/components/followups/FollowupBoard.tsx`, `stages.ts` | 10 stage columns, cards with WhatsApp and next-stage buttons, search / assigned-to / source / created date range filters, skeleton, error and empty states |
+| Added | `src/components/followups/LeadPanel.tsx`, `UnverifiedDialog.tsx` | Right-side panel: contact information, move to stage, lead assigned to, activity, history tabs; popup for unverified leads |
+| Added | `ActivityLogForm.tsx`, `FollowupScheduleForm.tsx`, `ActivityList.tsx`, `FollowupPrompt.tsx`, `ActivityIcons.tsx`, `activities.ts` | Log Activity and Schedule Follow-up forms, combined list, "schedule the next follow-up?" prompt |
+| Added | `src/components/DateRangePicker.tsx`, `SchedulePickers.tsx` | Two-month range picker; one-month date picker and half-hour time list |
+| Modified | `src/components/FilterSelect.tsx`, `DashboardSidebar.tsx`, `src/app/dashboard/followups/page.tsx` | Taller option list; sidebar label "Lead Followup" |
+| Added | `src/lib/api/leads.ts`, `src/lib/api/activities.ts` | API clients for leads, stages and activities |
+| Modified | `src/lib/api/auth.ts` | `ApiError.missingFields` for the 409 verification response |
+| Modified | `src/app/contacts/page.tsx` | No browser GPS and no Offline source when adding a contact (offline data is entered on mobile); optional return to another page after saving |
+| Removed | `AddLeadDialog.tsx`, `LeadDetailsPanel.tsx`, `ManageStagesDialog.tsx`, `shared.ts` | Legacy board pieces |
+| Added | `tests/followups/*`, `tests/components/followup-board.test.tsx`, `lead-activity.test.tsx` | Unit and panel tests |
+| Added | `.claude/skills/feature-testing/*` | Skill: unit, integration and end-to-end testing for every finished feature |
+| Added | `docs/changes/*` | Change notes |
+
+### Notes
+- Point the web app at the live API with `NEXT_PUBLIC_API_BASE_URL=https://ogera-crm.onrender.com` (build-time variable on the web host; `.env.local` locally). The example env files are git-ignored, so the value is documented in the backend's `docs/changes/2026-10-07-cors-origins.md`.
+- The full unit suite still has 17 failing tests in `tests/components/staff-live-map.test.tsx`, which predate this work.
+- Browser end-to-end tests for Lead Followup are not written yet (the e2e fixture has no lead routes).
+- The backend side of the same work is in `ogera_crm_backend/CHANGELOG.md`. The mobile app was not changed.
+
 ## 2026-10-05 — `48b3df0` (branch `phase1`)
 
 **Add verified / unverified filter to contacts**
