@@ -61,6 +61,26 @@ describe("lead panel activity section", () => {
     expect(screen.getByRole("button", { name: "+ Schedule Follow-up" })).toBeTruthy();
   });
 
+  it("splits the history into Activity log, Follow-ups and Stage history tabs", async () => {
+    activities = [
+      item({ id: 1, notes: "Called, asked for price" }),
+      item({ id: 2, type: "demo", status: "pending", scheduled_date: isoDate(4), assigned_to_name: "Rajan", task_state: "pending", notes: "Show sample" }),
+    ];
+    renderPanel();
+    expect(await screen.findByText(/Called, asked for price/)).toBeTruthy();
+    expect(screen.queryByText(/Show sample/)).toBeNull(); // follow-ups are in their own tab
+
+    fireEvent.click(screen.getByRole("tab", { name: /^Follow-ups/ }));
+    expect(await screen.findByText(/Show sample/)).toBeTruthy();
+    expect(screen.queryByText(/Called, asked for price/)).toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Stage history" }));
+    expect(await screen.findByText("No stage changes recorded yet.")).toBeTruthy();
+    // applying still lives in the two buttons above the history
+    expect(screen.getByRole("button", { name: "+ Log Activity" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "+ Schedule Follow-up" })).toBeTruthy();
+  });
+
   it("shows an error with a retry when the list cannot load", async () => {
     fetchMock.mockImplementation(async (input: string) => (new URL(input).pathname.endsWith("/activities") ? fail(500, "boom") : ok([])));
     renderPanel();
@@ -141,6 +161,7 @@ describe("lead panel activity section", () => {
   it("marks an overdue task done and prompts for the next follow-up", async () => {
     activities = [item({ id: 5, notes: "Confirm quote decision", status: "pending", scheduled_date: "2026-09-29", assigned_to: 8, assigned_to_name: "Rajan", task_state: "overdue", overdue_days: 2 })];
     renderPanel();
+    fireEvent.click(await screen.findByRole("tab", { name: /^Follow-ups/ }));
     expect(await screen.findByText("Overdue 2d")).toBeTruthy();
     expect(screen.getByText(/Assigned: Rajan/)).toBeTruthy();
 
@@ -152,6 +173,7 @@ describe("lead panel activity section", () => {
   it("reschedules an overdue task with just a date and an optional time", async () => {
     activities = [item({ id: 5, status: "pending", scheduled_date: "2026-09-29", assigned_to_name: "Rajan", task_state: "overdue", overdue_days: 2 })];
     renderPanel();
+    fireEvent.click(await screen.findByRole("tab", { name: /^Follow-ups/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Reschedule" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Pick the new due date.")).toBeTruthy();
@@ -165,6 +187,7 @@ describe("lead panel activity section", () => {
   it("shows no action buttons on a task that is not due yet", async () => {
     activities = [item({ id: 6, status: "pending", scheduled_date: isoDate(5), assigned_to_name: "Rajan", task_state: "pending" })];
     renderPanel();
+    fireEvent.click(await screen.findByRole("tab", { name: /^Follow-ups/ }));
     expect(await screen.findByText("Pending")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Mark Done" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Reschedule" })).toBeNull();

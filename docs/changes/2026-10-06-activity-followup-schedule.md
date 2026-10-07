@@ -29,3 +29,6 @@ The native date and time inputs in the Schedule Follow-up form and the Reschedul
 
 ## Update 2026-10-07: two different interfaces
 Log Activity and Schedule Follow-up no longer look alike. Log Activity (blue): "Log what happened" with a tile per activity type (icon and label) and a notes box. Schedule Follow-up (violet): "Plan the next follow-up" in What / When / Who steps (type and note, date chips with date and time pickers, assignee). The two entry buttons have their own icon and colour. Activity icons are shared through `ActivityIcons.tsx`.
+
+## Update 2026-10-07: history in view-only tabs
+Applying stays as two buttons (+ Log Activity, + Schedule Follow-up) with their own forms. Viewing is a separate "History" section with three tabs: Activity log (finished entries), Follow-ups (scheduled tasks, with Mark Done and Reschedule) and Stage history. Saving a log opens the Activity log tab; scheduling opens the Follow-ups tab.

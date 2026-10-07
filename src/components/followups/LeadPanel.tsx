@@ -34,6 +34,7 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
   const [activityError, setActivityError] = useState("");
   const [activityForm, setActivityForm] = useState<"log" | "schedule" | null>(null);
   const [prompt, setPrompt] = useState<string | null>(null);
+  const [historyTab, setHistoryTab] = useState<"log" | "followups" | "stages">("log"); // view-only tabs
 
   const loadActivities = useCallback(async () => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
@@ -67,6 +68,10 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
     await rescheduleFollowup(accessToken, lead.id, item.id, date, time || undefined);
     await loadActivities();
   }
+
+  // Finished log entries and scheduled follow-ups are shown in separate history tabs (null while loading).
+  const entries = activities?.filter((item) => item.scheduled_date === null) ?? null;
+  const tasks = activities?.filter((item) => item.scheduled_date !== null) ?? null;
 
   const dismissPrompt = useCallback(() => setPrompt(null), [setPrompt]);
 
@@ -224,43 +229,63 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
 
             {activityForm === "log" && (
               <ActivityLogForm contactId={lead.id} onCancel={() => setActivityForm(null)}
-                onSaved={async () => { await loadActivities(); setActivityForm(null); setPrompt("Activity saved"); }} />
+                onSaved={async () => { await loadActivities(); setActivityForm(null); setHistoryTab("log"); setPrompt("Activity saved"); }} />
             )}
             {activityForm === "schedule" && (
               <FollowupScheduleForm contactId={lead.id} staff={owners ?? (lead.assigned_to ? [{ id: lead.assigned_to.id, name: lead.assigned_to.name }] : [])}
                 defaultAssignee={lead.assigned_to?.id ?? null} onCancel={() => setActivityForm(null)}
-                onSaved={async () => { await loadActivities(); setActivityForm(null); }} />
+                onSaved={async () => { await loadActivities(); setActivityForm(null); setHistoryTab("followups"); }} />
             )}
             {prompt && !activityForm && <FollowupPrompt title={prompt} onSchedule={() => { setPrompt(null); setActivityForm("schedule"); }} onSkip={dismissPrompt} />}
-
-            <ActivityList items={activities} error={activityError} onRetry={() => void loadActivities()} onMarkDone={markDone} onReschedule={reschedule} />
           </section>
 
           <section>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Stage history</h3>
-            {historyError ? (
-              <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{historyError}</p>
-            ) : history === null ? (
-              <p className="mt-3 text-sm text-gray-500">Loading history…</p>
-            ) : history.length === 0 ? (
-              <p className="mt-3 text-sm text-gray-500">No stage changes recorded yet.</p>
-            ) : (
-              <ol className="mt-3 space-y-3 border-l-2 border-gray-200 pl-4">
-                {history.map((entry) => {
-                  const entryMeta = stageMeta(columnFor(entry.stage));
-                  const reason = LOSS_REASONS.find((item) => item.value === entry.loss_reason)?.label;
-                  const detail = [reason, entry.loss_notes, entry.awareness_note].filter(Boolean).join(" · ");
-                  return (
-                    <li key={entry.id} className="relative">
-                      <span className={`absolute -left-[22px] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${entryMeta.dot}`} />
-                      <p className="text-sm font-bold text-gray-900">{entryMeta.label}</p>
-                      <p className="text-xs text-gray-500">{formatMoment(entry.changed_at)}</p>
-                      {detail && <p className="mt-1 text-xs text-gray-600">{detail}</p>}
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#0a192f]">History</h3>
+            <div role="tablist" aria-label="History" className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1">
+              {([
+                { id: "log", label: `Activity log${entries?.length ? ` (${entries.length})` : ""}` },
+                { id: "followups", label: `Follow-ups${tasks?.length ? ` (${tasks.length})` : ""}` },
+                { id: "stages", label: "Stage history" },
+              ] as const).map(({ id, label }) => (
+                <button key={id} id={`history-tab-${id}`} type="button" role="tab" aria-selected={historyTab === id} aria-controls="history-tabpanel" onClick={() => setHistoryTab(id)}
+                  className={`min-h-10 rounded-lg px-1.5 text-xs font-semibold leading-tight transition-colors ${historyTab === id ? "bg-white text-[#0a192f] shadow-sm" : "text-gray-500 hover:text-gray-800"}`}>{label}</button>
+              ))}
+            </div>
+            <div id="history-tabpanel" role="tabpanel" aria-labelledby={`history-tab-${historyTab}`}>
+              {historyTab === "log" && (
+                <ActivityList items={entries} error={activityError} emptyText="No activity logged yet." onRetry={() => void loadActivities()} onMarkDone={markDone} onReschedule={reschedule} />
+              )}
+              {historyTab === "followups" && (
+                <ActivityList items={tasks} error={activityError} emptyText="No follow-ups scheduled yet." onRetry={() => void loadActivities()} onMarkDone={markDone} onReschedule={reschedule} />
+              )}
+              {historyTab === "stages" && (
+                <>
+                {historyError ? (
+                  <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{historyError}</p>
+                ) : history === null ? (
+                  <p className="mt-4 text-sm text-gray-500">Loading history…</p>
+                ) : history.length === 0 ? (
+                  <p className="mt-4 text-sm text-gray-500">No stage changes recorded yet.</p>
+                ) : (
+                  <ol className="mt-4 space-y-3 border-l-2 border-gray-200 pl-4">
+                    {history.map((entry) => {
+                      const entryMeta = stageMeta(columnFor(entry.stage));
+                      const reason = LOSS_REASONS.find((item) => item.value === entry.loss_reason)?.label;
+                      const detail = [reason, entry.loss_notes, entry.awareness_note].filter(Boolean).join(" · ");
+                      return (
+                        <li key={entry.id} className="relative">
+                          <span className={`absolute -left-[22px] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${entryMeta.dot}`} />
+                          <p className="text-sm font-bold text-gray-900">{entryMeta.label}</p>
+                          <p className="text-xs text-gray-500">{formatMoment(entry.changed_at)}</p>
+                          {detail && <p className="mt-1 text-xs text-gray-600">{detail}</p>}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+                </>
+              )}
+            </div>
           </section>
         </div>
       </aside>

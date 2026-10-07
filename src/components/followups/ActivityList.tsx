@@ -38,8 +38,8 @@ function Skeleton() {
 }
 
 /** The combined list: finished activity entries and follow-up tasks, newest first. */
-export default function ActivityList({ items, error, onRetry, onMarkDone, onReschedule }: {
-  items: ActivityItem[] | null; error: string; onRetry: () => void;
+export default function ActivityList({ items, error, emptyText, onRetry, onMarkDone, onReschedule }: {
+  items: ActivityItem[] | null; error: string; emptyText: string; onRetry: () => void;
   onMarkDone: (item: ActivityItem) => Promise<void>;
   onReschedule: (item: ActivityItem, date: string, time: string) => Promise<void>;
 }) {
@@ -77,9 +77,7 @@ export default function ActivityList({ items, error, onRetry, onMarkDone, onResc
   if (items === null) return <Skeleton />;
   if (items.length === 0) {
     return (
-      <p className="mt-4 text-center text-sm text-gray-400">
-        No activity logged yet.<br />Use &quot;Log Activity&quot; to record a call, visit or message.
-      </p>
+      <p className="mt-4 text-center text-sm text-gray-400">{emptyText}</p>
     );
   }
 
