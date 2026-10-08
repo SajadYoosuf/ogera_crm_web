@@ -53,6 +53,22 @@ export async function listContacts(accessToken: string, params: { skip?: number;
   }
 }
 
+export type ProfessionOption = { value: string; label: string };
+
+/** GET /contacts/profession-types — the partner types the backend accepts. */
+export async function listProfessionTypes(accessToken: string): Promise<ProfessionOption[]> {
+  const label = "[contacts api] GET /contacts/profession-types";
+  trace("log", `${label} → request`, { url: `${API_BASE_URL}/contacts/profession-types`, headers: { Authorization: "Bearer ***" } });
+  try {
+    const options = await request<ProfessionOption[]>("/contacts/profession-types", { headers: { Authorization: `Bearer ${accessToken}` } });
+    trace("log", `${label} ← response`, options);
+    return options;
+  } catch (error) {
+    trace("error", `${label} ← error`, error);
+    throw error;
+  }
+}
+
 export type LeadSource = { id: number; name: string; slug: string };
 
 /** GET /lead-sources — every active source, for the contact form's Source dropdown. */
@@ -80,6 +96,7 @@ export type ApiContactDetail = {
   referred_by?: { id: number; name: string; phone?: string | null } | null;
   lead_source_id: number | null;
   consumer_profile?: { house_stage: string | null } | null;
+  partner_profile?: { profession_type: string } | null;
 };
 
 export type ContactInput = {
@@ -94,6 +111,7 @@ export type ContactInput = {
   latitude?: number;
   longitude?: number;
   consumer_profile?: { house_stage: string | null };
+  partner_profile?: { profession_type: string };
 };
 
 /** Calls a protected /contacts route with request/response logging and session-aware errors. */

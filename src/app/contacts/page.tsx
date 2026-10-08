@@ -10,14 +10,17 @@ import { ApiError } from "@/lib/api/auth";
 import { trace } from "@/lib/api/devlog";
 import { useRouter } from "next/navigation";
 import { canManageEmployees, listAllEmployees, type Employee } from "@/lib/api/employees";
-import { createContact, deleteContact as deleteContactApi, getContact, listContacts, listLeadSources, updateContact, type ApiContact, type ApiContactType, type LeadSource } from "@/lib/api/contacts";
+import { createContact, deleteContact as deleteContactApi, getContact, listContacts, listLeadSources, listProfessionTypes, updateContact, type ApiContact, type ApiContactType, type LeadSource, type ProfessionOption } from "@/lib/api/contacts";
 
 type Filters = { type: string; profession: string; source: string; district: string; assignedTo: string; createdBy: string; verified: string };
 const NO_FILTERS: Filters = { type: "", profession: "", source: "", district: "", assignedTo: "", createdBy: "", verified: "" };
 const PAGE_SIZE = 12;
 const KIND_LABELS: Record<string, string> = { consumer: "Consumer", partner: "Partner", dealer: "Dealer" };
 const TYPE_TABS = [{ value: "", label: "All" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }, { value: "dealer", label: "Dealer" }];
-const PARTNER_TYPES = ["Contractor", "Engineer", "Plumber", "Other"];
+const professionLabel = (value: string) => value.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+// Fallback until GET /contacts/profession-types answers; the backend enum is the source of truth.
+const DEFAULT_PARTNER_TYPES: ProfessionOption[] = ["plumber", "engineer", "interior_designer", "architect", "contractor", "electrician"]
+  .map((value) => ({ value, label: professionLabel(value) }));
 type ContactSource = string;
 
 interface Contact {
@@ -27,12 +30,12 @@ interface Contact {
 }
 interface ContactForm {
   name: string; phone: string; contactType: ApiContactType; source: ContactSource;
-  address: string; district: string; houseStage: string; referredByContactId: number | null; assignedTo: string;
+  address: string; district: string; houseStage: string; professionType: string; referredByContactId: number | null; assignedTo: string;
 }
 
 const blankContact: ContactForm = {
   name: "", phone: "", contactType: "consumer", source: "",
-  address: "", district: "", houseStage: "", referredByContactId: null, assignedTo: "",
+  address: "", district: "", houseStage: "", professionType: "", referredByContactId: null, assignedTo: "",
 };
 const fromApi = (contact: ApiContact): Contact => ({
   id: contact.id, name: contact.name, phone: contact.phone, kind: contact.contact_type, profession: contact.profession_type || undefined,
@@ -83,7 +86,7 @@ function VerifiedBadge({ contact }: { contact: Contact }) {
 const displayLocation = (contact: Contact) => contact.address || contact.district || "Location not added";
 const toForm = (contact: Contact): ContactForm => ({
   name: contact.name, phone: contact.phone, contactType: contact.kind, source: contact.source ?? "",
-  address: contact.address ?? "", district: contact.district ?? "", houseStage: "", referredByContactId: null,
+  address: contact.address ?? "", district: contact.district ?? "", houseStage: "", professionType: contact.profession ?? "", referredByContactId: null,
   assignedTo: contact.assignedToId === undefined ? "" : String(contact.assignedToId),
 });
 
@@ -112,6 +115,7 @@ export default function ContactsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
+  const [partnerTypes, setPartnerTypes] = useState<ProfessionOption[]>(DEFAULT_PARTNER_TYPES);
   const [selectedReferral, setSelectedReferral] = useState<PickerItem | null>(null);
   // Set when the page was opened from another page's "Add" button; the modal then hands the user back there.
   const [returnTo, setReturnTo] = useState<string | null>(null);
@@ -147,6 +151,12 @@ export default function ContactsPage() {
     if (!accessToken) return;
     listLeadSources(accessToken).then(setLeadSources).catch(() => { /* the dropdown falls back to the current value only */ });
   }, [leadSources.length]);
+
+  useEffect(() => {
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    if (!accessToken) return;
+    listProfessionTypes(accessToken).then(setPartnerTypes).catch(() => { /* keeps the built-in list */ });
+  }, []);
 
   // Only admins and managers may read the employee list, so only they can change the owner.
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -225,7 +235,7 @@ export default function ContactsPage() {
         if (detail.referred_by) setSelectedReferral({ id: detail.referred_by.id, primary: detail.referred_by.name, secondary: detail.referred_by.phone ?? undefined });
         setEditor((current) => current?.contact?.id === contact.id ? {
           ...current, loading: false,
-          values: { ...current.values, district: detail.district, address: detail.address ?? "", houseStage: detail.consumer_profile?.house_stage ?? "", referredByContactId: detail.referred_by_id },
+          values: { ...current.values, professionType: detail.partner_profile?.profession_type ?? current.values.professionType, district: detail.district, address: detail.address ?? "", houseStage: detail.consumer_profile?.house_stage ?? "", referredByContactId: detail.referred_by_id },
         } : current);
       })
       .catch((caught) => {
@@ -268,6 +278,7 @@ export default function ContactsPage() {
     if (!values.name.trim()) { setFormError("Name is required."); return; }
     if (!values.district.trim()) { setFormError("District is required."); return; }
     if (!values.address.trim()) { setFormError("Address is required."); return; }
+    if (values.contactType === "partner" && !values.professionType) { setFormError("Select the partner type."); return; }
 
     const source = leadSources.find((item) => item.name === sourceValue);
     const houseStage = values.houseStage.trim();
@@ -281,6 +292,7 @@ export default function ContactsPage() {
       lead_source_id: source?.id ?? null,
       // Send the owner only when it was chosen (create) or changed (edit); otherwise the backend keeps or auto-picks it.
       ...(values.assignedTo && values.assignedTo !== String(editor.contact?.assignedToId ?? "") ? { assigned_to: Number(values.assignedTo) } : {}),
+      ...(values.contactType === "partner" ? { partner_profile: { profession_type: values.professionType } } : {}),
       ...(values.contactType === "consumer" && (houseStage || editor.contact) ? { consumer_profile: { house_stage: houseStage || null } } : {}),
     };
     setIsSaving(true); setFormError("");
@@ -346,7 +358,7 @@ export default function ContactsPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center shrink-0">
             {filters.type === "partner" && (
               <FilterSelect label="Partner type" value={filters.profession} onChange={(value) => changeFilter("profession", value)}
-                options={[{ value: "", label: "All" }, ...PARTNER_TYPES.map((name) => ({ value: name, label: name }))]}
+                options={[{ value: "", label: "All" }, ...partnerTypes]}
                 icon={<><circle cx="12" cy="8" r="3.25" /><path d="M5 20v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1" /></>} className="w-full sm:w-60" />
             )}
             <FilterSelect label="Type" value={filters.type} onChange={changeType}
@@ -464,7 +476,7 @@ export default function ContactsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wider ${contact.kind === "partner" ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>{contact.kind === "partner" && contact.profession ? contact.profession : KIND_LABELS[contact.kind] ?? contact.kind}</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wider ${contact.kind === "partner" ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>{contact.kind === "partner" && contact.profession ? professionLabel(contact.profession) : KIND_LABELS[contact.kind] ?? contact.kind}</span>
                       </td>
                       <td className="px-4 py-3.5 text-gray-600 max-w-[16rem] truncate">{displayLocation(contact)}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap text-gray-600">{contact.source || "—"}</td>
@@ -497,7 +509,7 @@ export default function ContactsPage() {
                   </span>
                   <div className="min-w-0 flex-1 pr-[4.5rem]">
                     <h3 className="font-bold text-[#0a192f] truncate group-hover:text-blue-700 transition-colors">{contact.name || "Unnamed contact"}</h3>
-                    <span className={`mt-1.5 inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wider ${contact.kind === "partner" ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>{contact.kind === "partner" && contact.profession ? contact.profession : KIND_LABELS[contact.kind] ?? contact.kind}</span>
+                    <span className={`mt-1.5 inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wider ${contact.kind === "partner" ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>{contact.kind === "partner" && contact.profession ? professionLabel(contact.profession) : KIND_LABELS[contact.kind] ?? contact.kind}</span>
                     <span className="ml-1.5 align-top"><VerifiedBadge contact={contact} /></span>
                   </div>
                 </div>
@@ -559,6 +571,10 @@ export default function ContactsPage() {
                   </div>
 
                   <SelectField label="Source" value={sourceValue} onChange={(value) => updateForm("source", value as ContactSource)} placeholder="Not recorded" options={[{ value: "", label: "Not recorded" }, ...sourceOptions.map((name) => ({ value: name, label: name }))]} />
+                  {editor.values.contactType === "partner" && (
+                    <SelectField label="Partner type" value={editor.values.professionType} onChange={(value) => updateForm("professionType", value)} placeholder="Select partner type"
+                      options={[...(editor.values.professionType && !partnerTypes.some((item) => item.value === editor.values.professionType) ? [{ value: editor.values.professionType, label: professionLabel(editor.values.professionType) }] : []), ...partnerTypes]} />
+                  )}
                   {editor.values.contactType === "consumer" && (
                     <>
                   <SelectField
