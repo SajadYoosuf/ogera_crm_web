@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-08 — `a47a286` (branch `phase1`)
+
+**Add partner profession type enum and partner type picker in contact form**
+
+Author: sajad yoosuf
+Previous commit on this side: `03f8934` Log the API base URL and failed API calls in the browser console (2026-10-07)
+
+### Summary
+The add/edit contact form has a required Partner type select, fed by the backend list. Notes: `docs/changes/2026-10-08-partner-profession-type.md`.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Added | `docs/changes/2026-10-08-partner-profession-type.md` | Change notes |
+| Modified | `src/app/contacts/page.tsx` | Partner type select (required for partners), sent as `partner_profile.profession_type`; filter and badges use backend values and labels |
+| Modified | `src/lib/api/contacts.ts` | `listProfessionTypes()` and `partner_profile` on the contact types |
+
+### Notes
+Needs the backend change from the same commit (`GET /contacts/profession-types`, `partner_profile` on create/update). Falls back to a built-in list of the six types if that request fails.
+
 ## 2026-10-07 — `4914a08`..`cc64a9e` (branch `phase1`)
 
 **Lead Followup page (replaces Sales Followup), lead panel with activity log and follow-up tasks, new pickers, tests**
