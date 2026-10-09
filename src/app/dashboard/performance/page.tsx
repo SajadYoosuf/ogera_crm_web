@@ -1,381 +1,331 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import DateRangePicker from "@/components/DateRangePicker";
+import PageHeader from "@/components/products/PageHeader";
+import { getLeadSources, getPipeline, getSummary, getTeam, type DateRange, type LeadSourceRow, type PerformanceSummary, type PipelineRow, type TeamRow } from "@/lib/api/performance";
 
-type StaffRow = { id: number; name: string; leads: number; awareness: number; total: number };
-type Report = {
-  range: { startDate: string; endDate: string };
-  totals: { leads: number; awareness: number };
-  unattributed: { leads: number; awareness: number };
-  staff: StaffRow[];
-};
-type Selected = { id: number | "unattributed"; name: string };
-type Preset = "all" | "today" | "7d" | "30d" | "month" | "custom";
+type Preset = "week" | "month" | "last_month" | "custom";
 
 const PRESETS: { key: Preset; label: string }[] = [
-  { key: "all", label: "All time" },
-  { key: "today", label: "Today" },
-  { key: "7d", label: "Last 7 days" },
-  { key: "30d", label: "Last 30 days" },
-  { key: "month", label: "This month" },
+  { key: "week", label: "This Week" },
+  { key: "month", label: "This Month" },
+  { key: "last_month", label: "Last Month" },
   { key: "custom", label: "Custom" },
 ];
+const TEAM_ROLES = ["admin", "manager"];
 
 function ymd(date: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function presetRange(preset: Exclude<Preset, "custom">) {
-  const end = new Date();
-  const start = new Date();
-  if (preset === "all") start.setFullYear(2000, 0, 1);
-  if (preset === "7d") start.setDate(start.getDate() - 6);
-  if (preset === "30d") start.setDate(start.getDate() - 29);
-  if (preset === "month") start.setDate(1);
-  return { start: ymd(start), end: ymd(end) };
+function presetRange(preset: Exclude<Preset, "custom">): DateRange {
+  const now = new Date();
+  if (preset === "week") {
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    return { start: ymd(monday), end: ymd(now) };
+  }
+  if (preset === "last_month") {
+    return { start: ymd(new Date(now.getFullYear(), now.getMonth() - 1, 1)), end: ymd(new Date(now.getFullYear(), now.getMonth(), 0)) };
+  }
+  return { start: ymd(new Date(now.getFullYear(), now.getMonth(), 1)), end: ymd(now) };
+}
+
+const errorText = (caught: unknown) => (caught instanceof Error ? caught.message : "Something went wrong. Try again.");
+
+type Section<T> = { data: T | null; loading: boolean; error: string; reload: () => void };
+
+/** One independently loading section. A slower, older response never overwrites a newer one. */
+function useSection<T>(enabled: boolean, fetcher: (accessToken: string) => Promise<T>): Section<T> {
+  const [state, setState] = useState<{ data: T | null; loading: boolean; error: string }>({ data: null, loading: enabled, error: "" });
+  const ticket = useRef(0);
+
+  const load = useCallback(() => {
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    const mine = ++ticket.current;
+    if (!accessToken) {
+      setState({ data: null, loading: false, error: "Sign in to see performance." });
+      return;
+    }
+    setState((current) => ({ ...current, loading: true, error: "" }));
+    fetcher(accessToken)
+      .then((data) => mine === ticket.current && setState({ data, loading: false, error: "" }))
+      .catch((caught) => mine === ticket.current && setState((current) => ({ ...current, loading: false, error: errorText(caught) })));
+  }, [fetcher]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-range-change; load() owns the loading state
+    load();
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- a counter, not a DOM ref: bumping it drops in-flight responses
+      ticket.current++;
+    };
+  }, [enabled, load]);
+
+  return { ...state, reload: load };
 }
 
 export default function PerformancePage() {
   // sessionStorage is a browser-only store, so it is read after hydration with a null server snapshot.
-  const storedUser = useSyncExternalStore(
-    () => () => {},
-    () => sessionStorage.getItem("ogera_user"),
-    () => null,
-  );
-  const isHydrated = useSyncExternalStore(() => () => {}, () => true, () => false);
-
-  const canView = useMemo(() => {
-    if (!storedUser) return false;
+  const storedUser = useSyncExternalStore(() => () => {}, () => sessionStorage.getItem("ogera_user"), () => null);
+  const role = useMemo(() => {
     try {
-      const role = (JSON.parse(storedUser) as { role?: string }).role;
-      return role === "admin" || role === "sales_head";
+      return storedUser ? ((JSON.parse(storedUser) as { role?: string }).role ?? "") : "";
     } catch {
-      return false;
+      return "";
     }
   }, [storedUser]);
+  const signedIn = Boolean(storedUser);
+  const isTeam = TEAM_ROLES.includes(role);
 
-  const [preset, setPreset] = useState<Preset>("all");
-  const [range, setRange] = useState(() => presetRange("all"));
-  const [report, setReport] = useState<Report | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Selected | null>(null);
+  const [preset, setPreset] = useState<Preset>("month");
+  const [range, setRange] = useState<DateRange>(() => presetRange("month"));
+  const rangeValid = Boolean(range.start && range.end) && range.start <= range.end;
 
-  const load = useCallback(async (start: string, end: string, signal: AbortSignal) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = sessionStorage.getItem("ogera_access_token");
-      const response = await fetch(`/api/performance?startDate=${start}&endDate=${end}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal,
-      });
-      const body = await response.json();
-      if (!response.ok || !body.success) throw new Error(body.error?.message ?? "Unable to load performance");
-      setReport(body.data as Report);
-    } catch (caught) {
-      if ((caught as Error).name === "AbortError") return;
-      setError(caught instanceof Error ? caught.message : "Unable to load performance");
-    } finally {
-      if (!signal.aborted) setLoading(false);
-    }
-  }, []);
+  const summary = useSection<PerformanceSummary>(signedIn && rangeValid, useCallback((token) => getSummary(token, range), [range]));
+  const team = useSection<TeamRow[]>(signedIn && rangeValid && isTeam, useCallback((token) => getTeam(token, range), [range]));
+  const pipeline = useSection<PipelineRow[]>(signedIn, useCallback((token) => getPipeline(token), []));
+  const sources = useSection<LeadSourceRow[]>(signedIn && rangeValid, useCallback((token) => getLeadSources(token, range), [range]));
 
-  useEffect(() => {
-    if (!canView || !range.start || !range.end || range.start > range.end) return;
-    const controller = new AbortController();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-range-change; load() owns the loading state
-    void load(range.start, range.end, controller.signal);
-    return () => controller.abort();
-  }, [canView, range, load]);
-
-  if (!isHydrated) return null;
-
-  if (!canView) {
-    return (
-      <div className="space-y-6 p-5 pt-20 lg:p-6 lg:pt-6">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm py-16 px-6 flex flex-col items-center text-center">
-          <h2 className="text-base font-bold text-[#0a192f]">Restricted area</h2>
-          <p className="mt-2 max-w-sm text-sm text-gray-500 leading-relaxed">Performance is available to admins and sales heads only.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const staff = report?.staff ?? [];
-  const max = Math.max(1, ...staff.map((member) => member.total));
-  const rangeInvalid = range.start > range.end;
+  if (!signedIn) return null;
 
   return (
-    <div className="space-y-6 p-5 pt-20 lg:p-6 lg:pt-6">
-      <div>
-        <h1 className="text-xl font-bold text-[#0a192f]">Performance</h1>
-        <p className="mt-1 text-sm text-gray-500">Leads and awareness records added by each staff member.</p>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-wrap items-center gap-2">
-        {PRESETS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => {
-              setPreset(item.key);
-              if (item.key !== "custom") {
-                const next = presetRange(item.key);
-                setRange(next);
-              }
-            }}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${
-              preset === item.key ? "bg-[#0a192f] text-white border-[#0a192f]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-        {preset === "custom" && (
-          <div className="flex items-center gap-2 ml-1">
-            <input
-              type="date"
-              value={range.start}
-              max={range.end}
-              onChange={(event) => setRange((current) => ({ ...current, start: event.target.value }))}
-              className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
-            />
-            <span className="text-gray-400 text-sm">to</span>
-            <input
-              type="date"
-              value={range.end}
-              min={range.start}
-              onChange={(event) => setRange((current) => ({ ...current, end: event.target.value }))}
-              className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
-            />
-          </div>
+    <div className="space-y-5 p-5 pt-20 lg:p-6 lg:pt-6">
+      <PageHeader eyebrow="Sales performance" title="Performance" subtitle={isTeam ? "How the sales team is doing: activity, follow-ups, pipeline and lead sources." : "Your numbers: activity, follow-ups and your pipeline."}>
+        {summary.data && summary.data.overdue_followups > 0 && (
+          <span className="inline-flex items-center rounded-full bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-100">
+            {summary.data.overdue_followups} overdue {summary.data.overdue_followups === 1 ? "follow-up" : "follow-ups"}
+          </span>
         )}
-      </div>
+      </PageHeader>
 
-      {rangeInvalid && <p className="text-sm text-red-600">Start date must not be after end date.</p>}
-      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-
-      {loading && !report ? (
-        <LoadingBlock text="Loading performance…" />
-      ) : (
-        <>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <SummaryCard label="Leads added" value={report?.totals.leads} loading={loading && !report} />
-        <SummaryCard label="Awareness added" value={report?.totals.awareness} loading={loading && !report} />
-        <SummaryCard label="Staff" value={report ? staff.length : undefined} loading={loading && !report} />
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-              <tr>
-                <th className="px-4 py-3 w-10">#</th>
-                <th className="px-4 py-3">Staff</th>
-                <th className="px-4 py-3 text-right">Leads</th>
-                <th className="px-4 py-3 text-right">Awareness</th>
-                <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3 min-w-[180px]">Share</th>
-              </tr>
-            </thead>
-            <tbody className={loading ? "opacity-60" : ""}>
-              {staff.map((member, index) => (
-                <tr
-                  key={member.id}
-                  onClick={() => setSelected({ id: member.id, name: member.name })}
-                  className="border-t border-gray-100 cursor-pointer hover:bg-gray-50"
-                >
-                  <td className="px-4 py-3 text-gray-400">{index + 1}</td>
-                  <td className="px-4 py-3 font-medium text-[#0a192f]">{member.name}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{member.leads}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{member.awareness}</td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums">{member.total}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                      <div className="bg-[#0a192f]" style={{ width: `${(member.leads / max) * 100}%` }} />
-                      <div className="bg-amber-400" style={{ width: `${(member.awareness / max) * 100}%` }} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {report && (report.unattributed.leads > 0 || report.unattributed.awareness > 0) && (
-                <tr
-                  onClick={() => setSelected({ id: "unattributed", name: "Unattributed" })}
-                  className="border-t border-gray-100 bg-gray-50/60 text-gray-500 cursor-pointer hover:bg-gray-100"
-                >
-                  <td className="px-4 py-3" />
-                  <td className="px-4 py-3 italic">Unattributed (older records with no creator)</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{report.unattributed.leads}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{report.unattributed.awareness}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{report.unattributed.leads + report.unattributed.awareness}</td>
-                  <td className="px-4 py-3" />
-                </tr>
-              )}
-              {!loading && report && staff.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-gray-500">No staff activity in this range.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex flex-wrap gap-4 border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#0a192f]" /> Leads</span>
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-400" /> Awareness</span>
-        </div>
-      </div>
-        </>
-      )}
-      {selected && (
-        <StaffContactsDrawer key={String(selected.id)} selected={selected} range={range} onClose={() => setSelected(null)} />
-      )}
-    </div>
-  );
-}
-
-type ContactItem = {
-  id: number;
-  name?: string;
-  phone: string;
-  contactType: "lead" | "awareness";
-  source?: string;
-  district?: string;
-  panchayath?: string;
-  createdAt: string;
-};
-type TypeFilter = "all" | "lead" | "awareness";
-const PAGE_SIZE = 20;
-
-function StaffContactsDrawer({ selected, range, onClose }: { selected: Selected; range: { start: string; end: string }; onClose: () => void }) {
-  const [type, setType] = useState<TypeFilter>("all");
-  const [contacts, setContacts] = useState<ContactItem[]>([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const token = sessionStorage.getItem("ogera_access_token");
-    const params = new URLSearchParams({
-      addedBy: String(selected.id),
-      startDate: range.start,
-      endDate: range.end,
-      page: String(page),
-      limit: String(PAGE_SIZE),
-    });
-    if (type !== "all") params.set("type", type);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on filter/page change
-    setLoading(true);
-    fetch(`/api/contacts?${params}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
-      .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok || !body.success) throw new Error(body.error?.message ?? "Unable to load contacts");
-        setContacts((current) => (page === 1 ? body.data.contacts : [...current, ...body.data.contacts]));
-        setTotalPages(body.data.totalPages);
-        setTotal(body.data.total);
-        setError(null);
-      })
-      .catch((caught) => {
-        if ((caught as Error).name !== "AbortError") setError(caught instanceof Error ? caught.message : "Unable to load contacts");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [selected.id, range.start, range.end, type, page]);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  const changeType = (next: TypeFilter) => {
-    setType(next);
-    setPage(1);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <aside className="relative flex h-full w-full max-w-md flex-col bg-white shadow-xl">
-        <div className="flex items-start justify-between border-b border-gray-200 p-5">
-          <div>
-            <h2 className="text-base font-bold text-[#0a192f]">{selected.name}</h2>
-            <p className="mt-0.5 text-xs text-gray-500">{loading && page === 1 ? "Loading…" : `${total} contact${total === 1 ? "" : "s"} added`}</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100">✕</button>
-        </div>
-        <div className="flex gap-2 border-b border-gray-100 px-5 py-3">
-          {(["all", "lead", "awareness"] as TypeFilter[]).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => changeType(item)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium border ${
-                type === item ? "bg-[#0a192f] text-white border-[#0a192f]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-              }`}
-            >
-              {item === "all" ? "All" : item === "lead" ? "Leads" : "Awareness"}
-            </button>
-          ))}
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {loading && page === 1 && <LoadingBlock text="Loading contacts…" />}
-          {error && <p className="m-5 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-          {!loading && !error && contacts.length === 0 && <p className="p-8 text-center text-sm text-gray-500">No contacts in this range.</p>}
-          <ul className={`divide-y divide-gray-100 ${loading && page === 1 ? "hidden" : ""}`}>
-            {contacts.map((contact) => (
-              <li key={contact.id} className="px-5 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="truncate text-sm font-semibold text-[#0a192f]">{contact.name || contact.phone}</p>
-                  <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium ${contact.contactType === "lead" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"}`}>
-                    {contact.contactType === "lead" ? "Lead" : "Awareness"}
-                  </span>
-                </div>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  {[contact.name ? contact.phone : null, [contact.panchayath, contact.district].filter(Boolean).join(", ") || null, contact.source].filter(Boolean).join(" · ")}
-                </p>
-                <p className="mt-0.5 text-[11px] text-gray-400">{new Date(contact.createdAt).toLocaleDateString()}</p>
-              </li>
-            ))}
-          </ul>
-          {page < totalPages && (
-            <div className="p-4 text-center">
+      <section className="z-10 space-y-3 lg:sticky lg:top-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div role="group" aria-label="Period" className="inline-flex rounded-xl bg-gray-100 p-1">
+            {PRESETS.map((item) => (
               <button
+                key={item.key}
                 type="button"
-                disabled={loading}
-                onClick={() => setPage((current) => current + 1)}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                aria-pressed={preset === item.key}
+                onClick={() => {
+                  setPreset(item.key);
+                  if (item.key !== "custom") setRange(presetRange(item.key));
+                }}
+                className={`min-h-9 flex-1 whitespace-nowrap rounded-lg px-3 text-sm font-bold transition-colors sm:flex-none sm:px-4 ${preset === item.key ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
               >
-                {loading ? "Loading…" : "Load more"}
+                {item.label}
               </button>
-            </div>
+            ))}
+          </div>
+          {preset === "custom" && (
+            <DateRangePicker label="Dates" from={range.start} to={range.end} className="w-full sm:w-72" onChange={(start, end) => setRange({ start, end })} />
           )}
         </div>
-      </aside>
+        {!rangeValid && <p className="text-sm font-semibold text-gray-500">Pick a start and an end date to see numbers.</p>}
+      </section>
+
+      <SummaryCards section={summary} isTeam={isTeam} />
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        {isTeam ? <TeamScorecard section={team} /> : <MyStats section={summary} />}
+        <PipelineFunnel section={pipeline} />
+      </div>
+
+      <LeadSourceChart section={sources} />
     </div>
   );
 }
 
-function LoadingBlock({ text }: { text: string }) {
+function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div role="status" className="flex flex-col items-center justify-center gap-3 py-20 text-gray-500">
-      <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-gray-200 border-t-[#0a192f]" />
-      <span className="text-sm font-medium">{text}</span>
+    <section className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+      <h2 className="text-lg font-extrabold text-[#0a192f]">{title}</h2>
+      {subtitle && <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>}
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function Skeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div role="status" aria-label="Loading" className="space-y-3">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="h-6 animate-pulse rounded bg-gray-200" style={{ width: `${100 - i * 8}%` }} />
+      ))}
     </div>
   );
 }
 
-function SummaryCard({ label, value, loading }: { label: string; value: number | undefined; loading: boolean }) {
+function ErrorRow({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-[#0a192f] tabular-nums">{loading ? "…" : (value ?? 0)}</p>
+    <div role="alert" className="flex flex-col items-center rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center">
+      <h3 className="text-base font-extrabold text-[#0a192f]">Something went wrong</h3>
+      <p className="mt-2 max-w-sm text-sm text-gray-500">{message}</p>
+      <button type="button" onClick={onRetry} className="mt-5 min-h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50">Try again</button>
     </div>
+  );
+}
+
+/** Loading skeleton, error with retry, or the body. `empty` swaps in the empty-state text. */
+function Body<T>({ section, empty, rows, children }: { section: Section<T>; empty?: (data: T) => boolean; rows?: number; children: (data: T) => React.ReactNode }) {
+  if (section.error && !section.data) return <ErrorRow message={section.error} onRetry={section.reload} />;
+  if (!section.data) return <Skeleton rows={rows} />;
+  if (empty?.(section.data)) return <div role="status" className="rounded-xl border-2 border-dashed border-gray-200 px-6 py-10 text-center">
+      <h3 className="text-base font-extrabold text-[#0a192f]">Nothing here yet</h3>
+      <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500">No data for this period. Try a wider date range.</p>
+    </div>;
+  return <div className={section.loading ? "opacity-60 transition-opacity" : ""}>{children(section.data)}</div>;
+}
+
+function SummaryCards({ section, isTeam }: { section: Section<PerformanceSummary>; isTeam: boolean }) {
+  const data = section.data;
+  const cards = [
+    { label: isTeam ? "New contacts" : "My new contacts", value: data?.total_new_contacts, tone: "text-[#0a192f]" },
+    { label: "Activities", value: data?.total_activities, tone: "text-[#0a192f]" },
+    { label: "Deals won", value: data?.deals_won, tone: "text-emerald-600" },
+    { label: "Deals lost", value: data?.deals_lost, tone: "text-rose-600" },
+  ];
+  return (
+    <div>
+      {section.error && !data && <ErrorRow message={section.error} onRetry={section.reload} />}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {cards.map((card) => (
+          <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">{card.label}</p>
+            {data ? (
+              <p className={`mt-2 text-3xl font-extrabold tabular-nums ${card.tone}`}>{card.value}</p>
+            ) : (
+              <div className="mt-3 h-8 w-16 animate-pulse rounded bg-gray-100" />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MyStats({ section }: { section: Section<PerformanceSummary> }) {
+  return (
+    <Card title="My stats" subtitle="Follow-ups waiting on you">
+      <Body section={section} rows={2}>
+        {(data) => (
+          <div className="flex items-baseline gap-3">
+            <span className={`text-4xl font-extrabold tabular-nums ${data.overdue_followups > 0 ? "text-red-600" : "text-[#0a192f]"}`}>{data.overdue_followups}</span>
+            <span className="text-sm text-gray-500">{data.overdue_followups === 1 ? "follow-up is overdue" : "follow-ups are overdue"}</span>
+          </div>
+        )}
+      </Body>
+    </Card>
+  );
+}
+
+function TeamScorecard({ section }: { section: Section<TeamRow[]> }) {
+  return (
+    <Card title="Team scorecard" subtitle="Most overdue first, so you see who needs attention">
+      <Body section={section} empty={(rows) => rows.length === 0}>
+        {(rows) => (
+          <div className="-mx-4 overflow-x-auto px-4 sm:-mx-5 sm:px-5">
+            <table className="w-full min-w-[480px] text-sm">
+              <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="py-2 pr-3 text-[11px] font-extrabold">Name</th>
+                  <th className="px-2 py-2 text-right">Added</th>
+                  <th className="px-2 py-2 text-right">Activities</th>
+                  <th className="px-2 py-2 text-right">Pending</th>
+                  <th className="px-2 py-2 text-right">Overdue</th>
+                  <th className="py-2 pl-2 text-right">Won</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.user_id} className="border-t border-gray-100">
+                    <td className="py-3 pr-3 font-medium text-[#0a192f]">{row.name}</td>
+                    <td className="px-2 text-right tabular-nums">{row.contacts_added_period}</td>
+                    <td className="px-2 text-right tabular-nums">{row.activities_period}</td>
+                    <td className="px-2 text-right tabular-nums">{row.followups_pending}</td>
+                    <td className={`px-2 text-right tabular-nums ${row.followups_overdue > 0 ? "font-semibold text-red-600" : "text-gray-400"}`}>{row.followups_overdue}</td>
+                    <td className="py-3 pl-2 text-right font-semibold tabular-nums text-emerald-600">{row.deals_won_period}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Body>
+    </Card>
+  );
+}
+
+/** Blue gradient from the first stage to Negotiating, green for Won, red for Lost, teal for repeat customers. */
+const OPEN_STAGES = ["new_lead", "first_call", "connected", "aware", "interested", "quoted", "negotiating"];
+function stageColor(stage: string) {
+  if (stage === "won") return "#059669";
+  if (stage === "lost") return "#e11d48";
+  if (stage === "repeat_customer") return "#0d9488";
+  const step = Math.max(0, OPEN_STAGES.indexOf(stage));
+  return `hsl(215 80% ${78 - step * (48 / (OPEN_STAGES.length - 1))}%)`;
+}
+
+function PipelineFunnel({ section }: { section: Section<PipelineRow[]> }) {
+  return (
+    <Card title="Pipeline" subtitle="Consumer contacts at each stage right now">
+      <Body section={section} rows={8} empty={(rows) => rows.every((row) => row.count === 0)}>
+        {(rows) => {
+          const max = Math.max(1, ...rows.map((row) => row.count));
+          return (
+            <ul className="space-y-2">
+              {rows.map((row) => (
+                <li key={row.stage} className="grid grid-cols-[6.5rem_1fr] items-center gap-3 sm:grid-cols-[8rem_1fr]">
+                  <span className="truncate text-sm text-gray-600">{row.label}</span>
+                  <div className="flex h-7 items-center rounded bg-gray-50">
+                    <div className="flex h-full items-center justify-end rounded px-2 text-xs font-semibold text-white" style={{ width: `${Math.max((row.count / max) * 100, row.count ? 8 : 0)}%`, backgroundColor: stageColor(row.stage) }}>
+                      {row.count > 0 ? row.count : ""}
+                    </div>
+                    {row.count === 0 && <span className="pl-2 text-xs text-gray-400">0</span>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          );
+        }}
+      </Body>
+    </Card>
+  );
+}
+
+function LeadSourceChart({ section }: { section: Section<LeadSourceRow[]> }) {
+  return (
+    <Card title="Lead sources" subtitle="Where this period's contacts came from, and how many were won">
+      <Body section={section} empty={(rows) => rows.length === 0}>
+        {(rows) => {
+          const max = Math.max(1, ...rows.map((row) => row.count));
+          return (
+            <>
+              <ul className="space-y-4">
+                {rows.slice(0, 8).map((row) => (
+                  <li key={row.source}>
+                    <p className="mb-1 flex justify-between text-sm">
+                      <span className="font-medium text-[#0a192f]">{row.source}</span>
+                      <span className="text-gray-500">{row.converted} of {row.count} won</span>
+                    </p>
+                    <div className="space-y-1">
+                      <div className="h-3 rounded bg-gray-100"><div className="h-full rounded bg-gray-400" style={{ width: `${(row.count / max) * 100}%` }} /></div>
+                      <div className="h-3 rounded bg-gray-100"><div className="h-full rounded bg-emerald-500" style={{ width: `${(row.converted / max) * 100}%` }} /></div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 flex gap-4 text-xs text-gray-500">
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-gray-400" /> Total leads</span>
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Won</span>
+              </div>
+            </>
+          );
+        }}
+      </Body>
+    </Card>
   );
 }
