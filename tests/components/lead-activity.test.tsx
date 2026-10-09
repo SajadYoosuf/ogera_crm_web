@@ -22,7 +22,7 @@ const OWNERS = [{ id: 7, name: "Sajad" }, { id: 8, name: "Rajan" }];
 
 const item = (overrides: Partial<ActivityItem>): ActivityItem => ({
   id: 1, type: "phone_call", notes: null, status: "done", scheduled_date: null, scheduled_time: null, assigned_to: null, assigned_to_name: null,
-  completed_at: "2026-10-06T10:22:00", completed_by: 1, completed_by_name: "Ada", coordinates: null, created_by: 1, created_by_name: "Ada",
+  completed_at: "2026-10-06T10:22:00", completed_by: 1, completed_by_name: "Ada", coordinates: null, task_id: null, created_by: 1, created_by_name: "Ada",
   created_at: "2026-10-06T10:22:00", task_state: "done", overdue_days: 0, ...overrides,
 });
 
@@ -166,8 +166,14 @@ describe("lead panel activity section", () => {
     expect(screen.getByText(/Assigned: Rajan/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Mark Done" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save & mark done" }));
+    expect(await screen.findByText("Write what happened before marking this done.")).toBeTruthy(); // the outcome is required
+    expect(calls("PATCH")).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText("What happened?"), { target: { value: "Will order on Friday" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save & mark done" }));
     expect(await screen.findByText("Follow-up marked done")).toBeTruthy();
-    expect(bodyOf("PATCH")).toEqual({ status: "done" }); // the server records who and when
+    expect(bodyOf("PATCH")).toEqual({ status: "done", outcome: "Will order on Friday" }); // the server records who and when and logs the outcome
   });
 
   it("reschedules an overdue task with just a date and an optional time", async () => {

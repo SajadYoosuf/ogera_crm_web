@@ -14,6 +14,7 @@ export type ActivityItem = {
   completed_by: number | null;
   completed_by_name: string | null;
   coordinates: { lat: number; lng: number } | null;
+  task_id: number | null; // on an outcome log entry: the follow-up it records
   created_by: number;
   created_by_name: string | null;
   created_at: string;
@@ -37,9 +38,9 @@ export const logActivity = (accessToken: string, contactId: number, input: LogAc
 export const scheduleFollowup = (accessToken: string, contactId: number, input: ScheduleInput) =>
   request<ActivityItem>(`/contacts/${contactId}/activities`, { method: "POST", headers: headers(accessToken, true), body: JSON.stringify({ ...input, status: "pending" }) });
 
-/** Mark a pending follow-up done; the server records who and when. */
-export const markFollowupDone = (accessToken: string, contactId: number, activityId: number) =>
-  request<ActivityItem>(`/contacts/${contactId}/activities/${activityId}`, { method: "PATCH", headers: headers(accessToken, true), body: JSON.stringify({ status: "done" }) });
+/** Mark a pending follow-up done; the server records who and when, and logs `outcome` as an activity. */
+export const markFollowupDone = (accessToken: string, contactId: number, activityId: number, outcome: string) =>
+  request<ActivityItem>(`/contacts/${contactId}/activities/${activityId}`, { method: "PATCH", headers: headers(accessToken, true), body: JSON.stringify({ status: "done", outcome }) });
 
 /** Move a pending follow-up; no time means a date-only task. */
 export const rescheduleFollowup = (accessToken: string, contactId: number, activityId: number, date: string, time?: string) =>

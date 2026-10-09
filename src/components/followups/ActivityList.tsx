@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DatePickerField, TimePickerField } from "@/components/SchedulePickers";
 import type { ActivityItem } from "@/lib/api/activities";
 import { ActivityTypeIcon } from "./ActivityIcons";
+import OutcomeForm from "./OutcomeForm";
 import { formatClock, formatDay, formatWhen, isoDate, typeLabel } from "./activities";
 
 const CHIP: Record<string, string> = {
@@ -14,7 +15,7 @@ const CHIP: Record<string, string> = {
 };
 
 function chipLabel(item: ActivityItem) {
-  if (item.task_state === "overdue") return `Overdue ${item.overdue_days}d`;
+  if (item.task_state === "overdue") return item.overdue_days > 0 ? `Overdue ${item.overdue_days}d` : "Overdue";
   if (item.task_state === "due_today") return "Due today";
   if (item.task_state === "done") return "Done";
   return "Pending";
@@ -40,10 +41,11 @@ function Skeleton() {
 /** The combined list: finished activity entries and follow-up tasks, newest first. */
 export default function ActivityList({ items, error, emptyText, onRetry, onMarkDone, onReschedule }: {
   items: ActivityItem[] | null; error: string; emptyText: string; onRetry: () => void;
-  onMarkDone: (item: ActivityItem) => Promise<void>;
+  onMarkDone: (item: ActivityItem, outcome: string) => Promise<void>;
   onReschedule: (item: ActivityItem, date: string, time: string) => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [completing, setCompleting] = useState<number | null>(null);
   const [rescheduling, setRescheduling] = useState<{ id: number; date: string; time: string; error: string } | null>(null);
   const [today] = useState(() => isoDate());
 
@@ -107,9 +109,13 @@ export default function ActivityList({ items, error, emptyText, onRetry, onMarkD
               <a href={`https://www.google.com/maps?q=${item.coordinates.lat},${item.coordinates.lng}`} target="_blank" rel="noreferrer" className="mt-1.5 inline-block text-xs font-semibold text-blue-600 hover:underline">View visit location</a>
             )}
 
-            {open && (item.task_state === "due_today" || item.task_state === "overdue") && rescheduling?.id !== item.id && (
+            {completing === item.id && (
+              <OutcomeForm onCancel={() => setCompleting(null)} onSave={async (outcome) => { await onMarkDone(item, outcome); setCompleting(null); }} />
+            )}
+
+            {open && (item.task_state === "due_today" || item.task_state === "overdue") && rescheduling?.id !== item.id && completing !== item.id && (
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" disabled={busyId === item.id} onClick={() => void run(item.id, () => onMarkDone(item))} className="min-h-11 rounded-xl bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60">{busyId === item.id ? "Saving…" : "Mark Done"}</button>
+                <button type="button" onClick={() => setCompleting(item.id)} className="min-h-11 rounded-xl bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700">Mark Done</button>
                 {item.task_state === "overdue" && (
                   <button type="button" onClick={() => setRescheduling({ id: item.id, date: "", time: "", error: "" })} className="min-h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50">Reschedule</button>
                 )}

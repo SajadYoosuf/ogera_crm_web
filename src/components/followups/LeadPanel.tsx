@@ -52,14 +52,13 @@ export default function LeadPanel({ lead, userId, owners, initialTarget, onUnver
 
   const openActivityForm = (form: "log" | "schedule") => { setPrompt(null); setActivityForm((current) => (current === form ? null : form)); };
 
-  async function markDone(item: ActivityItem) {
+  // Throws on failure so the outcome form can show the error and keep what was typed.
+  async function markDone(item: ActivityItem, outcome: string) {
     const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setActivityError("Sign in again to continue."); return; }
-    try {
-      await markFollowupDone(accessToken, lead.id, item.id);
-      await loadActivities();
-      setActivityForm(null); setPrompt("Follow-up marked done");
-    } catch (caught) { setActivityError(errorText(caught)); }
+    if (!accessToken) throw new Error("Sign in again to continue.");
+    await markFollowupDone(accessToken, lead.id, item.id, outcome);
+    await loadActivities();
+    setActivityForm(null); setPrompt("Follow-up marked done");
   }
 
   async function reschedule(item: ActivityItem, date: string, time: string) {

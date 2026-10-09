@@ -70,6 +70,19 @@ const menuItems: MenuItem[] = [
     ),
   },
   {
+    id: "tasks",
+    label: "Tasks",
+    href: "/dashboard/tasks",
+    category: "CORE",
+    icon: (
+      <>
+        <rect width="16" height="16" x="4" y="5" rx="2" />
+        <path d="M8 3v4M16 3v4M4 10h16" />
+        <path d="m9 15 2 2 4-4" />
+      </>
+    ),
+  },
+  {
     id: "sales",
     label: "Sales Ledger",
     href: "/dashboard/sales",
