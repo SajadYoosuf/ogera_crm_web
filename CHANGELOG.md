@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-10-09 — `a207130` (branch `phase1`)
+
+**Add Tasks screen (day, week, month) and require an outcome when a follow-up is done**
+
+Author: sajad yoosuf
+Previous commit on this side: `99798ab` docs: update changelog for addee71 (2026-10-09)
+
+### Summary
+New Tasks screen with day, week and month views and an employee filter for managers, and an outcome form when a follow-up is marked done. Notes: `docs/changes/2026-10-09-tasks-calendar-outcome.md`.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Added | `src/app/dashboard/tasks/page.tsx` | The `/dashboard/tasks` route |
+| Added | `src/components/tasks/TasksBoard.tsx` | Toolbar, filters, summary, loading / empty / error states |
+| Added | `src/components/tasks/TaskViews.tsx` | Day, week and month views |
+| Added | `src/components/tasks/TaskCard.tsx` | Task card with call, WhatsApp, mark done and reschedule |
+| Added | `src/components/tasks/calendar.ts` | Date range maths |
+| Added | `src/components/followups/OutcomeForm.tsx` | "What happened?" form, text required |
+| Modified | `src/components/followups/ActivityList.tsx`, `LeadPanel.tsx` | Mark Done asks for the outcome; same-day overdue label |
+| Modified | `src/components/DashboardSidebar.tsx` | "Tasks" menu item for every role |
+| Added | `src/lib/api/tasks.ts` | `listTasks` |
+| Modified | `src/lib/api/activities.ts` | `markFollowupDone` takes the outcome; `task_id` |
+| Added/Modified | `tests/tasks/calendar.test.ts`, `tests/components/tasks-board.test.tsx`, `lead-activity.test.tsx` | Tests |
+| Added | `docs/changes/2026-10-09-tasks-calendar-outcome.md` | Change notes |
+
+### Notes
+Needs the backend migration. Filters are not kept in the URL yet. The 17 `staff-live-map` test failures are not from this change. The same commit changed the backend.
+
 ## 2026-10-09 — `addee71` (branch `phase1`)
 
 **Add contact import and export (CSV, Excel, PDF) for backend and web**
