@@ -5,6 +5,8 @@ import PhoneField, { validatePhone } from "@/components/PhoneField";
 import SearchPicker, { type PickerItem } from "@/components/SearchPicker";
 import { FilterBar, type FilterGroup } from "@/components/FilterPanel";
 import FilterSelect from "@/components/FilterSelect";
+import ContactExportModal from "@/components/ContactExportModal";
+import ContactImportModal from "@/components/ContactImportModal";
 import SelectField from "@/components/SelectField";
 import { ApiError } from "@/lib/api/auth";
 import { trace } from "@/lib/api/devlog";
@@ -119,6 +121,7 @@ export default function ContactsPage() {
   const [selectedReferral, setSelectedReferral] = useState<PickerItem | null>(null);
   // Set when the page was opened from another page's "Add" button; the modal then hands the user back there.
   const [returnTo, setReturnTo] = useState<string | null>(null);
+  const [ioDialog, setIoDialog] = useState<"import" | "export" | null>(null);
 
   const loadContacts = useCallback(async () => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
@@ -338,6 +341,16 @@ export default function ContactsPage() {
             <p className="mt-2 text-sm sm:text-[15px] text-white/65 leading-relaxed">Find, add and manage everyone in your Ogera CRM pipeline.</p>
           </div>
           <div className="grid grid-cols-1 sm:flex gap-3 shrink-0">
+            {canManageEmployees(viewerRole) && (
+              <button type="button" onClick={() => setIoDialog("import")} className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl border border-white/25 bg-white/10 text-white text-sm font-bold hover:bg-white/20 active:scale-[.98] transition-all">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 15V3m0 0L8 7m4-4 4 4M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" /></svg>
+                Import
+              </button>
+            )}
+            <button type="button" onClick={() => setIoDialog("export")} className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl border border-white/25 bg-white/10 text-white text-sm font-bold hover:bg-white/20 active:scale-[.98] transition-all">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" /></svg>
+              Export
+            </button>
             <button type="button" onClick={() => openEditor()} className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl bg-white text-[#0a192f] text-sm font-bold shadow-lg shadow-black/20 hover:bg-sky-50 active:scale-[.98] transition-all">
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
               Add contact
@@ -386,14 +399,14 @@ export default function ContactsPage() {
         </div>
       ) : isLoading ? (
         <>
-        {/* Desktop: one skeleton table that matches the real one, headers included. */}
-        <div className="hidden md:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" aria-busy="true" aria-label="Loading contacts">
-          <div className="overflow-x-auto">
+        {/* Wide desktop: one skeleton table that matches the real one, headers included. */}
+        <div className="hidden xl:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" aria-busy="true" aria-label="Loading contacts">
+          <div className="relative overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 text-gray-500 text-[11px] font-extrabold tracking-wider uppercase border-b border-gray-200">
                 <tr>
                   {["Contact", "Type", "Location", "Source", "Stage", "Status", "Added"].map((label, index) => (
-                    <th key={label} scope="col" className={index === 0 ? "px-5 py-3.5" : "px-4 py-3.5"}>{label}</th>
+                    <th key={label} scope="col" className={`${label === "Source" || label === "Added" ? "hidden 2xl:table-cell " : ""}${index === 0 ? "px-5 py-3.5" : "px-4 py-3.5"}`}>{label}</th>
                   ))}
                   <th scope="col" className="px-4 py-3.5"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -408,7 +421,7 @@ export default function ContactsPage() {
                       </div>
                     </td>
                     {["w-16", "w-40", "w-16", "w-16", "w-16", "w-20"].map((width, cell) => (
-                      <td key={cell} className="px-4 py-3.5"><span className={`block h-3.5 ${width} rounded bg-gray-100`} /></td>
+                      <td key={cell} className={`${cell === 2 || cell === 5 ? "hidden 2xl:table-cell " : ""}px-4 py-3.5`}><span className={`block h-3.5 ${width} rounded bg-gray-100`} /></td>
                     ))}
                     <td className="px-4 py-3.5"><span className="block h-4 w-12 rounded bg-gray-100 ml-auto" /></td>
                   </tr>
@@ -418,8 +431,8 @@ export default function ContactsPage() {
           </div>
         </div>
 
-        {/* Phones keep cards, matching the real phone layout. */}
-        <div className="grid grid-cols-1 gap-4 md:hidden" aria-busy="true" aria-label="Loading contacts">
+        {/* Phones and tablets keep cards, matching the real layout. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:hidden" aria-busy="true" aria-label="Loading contacts">
           {Array.from({ length: 6 }, (_, index) => (
             <div key={index} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 animate-pulse">
               <div className="flex items-center gap-4">
@@ -446,18 +459,18 @@ export default function ContactsPage() {
         </div>
       ) : (
         <>
-          <div className="hidden md:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="hidden xl:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="relative overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-50 text-gray-500 text-[11px] font-extrabold tracking-wider uppercase border-b border-gray-200">
                   <tr>
                     <th scope="col" className="px-5 py-3.5">Contact</th>
                     <th scope="col" className="px-4 py-3.5">Type</th>
                     <th scope="col" className="px-4 py-3.5">Location</th>
-                    <th scope="col" className="px-4 py-3.5">Source</th>
+                    <th scope="col" className="hidden 2xl:table-cell px-4 py-3.5">Source</th>
                     <th scope="col" className="px-4 py-3.5">Stage</th>
                     <th scope="col" className="px-4 py-3.5">Status</th>
-                    <th scope="col" className="px-4 py-3.5">Added</th>
+                    <th scope="col" className="hidden 2xl:table-cell px-4 py-3.5">Added</th>
                     <th scope="col" className="px-4 py-3.5 text-right"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
@@ -469,7 +482,7 @@ export default function ContactsPage() {
                           <span className={`w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br ${contact.kind === "partner" ? "from-slate-400 to-slate-600" : "from-blue-500 to-blue-700"} text-white text-sm font-extrabold flex items-center justify-center shadow-sm`}>
                             {(contact.name || contact.phone).charAt(0).toUpperCase()}
                           </span>
-                          <span className="min-w-0 flex flex-col">
+                          <span className="min-w-0 max-w-[14rem] flex flex-col">
                             <span className="font-bold text-[#0a192f] truncate group-hover:text-blue-700 transition-colors">{contact.name || "Unnamed contact"}</span>
                             <span className="text-xs text-gray-500">{contact.phone}</span>
                           </span>
@@ -478,11 +491,11 @@ export default function ContactsPage() {
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wider ${contact.kind === "partner" ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>{contact.kind === "partner" && contact.profession ? professionLabel(contact.profession) : KIND_LABELS[contact.kind] ?? contact.kind}</span>
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600 max-w-[16rem] truncate">{displayLocation(contact)}</td>
-                      <td className="px-4 py-3.5 whitespace-nowrap text-gray-600">{contact.source || "—"}</td>
+                      <td className="px-4 py-3.5 text-gray-600 max-w-[12rem] truncate">{displayLocation(contact)}</td>
+                      <td className="hidden 2xl:table-cell px-4 py-3.5 whitespace-nowrap text-gray-600">{contact.source || "—"}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap text-gray-600 capitalize">{contact.stage ? contact.stage.replaceAll("_", " ") : "—"}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap"><VerifiedBadge contact={contact} /></td>
-                      <td className="px-4 py-3.5 whitespace-nowrap text-gray-500">{new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(new Date(contact.createdAt))}</td>
+                      <td className="hidden 2xl:table-cell px-4 py-3.5 whitespace-nowrap text-gray-500">{new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(new Date(contact.createdAt))}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap text-right">
                         <button type="button" onClick={(event) => { event.stopPropagation(); openEditor(contact); }} aria-label={`Edit ${contact.name || contact.phone}`} title="Edit" className="p-2 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
@@ -498,8 +511,8 @@ export default function ContactsPage() {
             </div>
           </div>
 
-          {/* Phones get cards — a table would scroll sideways. */}
-        <div className="grid grid-cols-1 gap-4 md:hidden">
+          {/* Phones and tablets get cards — the table needs a wide desktop to avoid scrolling sideways. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:hidden">
           {contacts.map((contact) => (
             <article key={contact.id} className="group relative bg-white rounded-2xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-lg hover:shadow-blue-900/5 hover:-translate-y-0.5 transition-all">
               <button type="button" onClick={() => openEditor(contact)} className="block w-full text-left p-5 rounded-2xl focus-visible:outline-2 focus-visible:outline-blue-600">
@@ -675,6 +688,22 @@ export default function ContactsPage() {
           </section>
         </div>
       )}
+
+      {ioDialog === "export" && (
+        <ContactExportModal leadSources={leadSources} onClose={() => setIoDialog(null)}
+          initial={{
+            contact_type: (filters.type || undefined) as ApiContactType | undefined,
+            profession_type: filters.type === "partner" ? filters.profession || undefined : undefined,
+            lead_source_id: filters.source ? Number(filters.source) : undefined,
+            district: filters.district || undefined,
+            assigned_to: filters.assignedTo ? Number(filters.assignedTo) : undefined,
+            created_by: filters.createdBy ? Number(filters.createdBy) : undefined,
+            verified: filters.verified ? filters.verified === "verified" : undefined,
+            search: submittedSearch || undefined,
+          }}
+          extraFilterCount={[filters.profession && filters.type === "partner", filters.district, filters.assignedTo, filters.createdBy, filters.verified, submittedSearch].filter(Boolean).length} />
+      )}
+      {ioDialog === "import" && <ContactImportModal leadSources={leadSources} role={viewerRole} onClose={() => setIoDialog(null)} onImported={() => { setPage(1); void loadContacts(); }} />}
     </div>
   );
 }

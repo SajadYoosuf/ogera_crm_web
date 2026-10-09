@@ -35,10 +35,12 @@ function monthCells(y: number, m: number) {
   return out;
 }
 
-type Props = { label: string; from: string; to: string; onChange: (from: string, to: string) => void; className?: string };
+type Props = { label: string; from: string; to: string; onChange: (from: string, to: string) => void; className?: string;
+  /** Form-field look: the caller shows the label above, so the trigger only shows the value, in regular weight. */
+  bare?: boolean };
 
 /** One control for a date range: presets, a calendar where two clicks pick the start and the end, and a clear action. */
-export default function DateRangePicker({ label, from, to, onChange, className = "w-full sm:w-64" }: Props) {
+export default function DateRangePicker({ label, from, to, onChange, className = "w-full sm:w-64", bare = false }: Props) {
   const today = istToday();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => leftMonthFor(from, today));
@@ -110,8 +112,8 @@ export default function DateRangePicker({ label, from, to, onChange, className =
         className={`flex w-full min-h-11 items-center justify-between gap-2 rounded-xl border bg-white px-3.5 text-sm shadow-xs transition-colors hover:border-gray-300 ${open ? "border-blue-600 ring-2 ring-blue-600/15" : "border-gray-200"}`}>
         <span className="flex min-w-0 items-center gap-2">
           <svg className="h-4 w-4 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>
-          <span className="font-medium text-gray-400">{label}</span>
-          <span className={`truncate font-bold ${hasValue ? "text-gray-900" : "text-gray-700"}`}>{summary}</span>
+          {!bare && <span className="font-medium text-gray-400">{label}</span>}
+          <span className={`truncate ${bare ? "font-medium" : "font-bold"} ${hasValue ? "text-gray-900" : "text-gray-700"}`}>{summary}</span>
         </span>
         {hasValue ? (
           <span role="button" tabIndex={0} aria-label="Clear dates" onClick={(event) => { event.stopPropagation(); onChange("", ""); }}
