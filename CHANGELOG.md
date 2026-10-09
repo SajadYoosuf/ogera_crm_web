@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-10-09 — `addee71` (branch `phase1`)
+
+**Add contact import and export (CSV, Excel, PDF) for backend and web**
+
+Author: sajad yoosuf
+Previous commit on this side: `d26872d` docs: update changelog for a47a286 (2026-10-08)
+
+### Summary
+Import and Export buttons on the contacts page open modals to import a sheet and download filtered lists. Notes: `docs/changes/2026-10-08-contact-import-export.md`.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Added | `docs/changes/2026-10-08-contact-import-export.md` | Change notes |
+| Modified | `src/app/contacts/page.tsx` | Import (admin/manager) and Export buttons, modals, plus responsive table/card breakpoints |
+| Added | `src/components/ContactExportModal.tsx` | Date range, type, source and format picker |
+| Added | `src/components/ContactImportModal.tsx` | File, column review, problem rows, import rules |
+| Modified | `src/components/DateRangePicker.tsx` | New `bare` prop |
+| Modified | `src/lib/api/contacts.ts` | `created_from`/`created_to` on `listContacts` |
+| Added | `src/lib/api/contactsIo.ts` | Import/export API helpers |
+| Added | `tests/components/contact-import-export.test.tsx` | 7 tests |
+
+### Notes
+Needs the backend routes from the same commit. Mobile not included.
+
 ## 2026-10-08 — `a47a286` (branch `phase1`)
 
 **Add partner profession type enum and partner type picker in contact form**
