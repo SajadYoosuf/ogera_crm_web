@@ -9,8 +9,8 @@ function Icon({ children, className = "w-4 h-4" }: { children: ReactNode; classN
 }
 
 /** Styled single-select dropdown (native <select> popups can't be themed). */
-export default function FilterSelect({ label, value, onChange, options, icon, className = "w-full sm:w-60" }: {
-  label: string; value: string; onChange: (value: string) => void; options: FilterOption[]; icon: ReactNode; className?: string;
+export default function FilterSelect({ label, value, onChange, options, icon, className = "w-full sm:w-60", compact = false, hideLabel = false }: {
+  label: string; value: string; onChange: (value: string) => void; options: FilterOption[]; icon?: ReactNode; className?: string; compact?: boolean; hideLabel?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -33,12 +33,14 @@ export default function FilterSelect({ label, value, onChange, options, icon, cl
         aria-expanded={open}
         aria-label={`${label}: ${current.label}`}
         onClick={() => setOpen((previous) => !previous)}
-        className={`flex w-full min-h-11 items-center justify-between gap-2 rounded-xl border bg-white px-3.5 text-sm shadow-xs transition-colors hover:border-gray-300 ${open ? "border-blue-600 ring-2 ring-blue-600/15" : "border-gray-200"}`}
+        className={compact
+          ? `flex h-11 w-full min-w-40 items-center justify-between gap-2 rounded-xl border bg-white px-3.5 text-sm shadow-xs transition-colors hover:border-slate-400 ${open ? "border-blue-600 ring-2 ring-blue-600/15" : "border-slate-300"}`
+          : `flex w-full min-h-11 items-center justify-between gap-2 rounded-xl border bg-white px-3.5 text-sm shadow-xs transition-colors hover:border-gray-300 ${open ? "border-blue-600 ring-2 ring-blue-600/15" : "border-gray-200"}`}
       >
         <span className="flex min-w-0 items-center gap-2">
-          <span className="text-gray-400"><Icon>{icon}</Icon></span>
-          <span className="font-medium text-gray-400">{label}</span>
-          <span className="truncate font-bold capitalize text-gray-900">{current.label}</span>
+          {!compact && icon && <span className="text-gray-400"><Icon>{icon}</Icon></span>}
+          {!hideLabel && <span className={compact ? "text-slate-500" : "font-medium text-gray-400"}>{label}</span>}
+          <span className={`truncate capitalize ${compact ? "font-semibold text-slate-900" : "font-bold text-gray-900"}`}>{current.label}</span>
         </span>
         <Icon className={`w-4 h-4 shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6" /></Icon>
       </button>

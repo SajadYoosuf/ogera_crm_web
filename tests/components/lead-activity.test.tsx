@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import LeadPanel from "@/components/followups/LeadPanel";
 import { isoDate } from "@/components/followups/activities";
 import type { ActivityItem } from "@/lib/api/activities";
-import type { ApiContact } from "@/lib/api/contacts";
+import type { ApiContact } from "@/features/contacts/api/contacts";
 
 const fetchMock = vi.fn();
 const ok = (data: unknown, status = 200) => ({ ok: true, status, json: async () => data });

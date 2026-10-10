@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/auth";
-import type { ApiContactType, LeadSource } from "@/lib/api/contacts";
+import type { ApiContactType, LeadSource } from "@/features/contacts/api/contacts";
 import { canManageEmployees, listAllEmployees, type Employee } from "@/lib/api/employees";
-import { analyzeImport, commitImport, downloadImportTemplate, problemRowsCsv, type ImportOptions, type ImportReport, type ImportResult } from "@/lib/api/contactsIo";
+import { analyzeImport, commitImport, downloadImportTemplate, problemRowsCsv, type ImportOptions, type ImportReport, type ImportResult } from "@/features/contacts/api/contactsIo";
 
 const selectClass = "w-full min-h-11 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-800 focus:border-blue-600 focus:outline-2 focus:outline-blue-600/20";
 const STATUS_STYLE = { warning: "bg-amber-50 text-amber-800 border-amber-200", duplicate: "bg-sky-50 text-sky-800 border-sky-200", error: "bg-rose-50 text-rose-700 border-rose-200" } as const;
@@ -181,7 +181,7 @@ export default function ContactImportModal({ leadSources, role, onClose, onImpor
                   <div className="mt-2 grid gap-3 sm:grid-cols-2">
                     <label className="text-xs font-semibold text-gray-600">When a row has no type
                       <select value={rules.defaultType} onChange={(event) => changeRules({ defaultType: event.target.value as ApiContactType })} className={`${selectClass} mt-1`}>
-                        <option value="consumer">Consumer</option><option value="partner">Partner</option><option value="dealer">Dealer</option>
+                        <option value="consumer">Consumer</option><option value="partner">Partner</option>
                       </select>
                     </label>
                     <label className="text-xs font-semibold text-gray-600">When a row has no known lead source

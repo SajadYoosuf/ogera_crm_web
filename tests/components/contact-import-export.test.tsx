@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import ContactExportModal from "@/components/ContactExportModal";
-import ContactImportModal from "@/components/ContactImportModal";
-import { problemRowsCsv } from "@/lib/api/contactsIo";
+import ContactExportModal from "@/features/contacts/components/ContactExportModal";
+import ContactImportModal from "@/features/contacts/components/ContactImportModal";
+import { problemRowsCsv } from "@/features/contacts/api/contactsIo";
 
 const fetchMock = vi.fn();
 const json = (data: unknown, status = 200) => ({ ok: status < 400, status, json: async () => data, headers: new Headers() });

@@ -4,15 +4,15 @@ import { useEffect, useState } from "react";
 import DateRangePicker from "@/components/DateRangePicker";
 import SelectField from "@/components/SelectField";
 import { ApiError } from "@/lib/api/auth";
-import { listContacts, type ApiContactType, type LeadSource } from "@/lib/api/contacts";
-import { downloadContactsExport, type ExportFilters, type ExportFormat } from "@/lib/api/contactsIo";
+import { listContacts, type ApiContactType, type LeadSource } from "@/features/contacts/api/contacts";
+import { downloadContactsExport, type ExportFilters, type ExportFormat } from "@/features/contacts/api/contactsIo";
 
 const FORMATS: { value: ExportFormat; label: string; hint: string }[] = [
   { value: "csv", label: "CSV", hint: "Plain data" },
   { value: "xlsx", label: "Excel", hint: "Formatted sheet" },
   { value: "pdf", label: "PDF", hint: "Print-ready, up to 2,000" },
 ];
-const TYPES = [{ value: "", label: "All types" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }, { value: "dealer", label: "Dealer" }];
+const TYPES = [{ value: "", label: "All types" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }];
 
 /** Export dialog. `initial` is the filter set already applied on the contacts page; the user can adjust the date range, type and source here. */
 export default function ContactExportModal({ initial, extraFilterCount, leadSources, onClose }: { initial: ExportFilters; extraFilterCount: number; leadSources: LeadSource[]; onClose: () => void }) {
