@@ -2,9 +2,9 @@ import type { ApiContact, ApiContactType, ProfessionOption } from "@/features/co
 
 export type Filters = { type: string; profession: string; source: string; district: string; assignedTo: string; createdBy: string; verified: string };
 export const NO_FILTERS: Filters = { type: "", profession: "", source: "", district: "", assignedTo: "", createdBy: "", verified: "" };
-export const PAGE_SIZE = 12;
+export const PAGE_SIZE = 10;
 export const KIND_LABELS: Record<string, string> = { consumer: "Consumer", partner: "Partner" };
-export const TYPE_TABS = [{ value: "", label: "All" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }];
+export const TYPE_TABS = [{ value: "", label: "All Contacts" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }];
 export const professionLabel = (value: string) => value.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
 // Fallback until GET /contacts/profession-types answers; the backend enum is the source of truth.
 export const DEFAULT_PARTNER_TYPES: ProfessionOption[] = ["plumber", "engineer", "interior_designer", "architect", "contractor", "electrician"]

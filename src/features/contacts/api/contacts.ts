@@ -28,8 +28,11 @@ export type ApiContact = {
 export type ContactList = { items: ApiContact[]; total: number; skip: number; limit: number };
 
 /** GET /contacts — one page. */
-export async function listContacts(accessToken: string, params: { skip?: number; limit?: number; contact_type?: ApiContactType; profession_type?: string; search?: string; lead_source_id?: number; district?: string; assigned_to?: number; created_by?: number; verified?: boolean; created_from?: string; created_to?: string } = {}) {
+export type ContactSort = "newest" | "oldest" | "name_asc" | "name_desc";
+
+export async function listContacts(accessToken: string, params: { skip?: number; limit?: number; sort?: ContactSort; contact_type?: ApiContactType; profession_type?: string; search?: string; lead_source_id?: number; district?: string; assigned_to?: number; created_by?: number; verified?: boolean; created_from?: string; created_to?: string } = {}) {
   const query = new URLSearchParams({ skip: String(params.skip ?? 0), limit: String(params.limit ?? 10) });
+  if (params.sort) query.set("sort", params.sort);
   if (params.contact_type) query.set("contact_type", params.contact_type);
   if (params.profession_type) query.set("profession_type", params.profession_type);
   if (params.search) query.set("search", params.search);

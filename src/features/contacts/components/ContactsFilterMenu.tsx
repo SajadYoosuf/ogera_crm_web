@@ -28,11 +28,11 @@ export default function ContactsFilterMenu({ groups, onChange, onClear }: {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((previous) => !previous)}
-        className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-xs transition-colors hover:border-slate-400"
+        className="inline-flex h-[38px] items-center gap-1.5 rounded-[8px] border border-[#E1E1E6] bg-white px-3 text-sm font-medium text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5]"
       >
-        <svg className="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 5h18M6 12h12M10 19h4" /></svg>
-        Filters
-        {activeCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-[11px] font-bold text-white">{activeCount}</span>}
+        <svg className="h-[15px] w-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z" /></svg>
+        Filter
+        {activeCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6E4FF6] px-1.5 text-[11px] font-bold text-white">{activeCount}</span>}
       </button>
 
       {open && (
