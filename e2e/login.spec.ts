@@ -8,7 +8,7 @@ test.describe("login", () => {
 
     await page.getByLabel("Email address").fill("ada.admin@ogera.com");
     await page.getByLabel("Password", { exact: true }).fill("wrong");
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.getByRole("button", { name: /login/i }).click();
 
     await expect(page.locator("#login-message")).toContainText("Incorrect email or password");
     await expect(page).toHaveURL("/");
@@ -20,7 +20,7 @@ test.describe("login", () => {
 
     await page.getByLabel("Email address").fill("ada.admin@ogera.com");
     await page.getByLabel("Password", { exact: true }).fill("correct-password");
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.getByRole("button", { name: /login/i }).click();
 
     await expect(page).toHaveURL(/\/dashboard/);
     expect(await page.evaluate(() => sessionStorage.getItem("ogera_access_token"))).toBe("test-token");

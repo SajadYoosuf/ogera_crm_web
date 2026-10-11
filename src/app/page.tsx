@@ -2,9 +2,65 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { DM_Sans, Noto_Sans_Malayalam, Sora } from "next/font/google";
+import { FormEvent, useLayoutEffect, useRef, useState } from "react";
 import { useLogin } from "@/hooks/useLogin";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+
+const sora = Sora({ subsets: ["latin"], weight: ["400", "600", "700", "800"], variable: "--font-sora", display: "swap" });
+const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-dm-sans", display: "swap" });
+const notoMalayalam = Noto_Sans_Malayalam({ subsets: ["malayalam", "latin"], weight: ["500", "600", "700"], variable: "--font-malayalam", display: "swap" });
+
+type Language = "en" | "ml";
+
+const COPY = {
+  en: {
+    headline: ["Namaskaram!", "Welcome to Ogera."],
+    lede: "Every lead — from WhatsApp, calls, Instagram or walk-ins — saved in one clean list. Get a reminder for every follow-up, at every stage. Never forget a customer again.",
+    pills: ["Every lead source", "Every follow-up", "Every stage"],
+    copyright: "© 2026 Ogera Ventures Pvt. Ltd. · Made in Kerala",
+    logoAlt: "Ogera logo",
+    title: "Welcome back!",
+    emailLabel: "Email address",
+    passwordLabel: "Password",
+    passwordPlaceholder: "Enter your password",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    offline: "You’re offline. Reconnect to sign in.",
+    missingFields: "Enter your email and password to continue.",
+    login: "Login",
+    signingIn: "Signing in...",
+    redirecting: "Redirecting...",
+    tryAgain: "Try again",
+    forgotPrefix: "Forgot password?",
+    resetLink: "Reset here",
+    helpPrefix: "Need help?",
+    whatsappLink: "Chat with us on WhatsApp",
+  },
+  ml: {
+    headline: ["നമസ്കാരം!", "ഒഗേരയിലേക്ക് സ്വാഗതം."],
+    lede: "വാട്സ്ആപ്പ്, കോളുകൾ, ഇൻസ്റ്റാഗ്രാം, നേരിട്ടുള്ള സന്ദർശനങ്ങൾ — എല്ലാ ലീഡുകളും ഒറ്റ വൃത്തിയുള്ള പട്ടികയിൽ. ഓരോ ഫോളോ-അപ്പിനും, ഓരോ ഘട്ടത്തിലും ഓർമ്മപ്പെടുത്തൽ. ഒരു ഉപഭോക്താവിനെയും ഇനി മറക്കരുത്.",
+    pills: ["എല്ലാ ലീഡ് ഉറവിടങ്ങളും", "എല്ലാ ഫോളോ-അപ്പും", "എല്ലാ ഘട്ടവും"],
+    copyright: "© 2026 ഒഗേര വെഞ്ചേഴ്സ് പ്രൈവറ്റ് ലിമിറ്റഡ് · കേരളത്തിൽ നിർമ്മിച്ചത്",
+    logoAlt: "ഒഗേര ലോഗോ",
+    title: "സ്വാഗതം!",
+    emailLabel: "ഇമെയിൽ വിലാസം",
+    passwordLabel: "പാസ്‌വേഡ്",
+    passwordPlaceholder: "പാസ്‌വേഡ് നൽകുക",
+    showPassword: "പാസ്‌വേഡ് കാണിക്കുക",
+    hidePassword: "പാസ്‌വേഡ് മറയ്ക്കുക",
+    offline: "നിങ്ങൾ ഓഫ്‌ലൈനിലാണ്. സൈൻ ഇൻ ചെയ്യാൻ വീണ്ടും കണക്ട് ചെയ്യുക.",
+    missingFields: "തുടരാൻ ഇമെയിലും പാസ്‌വേഡും നൽകുക.",
+    login: "ലോഗിൻ",
+    signingIn: "സൈൻ ഇൻ ചെയ്യുന്നു...",
+    redirecting: "തിരിച്ചുവിടുന്നു...",
+    tryAgain: "വീണ്ടും ശ്രമിക്കുക",
+    forgotPrefix: "പാസ്‌വേഡ് മറന്നോ?",
+    resetLink: "ഇവിടെ പുനഃസജ്ജമാക്കുക",
+    helpPrefix: "സഹായം വേണോ?",
+    whatsappLink: "വാട്സ്ആപ്പിൽ ഞങ്ങളുമായി സംസാരിക്കുക",
+  },
+} satisfies Record<Language, unknown>;
 
 export default function Home() {
   const router = useRouter();
@@ -13,8 +69,40 @@ export default function Home() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [language, setLanguage] = useState<Language>("en");
   const [validationMessage, setValidationMessage] = useState("");
 
+  const brandRef = useRef<HTMLElement>(null);
+  const sideRef = useRef<HTMLElement>(null);
+
+  // Line the left column's top with the right card's top ("Ogera CRM" row), so both start at the same height.
+  useLayoutEffect(() => {
+    const brand = brandRef.current;
+    const side = sideRef.current;
+    if (!brand || !side) return;
+    const sync = () => {
+      const topbar = side.querySelector<HTMLElement>(".login-topbar");
+      if (!topbar || window.matchMedia("(max-width: 900px)").matches) {
+        brand.style.removeProperty("--brand-top");
+        return;
+      }
+      const offset = topbar.getBoundingClientRect().top - brand.getBoundingClientRect().top;
+      brand.style.setProperty("--brand-top", `${offset}px`);
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(side);
+    observer.observe(brand);
+    const card = side.querySelector(".login-card");
+    if (card) observer.observe(card);
+    window.addEventListener("resize", sync);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", sync);
+    };
+  }, []);
+
+  const t = COPY[language];
   const isSubmitting = state.status === "loading" || state.status === "success";
   const apiError = state.status === "error" ? state.error : null;
   const message = validationMessage || apiError?.message || "";
@@ -28,7 +116,7 @@ export default function Home() {
     event.preventDefault();
     if (isSubmitting) return;
     if (!email.trim() || !password) {
-      setValidationMessage("Enter your email and password to continue.");
+      setValidationMessage(t.missingFields);
       return;
     }
     setValidationMessage("");
@@ -36,120 +124,131 @@ export default function Home() {
   }
 
   return (
-    <main className="login-page" aria-labelledby="login-title">
-      <aside className="login-brand">
-        {/* decorative background elements */}
-        <span className="brand-glow-1" aria-hidden="true" />
-        <span className="brand-glow-2" aria-hidden="true" />
+    <main
+      className={`login-page ${sora.variable} ${dmSans.variable} ${notoMalayalam.variable}${language === "ml" ? " is-ml" : ""}`}
+      lang={language}
+      aria-labelledby="login-title"
+    >
+      <section className="login-brand" ref={brandRef}>
+        <svg className="login-art" aria-hidden="true" viewBox="0 0 800 900" preserveAspectRatio="xMinYMid slice" fill="none" stroke="#FFFFFF" strokeOpacity="0.1" strokeWidth="1.2">
+          <path d="M-120 900 C 40 520, 220 260, 330 80" />
+          <path d="M-80 900 C 90 540, 290 300, 400 120" />
+          <path d="M-40 900 C 140 560, 360 340, 470 160" />
+          <path d="M0 900 C 190 580, 430 380, 540 200" />
+          <path d="M40 900 C 240 600, 500 420, 610 240" />
+          <path d="M80 900 C 290 620, 570 460, 680 280" />
+        </svg>
 
-        <div className="brand-content">
-          <div className="brand-top">
-            <div className="brand-logo">
-              <Image src="/images/ogera-logo.png" alt="Ogera CRM" width={120} height={35} priority />
-            </div>
-            <span className="brand-byline">by Ogera Ventures</span>
+        <div className="login-brand-inner">
+          <div className="login-logo-chip">
+            <Image src="/images/ogera-login-logo.png" alt={t.logoAlt} width={108} height={82} priority />
           </div>
 
-          <div className="brand-body">
-            <h1 className="brand-headline">
-              Your salesperson&rsquo;s<br />notebook, upgraded.
+          <div className="login-headline-block">
+            <h1 className="login-headline">
+              {t.headline[0]}
+              <br />
+              {t.headline[1]}
             </h1>
-            <p className="brand-sub">
-              Built for field sales teams across Kerala and South India. Manage every lead, follow-up, and deal — from your phone.
-            </p>
-
-            <ul className="brand-features">
-              <li>
-                <span className="feat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 20 20" fill="none"><path d="M4 10.5h4.5v5H4v-5ZM8.5 4.5H13v11H8.5v-11ZM13 7.5h3v8h-3v-8Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
-                </span>
-                <div>
-                  <strong>3 contact types in one place</strong>
-                  <span>Consumers, partners, and dealers — each with their own journey.</span>
-                </div>
-              </li>
-              <li>
-                <span className="feat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.6"/><path d="M10 6.5v4l2.5 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-                </span>
-                <div>
-                  <strong>Auto follow-up reminders</strong>
-                  <span>No lead falls through the cracks.</span>
-                </div>
-              </li>
-            </ul>
+            <p lang="ml" className="login-malayalam">ഒരു ലീഡും ഇനി മിസ്സാകില്ല.</p>
+            <p className="login-lede">{t.lede}</p>
           </div>
 
-          {/* decorative CRM stats */}
-          <div className="brand-stats" aria-hidden="true">
-            <div className="stat-card">
-              <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM4 14a6 6 0 0 1 12 0v2H4v-2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
-              <div>
-                <span className="stat-val">124</span>
-                <span className="stat-lbl">Active Leads</span>
-              </div>
-            </div>
-            <div className="stat-card">
-              <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M10 6.5v4l2.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-              <div>
-                <span className="stat-val">38</span>
-                <span className="stat-lbl">Follow-ups</span>
-              </div>
-            </div>
-            <div className="stat-card">
-              <svg viewBox="0 0 20 20" fill="none"><path d="M3 10h14M3 6h14M3 14h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-              <div>
-                <span className="stat-val">₹2.4L</span>
-                <span className="stat-lbl">This Month</span>
-              </div>
-            </div>
-          </div>
         </div>
-      </aside>
 
-      <section className="login-side">
-        <div className="login-inner">
-          <div className="login-heading">
-            <p className="eyebrow">Ogera CRM</p>
-            <h2 id="login-title">Sign in to your workspace</h2>
-            <p>Use your work email and password to continue.</p>
+        <div className="login-brand-bottom">
+          <div className="login-pills">
+            {t.pills.map((label) => (
+              <div className="login-pill" key={label}>
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg>
+                {label}
+              </div>
+            ))}
+          </div>
+
+          <p className="login-copyright">{t.copyright}</p>
+        </div>
+      </section>
+
+      <section className="login-side" ref={sideRef}>
+        <div className="login-card">
+          <div className="login-topbar">
+            <div className="login-brandname">Ogera CRM</div>
+            <div className="login-lang" role="group" aria-label="Language">
+              <button type="button" onClick={() => setLanguage("en")} aria-pressed={language === "en"}>English</button>
+              <button type="button" lang="ml" onClick={() => setLanguage("ml")} aria-pressed={language === "ml"}>മലയാളം</button>
+            </div>
           </div>
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
-            <div className="field-line">
-              <label htmlFor="email">Email address</label>
-              <div className="field-row">
-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.75A1.75 1.75 0 0 1 5.75 4h12.5A1.75 1.75 0 0 1 20 5.75v12.5A1.75 1.75 0 0 1 18.25 20H5.75A1.75 1.75 0 0 1 4 18.25V5.75Z" /><path d="m4.5 6 7.5 6 7.5-6" /></svg>
-                <input id="email" name="email" type="email" autoComplete="email" placeholder="you@company.com" value={email} onChange={(event) => { setEmail(event.target.value); clearErrors(); }} aria-describedby={message ? "login-message" : undefined} />
-              </div>
+            <h2 id="login-title" className="login-form-title">{t.title}</h2>
+
+            <div className="login-field">
+              <label htmlFor="email">{t.emailLabel}</label>
+              <input
+                id="email"
+                name="email"
+                className="login-input"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="you@shop.com"
+                value={email}
+                onChange={(event) => { setEmail(event.target.value); clearErrors(); }}
+                aria-describedby={message ? "login-message" : undefined}
+              />
             </div>
 
-            <div className="field-line">
-              <label htmlFor="password">Password</label>
-              <div className="field-row">
-                <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
-                <input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter your password" value={password} onChange={(event) => { setPassword(event.target.value); clearErrors(); }} aria-describedby={message ? "login-message" : undefined} />
-                <button className="password-toggle" type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? "Hide password" : "Show password"}>
-                  <svg aria-hidden="true" viewBox="0 0 24 24">{showPassword ? <><path d="M2.5 12s3.3-5.5 9.5-5.5S21.5 12 21.5 12 18.2 17.5 12 17.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.75" /></> : <><path d="M3 3 21 21" /><path d="M10.6 6.6A10.4 10.4 0 0 1 12 6.5c6.2 0 9.5 5.5 9.5 5.5a18.5 18.5 0 0 1-3 3.55M6.25 6.25A18.6 18.6 0 0 0 2.5 12S5.8 17.5 12 17.5c1.26 0 2.37-.23 3.34-.6" /><path d="M9.75 9.75a3.1 3.1 0 0 0 4.5 4.5" /></>}</svg>
+            <div className="login-field">
+              <label htmlFor="password">{t.passwordLabel}</label>
+              <div className="login-input-row">
+                <input
+                  id="password"
+                  name="password"
+                  className="login-input has-toggle"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder={t.passwordPlaceholder}
+                  value={password}
+                  onChange={(event) => { setPassword(event.target.value); clearErrors(); }}
+                  aria-describedby={message ? "login-message" : undefined}
+                />
+                <button className="login-eye" type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? t.hidePassword : t.showPassword}>
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    {showPassword ? (
+                      <>
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </>
+                    ) : (
+                      <>
+                        <path d="M3 3 21 21" />
+                        <path d="M10.6 6.6A10.4 10.4 0 0 1 12 6.5c6.2 0 9.5 5.5 9.5 5.5a18.5 18.5 0 0 1-3 3.55M6.25 6.25A18.6 18.6 0 0 0 2.5 12S5.8 17.5 12 17.5c1.26 0 2.37-.23 3.34-.6" />
+                        <path d="M9.75 9.75a3.1 3.1 0 0 0 4.5 4.5" />
+                      </>
+                    )}
+                  </svg>
                 </button>
               </div>
             </div>
 
             {!isOnline && (
-              <p className="form-message form-message-warn" role="status">
-                You&rsquo;re offline. Reconnect to sign in.
+              <p className="login-message login-message-warn" role="status">
+                {t.offline}
               </p>
             )}
 
-            {message && <p id="login-message" className="form-message" role="alert">{message}</p>}
+            {message && <p id="login-message" className="login-message" role="alert">{message}</p>}
 
-            <button className="login-button" type="submit" disabled={isSubmitting || !isOnline} aria-busy={state.status === "loading"}>
-              {state.status === "loading" ? "Signing in..." : state.status === "success" ? "Redirecting..." : apiError?.retryable ? "Try again" : "Sign in"}
-              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h13M14 7l5 5-5 5" /></svg>
+            <button className="login-submit" type="submit" disabled={isSubmitting || !isOnline} aria-busy={state.status === "loading"}>
+              {state.status === "loading" ? t.signingIn : state.status === "success" ? t.redirecting : apiError?.retryable ? t.tryAgain : t.login}
             </button>
-          </form>
 
-          <p className="login-footer-note">Ogera CRM &mdash; built for Kerala&rsquo;s field sales teams.</p>
+            <div className="login-links">
+              <p>{t.forgotPrefix} <a href="#">{t.resetLink}</a></p>
+              <p>{t.helpPrefix} <a href="#">{t.whatsappLink}</a></p>
+            </div>
+          </form>
         </div>
       </section>
     </main>
