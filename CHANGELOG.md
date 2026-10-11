@@ -1,5 +1,54 @@
 # Changelog
 
+## 2026-10-12 — `c944450` (branch `phase1-redesign`)
+
+**Redesign the Contacts page to the design and add Sort by**
+
+Author: sajad yoosuf
+Previous commit on this side: `a0574d5` Redesign login page to match the Login design (2026-10-12)
+
+### Summary
+Contacts page and sidebar follow the Contacts design: sticky header, type tabs with counts, search, Sort by and Filter, the monitoring table, and numbered pagination. Status is only Verified or Unverified. Notes: `docs/changes/2026-10-12-contacts-redesign.md`.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/features/contacts/ContactsView.tsx` | Design layout: header, toolbar, table, cards, pagination |
+| Added | `src/features/contacts/components/ContactRowMenu.tsx` | Row "…" menu with Edit and Delete, fixed-positioned |
+| Added | `src/features/contacts/components/ContactsSortMenu.tsx` | Sort by menu: newest, oldest, name A–Z, name Z–A |
+| Modified | `src/features/contacts/components/VerifiedBadge.tsx` | Verified / Unverified pill in the design colours |
+| Modified | `src/features/contacts/components/ContactsMoreMenu.tsx`, `ContactsFilterMenu.tsx` | Import / Export and Filter buttons at design size |
+| Modified | `src/features/contacts/hooks/useContactsList.ts` | Sort state; per-type totals for the tab counts |
+| Modified | `src/features/contacts/api/contacts.ts` | `sort` parameter; `ContactSort` type |
+| Modified | `src/features/contacts/utils.ts` | Page size 10; "All Contacts" tab label |
+| Modified | `src/app/contacts/layout.tsx` | DM Sans for the Contacts route |
+| Modified | `src/components/DashboardSidebar.tsx` | Account block, design icons, Settings and Log out at the bottom |
+
+### Notes
+Needs the backend `sort` parameter (same commit). Assignee picker no longer lists admins or managers (rule 1). Not browser-checked yet.
+
+## 2026-10-12 — `a0574d5` (branch `phase1-redesign`)
+
+**Redesign login page to match the Login design**
+
+Author: sajad yoosuf
+Previous commit on this side: `ea8fee6` Redesign the contacts page and move it into a contacts feature (2026-10-10)
+
+### Summary
+Login page rebuilt to the Login design, with the Ogera login logo and DM Sans. Notes: none written for this commit.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/app/page.tsx` | Login layout, Malayalam mode, fields and states |
+| Modified | `src/app/globals.css` | Login design tokens and styles |
+| Modified | `src/app/layout.tsx` | Font setup |
+| Added | `public/images/ogera-login-logo.png` | Login logo |
+| Modified | `e2e/login.spec.ts` | Selectors updated for the new page |
+
+### Notes
+Not browser-checked against the design yet.
+
 ## 2026-10-09 — `a207130` (branch `phase1`)
 
 **Add Tasks screen (day, week, month) and require an outcome when a follow-up is done**
