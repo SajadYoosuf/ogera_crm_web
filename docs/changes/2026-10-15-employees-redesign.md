@@ -16,6 +16,6 @@ The Employees page did not match the Employees design: it used a hero banner, st
 
 ## Verification
 - `tsc --noEmit` and `eslint` on the changed files: clean.
-- `playwright test e2e/employees.spec.ts` (desktop and mobile): 66 of 66 pass.
+- `playwright test e2e/employees.spec.ts` (desktop and mobile): 64 of 64 pass (32 tests on each project).
 - Desktop screenshot of the toolbar checked against the design's sizes (Role 80px, 38px high).
 - Not run: the full Vitest suite has 47 failures in `performance-page.test.tsx` and `staff-live-map.test.tsx`, which this change does not touch.
