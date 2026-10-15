@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/auth";
 import {
   assignableRoles, canManageEmployees, canModifyEmployee, createEmployee, deleteEmployee, getEmployee,
-  listAllEmployees, logEvent, updateEmployee, EMPLOYEE_ROLES, isPrivilegedRole, type Employee, type EmployeeRole, type EmployeeUpdate,
+  listAllEmployees, logEvent, updateEmployee, EMPLOYEE_ROLES, type Employee, type EmployeeRole, type EmployeeUpdate,
 } from "@/lib/api/employees";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { dmSans } from "@/lib/auth-fonts";
 import FilterSelect, { type FilterOption } from "@/components/FilterSelect";
 
 type LoadState =
@@ -16,24 +17,21 @@ type LoadState =
   | { status: "ready"; employees: Employee[]; syncedAt: Date };
 
 type Viewer = { id: number; role: string };
-type FormValues = { name: string; email: string; phone: string; role: EmployeeRole; is_field_staff: boolean; is_active: boolean; password: string };
+type FormValues = { name: string; email: string; phone: string; role: EmployeeRole; is_active: boolean; password: string };
 
-const AVATAR_GRADIENTS = [
-  "from-blue-500 to-blue-700", "from-cyan-500 to-blue-600", "from-violet-500 to-indigo-600",
-  "from-emerald-500 to-teal-600", "from-amber-500 to-orange-600", "from-rose-500 to-pink-600",
-];
+const AVATAR_TONES = ["bg-[#E7F5EE] text-[#0E4D3A]", "bg-[#E0F2FE] text-[#0B6AA8]", "bg-[#DCFCE7] text-[#167A44]", "bg-[#FEF3C7] text-[#9A6200]", "bg-[#FCE7F3] text-[#A8326E]"];
 const ROLE_STYLES: Record<string, string> = {
-  admin: "bg-violet-50 text-violet-700 border-violet-200",
-  manager: "bg-blue-50 text-blue-700 border-blue-200",
-  team_lead: "bg-cyan-50 text-cyan-700 border-cyan-200",
-  sales_executive: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  tele_caller: "bg-amber-50 text-amber-700 border-amber-200",
-  field_executive: "bg-orange-50 text-orange-700 border-orange-200",
-  support: "bg-rose-50 text-rose-700 border-rose-200",
+  admin: "bg-[#1A1C21] text-white",
+  manager: "bg-[#F1EDFF] text-[#5B3FD6]",
+  team_lead: "bg-[#E0F2FE] text-[#0B6AA8]",
+  sales_executive: "bg-[#EEF4FF] text-[#1D5BBF]",
+  tele_caller: "bg-[#FEF3C7] text-[#9A6200]",
+  field_executive: "bg-[#FFF7E6] text-[#9A5B00]",
+  support: "bg-[#FCE7F3] text-[#A8326E]",
 };
+const DEFAULT_ROLE_STYLE = "bg-[#F0F0F3] text-[#3A3E4A]";
 
-/** Roles that never work on-site, so the "Field staff" option is not offered for them. */
-const NON_FIELD_ROLES: readonly string[] = ["admin", "manager", "tele_caller", "support"];
+const PAGE_SIZE = 10;
 
 /** Cryptographically random password: 12 chars, always has upper, lower and a digit. Skips look-alike characters (0/O, 1/l/I). */
 function generatePassword(length = 12): string {
@@ -67,9 +65,35 @@ const formatPhone = (phone: string | null) => {
 const roleLabel = (role: string) => role.replaceAll("_", " ");
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
 const formatDate = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
+/** Table format from the design: "09 Oct 2026, 11:15 am". */
+const formatJoined = (value: string | null | undefined) => value
+  ? new Date(value).toLocaleString(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })
+  : "—";
 
-const primaryButton = "inline-flex items-center justify-center gap-2 min-h-11 px-5 rounded-xl bg-gradient-to-br from-[#1d7ac4] to-[#1462a0] text-white text-sm font-bold shadow-md shadow-blue-600/25 hover:opacity-90 active:scale-[.98] disabled:opacity-60 transition-all";
-const secondaryButton = "inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors";
+const ACCENT_BUTTON = "bg-[#0E4D3A] text-white transition-colors hover:bg-[#0B3E2F]";
+const primaryButton = `inline-flex h-10 items-center justify-center gap-2 rounded-[8px] px-4 text-sm font-semibold disabled:opacity-60 ${ACCENT_BUTTON}`;
+const secondaryButton = "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#E1E1E6] bg-white px-4 text-sm font-semibold text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] disabled:opacity-50";
+
+/** Lets a row's buttons act without also opening the row. */
+const stop = (event: React.MouseEvent) => event.stopPropagation();
+
+/** CSV cell: quoted, with spreadsheet formulas neutralised. */
+const csvCell = (value: string) => `"${(/^[=+\-@]/.test(value) ? `'${value}` : value).replaceAll('"', '""')}"`;
+
+function downloadCsv(rows: Employee[]) {
+  const header = ["Name", "Email", "Phone", "Role", "Status", "Joined"];
+  const body = rows.map((employee) => [
+    employee.name, employee.email, formatPhone(employee.phone) ?? "", roleLabel(employee.role),
+    employee.is_active ? "Active" : "Inactive", formatJoined(employee.created_at),
+  ]);
+  const csv = [header, ...body].map((line) => line.map(csvCell).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `employees-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 function Icon({ children, className = "w-4 h-4" }: { children: React.ReactNode; className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>;
@@ -78,12 +102,11 @@ function Icon({ children, className = "w-4 h-4" }: { children: React.ReactNode; 
 const icons = {
   users: <><circle cx="9" cy="8" r="3.25" /><path d="M3 19v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1" /><path d="M16 4.6a3.25 3.25 0 0 1 0 6.3" /><path d="M18 14.3a4 4 0 0 1 3 3.7v1" /></>,
   active: <><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.5 2.5 4.5-5" /></>,
-  field: <><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" /><circle cx="12" cy="10" r="2.5" /></>,
-  shield: <><path d="M12 3 4.5 6v5.5c0 4.5 3.2 8.2 7.5 9.5 4.3-1.3 7.5-5 7.5-9.5V6L12 3Z" /><path d="m9 12 2 2 4-4" /></>,
   phone: <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z" />,
   mail: <><rect width="20" height="14" x="2" y="5" rx="2" /><path d="m2 7 10 6.5L22 7" /></>,
   search: <><circle cx="10.75" cy="10.75" r="6.25" /><path d="m16 16 4.25 4.25" /></>,
   refresh: <><path d="M20 11a8 8 0 0 0-14.9-3M4 5v3.5h3.5" /><path d="M4 13a8 8 0 0 0 14.9 3M20 19v-3.5h-3.5" /></>,
+  download: <><path d="M12 15V3M7 10l5 5 5-5M4 21h16" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
   close: <path d="M18 6 6 18M6 6l12 12" />,
   edit: <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></>,
@@ -91,47 +114,67 @@ const icons = {
   wifiOff: <><path d="M2 8.8a15 15 0 0 1 4.2-2.6M22 8.8A15 15 0 0 0 10 5.1" /><path d="M5 12.9a10 10 0 0 1 3.2-2M19 12.9a10 10 0 0 0-3.4-2.1" /><path d="M8.5 16.4a5 5 0 0 1 7 0M12 20h.01M3 3l18 18" /></>,
   alert: <><circle cx="12" cy="12" r="9" /><path d="M12 8v4.5M12 16h.01" /></>,
   lock: <><rect width="16" height="11" x="4" y="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></>,
+  chevronLeft: <path d="M19 12H5M11 6l-6 6 6 6" />,
+  chevronRight: <path d="M5 12h14M13 6l6 6-6 6" />,
 };
 
-function Avatar({ employee, size = "md" }: { employee: Employee; size?: "md" | "lg" }) {
-  const dimension = size === "lg" ? "w-16 h-16 text-xl" : "w-12 h-12 text-sm";
+function Avatar({ employee, size = "md" }: { employee: Employee; size?: "sm" | "md" | "lg" }) {
+  const dimension = { sm: "h-8 w-8 text-[13px]", md: "h-10 w-10 text-sm", lg: "h-14 w-14 text-xl" }[size];
   return (
-    <span className={`${dimension} shrink-0 rounded-2xl bg-gradient-to-br ${AVATAR_GRADIENTS[employee.id % AVATAR_GRADIENTS.length]} text-white font-extrabold flex items-center justify-center shadow-md shadow-slate-900/10 ring-2 ring-white ${employee.is_active ? "" : "grayscale opacity-70"}`}>
+    <span aria-hidden="true" className={`${dimension} flex shrink-0 items-center justify-center rounded-full font-bold ${AVATAR_TONES[employee.id % AVATAR_TONES.length]} ${employee.is_active ? "" : "opacity-60 grayscale"}`}>
       {initials(employee.name)}
     </span>
   );
 }
 
 function RoleBadge({ role }: { role: string }) {
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wider ${ROLE_STYLES[role] ?? "bg-slate-100 text-slate-600 border-slate-200"}`}>{roleLabel(role)}</span>;
+  return <span className={`inline-flex items-center whitespace-nowrap rounded-[6px] px-2.5 py-[3px] text-xs font-semibold capitalize ${ROLE_STYLES[role] ?? DEFAULT_ROLE_STYLE}`}>{roleLabel(role)}</span>;
 }
 
-function StatusDot({ active }: { active: boolean }) {
-  return <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${active ? "text-emerald-600" : "text-rose-500"}`}><span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-emerald-500" : "bg-rose-500"}`} />{active ? "Active" : "Inactive"}</span>;
+function StatusPill({ active }: { active: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-[3px] text-xs font-semibold ${active ? "bg-[#EAF8EF] text-[#17703F]" : "bg-[#F0F0F3] text-[#5F6473]"}`}>
+      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${active ? "bg-[#2DB565]" : "bg-[#9AA0AC]"}`} />
+      {active ? "Active" : "Inactive"}
+    </span>
+  );
 }
 
-function StateCard({ tone, icon, title, body, children }: { tone: "rose" | "amber" | "blue"; icon: React.ReactNode; title: string; body: string; children?: React.ReactNode }) {
-  const toneClass = { rose: "bg-rose-50 text-rose-600", amber: "bg-amber-50 text-amber-600", blue: "bg-blue-50 text-blue-600" }[tone];
+/** Full-width state inside the list: errors, empty results. */
+function Notice({ tone, icon, title, body, children }: { tone: "rose" | "amber" | "green"; icon: React.ReactNode; title: string; body: string; children?: React.ReactNode }) {
+  const toneClass = { rose: "bg-rose-50 text-rose-500", amber: "bg-amber-50 text-amber-600", green: "bg-[#E7F5EE] text-[#0E4D3A]" }[tone];
+  return (
+    <div role="status" className="flex flex-col items-center px-6 py-14 text-center">
+      <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${toneClass}`}><Icon className="w-6 h-6">{icon}</Icon></span>
+      <h2 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A1C21]">{title}</h2>
+      <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-[#6B7080]">{body}</p>
+      {children && <div className="mt-5 flex flex-wrap justify-center gap-2.5">{children}</div>}
+    </div>
+  );
+}
+
+/** Whole-page card, used only for the restricted view. */
+function StateCard({ tone, icon, title, body }: { tone: "amber"; icon: React.ReactNode; title: string; body: string }) {
+  const toneClass = { amber: "bg-amber-50 text-amber-600" }[tone];
   return (
     <div role="status" className="bg-white rounded-2xl border border-gray-200 shadow-sm py-16 px-6 flex flex-col items-center text-center">
       <span className={`w-14 h-14 rounded-2xl flex items-center justify-center ${toneClass}`}><Icon className="w-7 h-7">{icon}</Icon></span>
       <h2 className="mt-5 text-lg font-extrabold text-[#0a192f] tracking-tight">{title}</h2>
       <p className="mt-2 max-w-sm text-sm text-gray-500 leading-relaxed">{body}</p>
-      {children && <div className="mt-6 flex flex-wrap justify-center gap-3">{children}</div>}
     </div>
   );
 }
 
-function SkeletonGrid() {
+function SkeletonRows() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" aria-busy="true" aria-label="Loading employees">
-      {Array.from({ length: 6 }, (_, index) => (
-        <div key={index} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 animate-pulse">
-          <div className="flex items-center gap-4">
-            <span className="w-12 h-12 rounded-2xl bg-gray-200" />
-            <div className="flex-1 space-y-2.5"><div className="h-3.5 w-2/3 rounded bg-gray-200" /><div className="h-3 w-1/3 rounded bg-gray-100" /></div>
-          </div>
-          <div className="mt-5 space-y-2"><div className="h-3 w-3/4 rounded bg-gray-100" /><div className="h-3 w-1/2 rounded bg-gray-100" /></div>
+    <div aria-busy="true" aria-label="Loading employees" className="animate-pulse divide-y divide-[#EFEFF2]">
+      {Array.from({ length: PAGE_SIZE }, (_, row) => (
+        <div key={row} className="flex items-center gap-4 px-4 py-4">
+          <span className="h-8 w-8 shrink-0 rounded-full bg-[#ECECF0]" />
+          <span className="h-3.5 w-32 rounded bg-[#ECECF0]" />
+          <span className="hidden h-3.5 w-40 rounded bg-[#F3F3F5] md:block" />
+          <span className="hidden h-3.5 w-20 rounded bg-[#F3F3F5] lg:block" />
+          <span className="ml-auto h-5 w-20 rounded-full bg-[#F3F3F5]" />
         </div>
       ))}
     </div>
@@ -150,7 +193,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
   }, [viewer.role, employee]);
   const [values, setValues] = useState<FormValues>({
     name: employee?.name ?? "", email: employee?.email ?? "", phone: toIndianLocal(employee?.phone),
-    role: (employee?.role as EmployeeRole) ?? "sales_executive", is_field_staff: employee?.is_field_staff ?? false,
+    role: (employee?.role as EmployeeRole) ?? "sales_executive",
     is_active: employee?.is_active ?? true, password: "",
   });
   const [error, setError] = useState("");
@@ -159,9 +202,6 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
   const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
   const set = <K extends keyof FormValues>(key: K, value: FormValues[K]) => setValues((current) => ({ ...current, [key]: value }));
-  const showFieldStaff = !NON_FIELD_ROLES.includes(values.role);
-  // Switching to a role without the option also clears any previously ticked value.
-  const changeRole = (role: EmployeeRole) => setValues((current) => ({ ...current, role, is_field_staff: NON_FIELD_ROLES.includes(role) ? false : current.is_field_staff }));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -182,7 +222,6 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
         if (values.email.trim().toLowerCase() !== employee.email) patch.email = values.email.trim();
         if (values.phone !== toIndianLocal(employee.phone)) patch.phone = values.phone ? `+91${values.phone}` : null;
         if (values.role !== employee.role) patch.role = values.role;
-        if (values.is_field_staff !== employee.is_field_staff) patch.is_field_staff = values.is_field_staff;
         if (values.is_active !== employee.is_active) patch.is_active = values.is_active;
         if (values.password) patch.password = values.password;
         if (Object.keys(patch).length > 0) await updateEmployee(accessToken, employee.id, patch);
@@ -190,7 +229,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
       } else {
         await createEmployee(accessToken, {
           name: values.name.trim(), email: values.email.trim(), role: values.role,
-          is_field_staff: values.is_field_staff, password: values.password,
+          password: values.password,
           ...(values.phone ? { phone: `+91${values.phone}` } : {}),
         });
         onSaved(`${values.name.trim()} was added to the team.`);
@@ -202,7 +241,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto sm:grid sm:place-items-center sm:p-4 sm:bg-slate-900/50 sm:backdrop-blur-xs">
+    <div className="fixed inset-0 z-[1100] bg-white overflow-y-auto sm:grid sm:place-items-center sm:p-4 sm:bg-[rgba(17,18,20,0.45)] sm:backdrop-blur-[5px]">
       <section className="flex min-h-dvh w-full flex-col bg-gray-50 sm:min-h-0 sm:max-h-[90vh] sm:max-w-2xl sm:overflow-hidden sm:rounded-2xl sm:shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="employee-form-title">
         <header className="flex items-start justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5 border-b border-gray-100 bg-white shrink-0">
           <div>
@@ -218,7 +257,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
             <label className="crm-field-label">Email<input required type="email" value={values.email} onChange={(e) => set("email", e.target.value)} placeholder="anu@ogera.com" className="crm-input" /></label>
             <div className="crm-field-label">
               <label htmlFor="employee-phone">Phone</label>
-              <div className={`flex items-center rounded-lg border bg-white shadow-xs transition-colors focus-within:ring-2 ${phoneTouched && values.phone && !INDIAN_MOBILE.test(values.phone) ? "border-rose-400 focus-within:border-rose-500 focus-within:ring-rose-500/15" : "border-gray-200 hover:border-gray-300 focus-within:border-blue-600 focus-within:ring-blue-600/15"}`}>
+              <div className={`flex items-center rounded-lg border bg-white shadow-xs transition-colors focus-within:ring-2 ${phoneTouched && values.phone && !INDIAN_MOBILE.test(values.phone) ? "border-rose-400 focus-within:border-rose-500 focus-within:ring-rose-500/15" : "border-gray-200 hover:border-gray-300 focus-within:border-[#0E4D3A] focus-within:ring-[#0E4D3A]/15"}`}>
                 <span className="flex min-h-11 select-none items-center gap-1.5 rounded-l-lg border-r border-gray-200 bg-gray-50 px-3 text-sm font-bold text-gray-700">
                   <span aria-hidden="true">🇮🇳</span> +91
                 </span>
@@ -240,14 +279,14 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
               )}
             </div>
             <label className="crm-field-label">Role
-              <select value={values.role} disabled={isSelf} onChange={(e) => changeRole(e.target.value as EmployeeRole)} className="crm-select capitalize">
+              <select value={values.role} disabled={isSelf} onChange={(e) => set("role", e.target.value as EmployeeRole)} className="crm-select capitalize">
                 {roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
               </select>
               {isSelf && <span className="text-[11px] font-normal text-gray-400">You can&apos;t change your own role.</span>}
             </label>
             <div className="crm-field-label">
               <label htmlFor="employee-password">{isEdit ? "New password" : "Password"}</label>
-              <div className="flex items-center rounded-lg border border-gray-200 bg-white shadow-xs transition-colors hover:border-gray-300 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/15">
+              <div className="flex items-center rounded-lg border border-gray-200 bg-white shadow-xs transition-colors hover:border-gray-300 focus-within:border-[#0E4D3A] focus-within:ring-2 focus-within:ring-[#0E4D3A]/15">
                 <input
                   id="employee-password"
                   required={!isEdit}
@@ -275,14 +314,10 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
               </div>
             </div>
 
-            {showFieldStaff && <label className="sm:col-span-2 flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm">
-              <span><span className="block font-semibold text-gray-800">Field staff</span><span className="block text-xs text-gray-500">Works on-site — visits, measurements, installs.</span></span>
-              <input type="checkbox" checked={values.is_field_staff} onChange={(e) => set("is_field_staff", e.target.checked)} className="w-5 h-5 accent-blue-600" />
-            </label>}
             {isEdit && (
               <label className="sm:col-span-2 flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm">
                 <span><span className="block font-semibold text-gray-800">Account active</span><span className="block text-xs text-gray-500">{isSelf ? "You can't deactivate your own account." : "Inactive employees can't sign in."}</span></span>
-                <input type="checkbox" checked={values.is_active} disabled={isSelf} onChange={(e) => set("is_active", e.target.checked)} className="w-5 h-5 accent-blue-600" />
+                <input type="checkbox" checked={values.is_active} disabled={isSelf} onChange={(e) => set("is_active", e.target.checked)} className="w-5 h-5 accent-[#0E4D3A]" />
               </label>
             )}
 
@@ -304,8 +339,9 @@ export default function EmployeesPage() {
   const isOnline = useOnlineStatus();
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  // "" means no filter chosen; the dropdowns then show only their label.
+  const [roleFilter, setRoleFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Employee | null>(null);
   const [editor, setEditor] = useState<{ employee?: Employee } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
@@ -372,34 +408,29 @@ export default function EmployeesPage() {
   }, [selectedId]);
 
   const employees = useMemo(() => state.status === "ready" ? state.employees : [], [state]);
-  // Every role is always offered; counts show how many employees hold each one.
-  const roleOptions = useMemo<FilterOption[]>(() => [
-    { value: "all", label: "All roles", count: employees.length },
-    ...EMPLOYEE_ROLES.map((role) => ({ value: role, label: roleLabel(role), count: employees.filter((employee) => employee.role === role).length })),
-  ], [employees]);
-  const statusOptions = useMemo<FilterOption[]>(() => [
-    { value: "all", label: "All statuses", count: employees.length },
-    { value: "active", label: "Active", count: employees.filter((employee) => employee.is_active).length, dot: "bg-emerald-500" },
-    { value: "inactive", label: "Inactive", count: employees.filter((employee) => !employee.is_active).length, dot: "bg-rose-500" },
-  ], [employees]);
+  // Only the roles that exist on this page, in the API's order.
+  // Every role the backend defines, so any employee's role can be filtered.
+  const roleOptions = useMemo<FilterOption[]>(() => EMPLOYEE_ROLES.map((role) => ({ value: role, label: roleLabel(role) })), []);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return employees.filter((employee) =>
-      (roleFilter === "all" || employee.role === roleFilter) &&
-      (statusFilter === "all" || (statusFilter === "active") === employee.is_active) &&
+      (!roleFilter || employee.role === roleFilter) &&
       (!term || [employee.name, employee.email, employee.phone ?? "", roleLabel(employee.role)].some((field) => field.toLowerCase().includes(term))));
-  }, [employees, search, roleFilter, statusFilter]);
+  }, [employees, search, roleFilter]);
 
-  const totals = useMemo(() => ({
-    team: employees.length,
-    active: employees.filter((employee) => employee.is_active).length,
-    field: employees.filter((employee) => employee.is_field_staff).length,
-    leaders: employees.filter((employee) => isPrivilegedRole(employee.role)).length,
-  }), [employees]);
   const isReady = state.status === "ready";
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const rangeStart = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(currentPage * PAGE_SIZE, filtered.length);
 
   function handleSaved(message: string) {
     setEditor(null); setSelected(null); setToast(message); void load("employee saved");
+  }
+
+  function clearFilters() {
+    setSearch(""); setRoleFilter(""); setPage(1);
   }
 
   async function confirmDelete() {
@@ -426,154 +457,214 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div className="space-y-6 p-5 pt-20 lg:p-6 lg:pt-6">
-      {/* Hero */}
-      <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#071428] via-[#0c2148] to-[#1a4a8a] text-white shadow-xl shadow-blue-950/10">
-        <div className="pointer-events-none absolute -top-24 -left-16 w-80 h-80 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -right-20 w-96 h-96 rounded-full bg-[#1d7ac4]/30 blur-3xl" />
-        <div className="relative p-5 sm:p-7 space-y-6">
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
-            <div className="max-w-xl">
-              <p className="inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-sky-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-300 animate-pulse" /> Team directory
-              </p>
-              <h1 className="mt-2 text-[26px] sm:text-[34px] font-extrabold tracking-tight leading-tight">Employees</h1>
-              <p className="mt-2 text-sm sm:text-[15px] text-white/65 leading-relaxed">Manage who can sign in to Ogera CRM — add team members, set their roles and keep access up to date.</p>
-            </div>
-            <div className="grid grid-cols-2 sm:flex gap-3 shrink-0">
-              <button type="button" onClick={() => void load("Refresh button")} disabled={state.status === "loading"} className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl border border-white/20 bg-white/10 backdrop-blur text-sm font-semibold text-white hover:bg-white/20 active:scale-[.98] disabled:opacity-60 transition-all">
-                <Icon className={`w-4 h-4 ${state.status === "loading" ? "animate-spin" : ""}`}>{icons.refresh}</Icon> Refresh
-              </button>
-              <button type="button" onClick={() => setEditor({})} className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl bg-white text-[#0a192f] text-sm font-bold shadow-lg shadow-black/20 hover:bg-sky-50 active:scale-[.98] transition-all">
-                <Icon>{icons.plus}</Icon> Add employee
-              </button>
-            </div>
-          </div>
-
-          <dl className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              { label: "Team members", value: totals.team, icon: icons.users },
-              { label: "Active accounts", value: totals.active, icon: icons.active },
-              { label: "Field staff", value: totals.field, icon: icons.field },
-              { label: "Admins & managers", value: totals.leaders, icon: icons.shield },
-            ].map((tile) => (
-              <div key={tile.label} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.07] backdrop-blur px-4 py-3.5">
-                <span className="w-10 h-10 shrink-0 rounded-lg bg-white/10 text-sky-300 flex items-center justify-center"><Icon className="w-5 h-5">{tile.icon}</Icon></span>
-                <div className="min-w-0">
-                  <dd className="text-2xl font-extrabold leading-none tracking-tight">{isReady ? tile.value.toLocaleString() : "—"}</dd>
-                  <dt className="mt-1.5 text-[11px] font-semibold text-white/50 truncate">{tile.label}</dt>
-                </div>
-              </div>
-            ))}
-          </dl>
+    <div className={`${dmSans.className} flex min-h-full flex-col`}>
+      <header className="sticky top-0 z-20 flex min-h-[72px] flex-wrap items-center justify-between gap-4 border-b border-[#E7E7EA] bg-white py-3 pl-16 pr-4 sm:px-7 lg:h-[72px] lg:py-0 lg:pl-7">
+        <h1 className="text-[26px] font-bold tracking-[-0.01em] text-[#1A1C21]">Employees</h1>
+        <div className="flex items-center gap-2.5">
+          <button type="button" onClick={() => downloadCsv(filtered)} disabled={!isReady || filtered.length === 0} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#DEE1E5] bg-white px-3.5 text-sm font-medium text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] disabled:opacity-50">
+            <Icon className="h-4 w-4">{icons.download}</Icon>
+            Export
+          </button>
+          <button type="button" onClick={() => setEditor({})} className={`inline-flex h-10 items-center gap-2 rounded-[8px] px-4 text-sm font-semibold ${ACCENT_BUTTON}`}>
+            <Icon className="h-4 w-4" >{icons.plus}</Icon>
+            Add Employee
+          </button>
         </div>
       </header>
 
-      {toast && <p role="status" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-emerald-200 bg-emerald-50 text-sm font-semibold text-emerald-800"><Icon>{icons.active}</Icon> {toast}</p>}
+      <div className="min-w-0 space-y-4 p-4 sm:px-7 sm:py-6">
+        {toast && <p role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><Icon>{icons.active}</Icon> {toast}</p>}
 
-      {/* Toolbar */}
-      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-        <div className="flex items-center h-11 w-full xl:max-w-sm rounded-xl border border-gray-200 bg-gray-50 focus-within:border-blue-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-600/15 transition-colors">
-          <label className="sr-only" htmlFor="employee-search">Search employees</label>
-          <Icon className="w-4 h-4 ml-3.5 mr-2 shrink-0 text-gray-400">{icons.search}</Icon>
-          <input id="employee-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, email, phone or role" className="flex-1 min-w-0 h-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400" />
-          {search && <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="p-2 mr-1 text-gray-400 hover:text-gray-700"><Icon>{icons.close}</Icon></button>}
-        </div>
+        {!isOnline && isReady && (
+          <p role="status" className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+            <Icon>{icons.wifiOff}</Icon> You&apos;re offline — showing the last synced data.
+          </p>
+        )}
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <FilterSelect label="Status" value={statusFilter} onChange={(value) => setStatusFilter(value as "all" | "active" | "inactive")} options={statusOptions} icon={icons.active} />
-          <FilterSelect label="Role" value={roleFilter} onChange={setRoleFilter} options={roleOptions} icon={icons.shield} />
-        </div>
-      </section>
+        <section aria-label="Employee list" className="flex flex-col overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-white">
+          {/* Toolbar: search, the three filters and refresh */}
+          <div className="flex flex-col gap-3 border-b border-[#EFEFF2] p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative flex w-full items-center lg:w-auto">
+              <label className="sr-only" htmlFor="employee-search">Search employees</label>
+              <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8F9C]">{icons.search}</Icon>
+              <input
+                id="employee-search"
+                value={search}
+                onChange={(event) => { setSearch(event.target.value); setPage(1); }}
+                placeholder="Search by name or email…"
+                className={`h-[38px] w-full rounded-[8px] border border-[#E1E1E6] bg-white pl-9 text-sm text-[#1A1C21] outline-none focus:outline-2 focus:outline-[#7EE2A8] lg:w-[260px] ${search ? "pr-9" : "pr-3"}`}
+              />
+              {search && (
+                <button type="button" onClick={() => { setSearch(""); setPage(1); }} aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#8A8F9C] hover:text-[#1A1C21]">
+                  <Icon className="h-3.5 w-3.5">{icons.close}</Icon>
+                </button>
+              )}
+            </div>
 
-      {!isOnline && isReady && (
-        <p role="status" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
-          <Icon>{icons.wifiOff}</Icon> You&apos;re offline — showing the last synced data.
-        </p>
-      )}
-
-      {/* Content */}
-      {state.status === "loading" ? (
-        <SkeletonGrid />
-      ) : state.status === "error" ? (
-        state.error.kind === "auth" || state.error.kind === "invalid_credentials" ? (
-          <StateCard tone="amber" icon={icons.lock} title="Session expired" body={state.error.message}>
-            <button type="button" onClick={() => router.push("/")} className={primaryButton}>Sign in again</button>
-          </StateCard>
-        ) : state.error.kind === "forbidden" ? (
-          <StateCard tone="amber" icon={icons.lock} title="Access denied" body="Your account isn't allowed to view employees. Ask an admin to update your role." />
-        ) : state.error.kind === "offline" || state.error.kind === "network" ? (
-          <StateCard tone="amber" icon={icons.wifiOff} title={state.error.kind === "offline" ? "You're offline" : "Can't reach the server"} body={`${state.error.message} We'll reload automatically when you're back online.`}>
-            <button type="button" onClick={() => void load("Try again button")} className={primaryButton}>Try again</button>
-          </StateCard>
-        ) : (
-          <StateCard tone="rose" icon={icons.alert} title="Couldn't load employees" body={state.error.message}>
-            <button type="button" onClick={() => void load("Try again button")} className={primaryButton}>Try again</button>
-          </StateCard>
-        )
-      ) : filtered.length === 0 ? (
-        <StateCard tone="blue" icon={icons.users} title={employees.length === 0 ? "No employees yet" : "No matches found"} body={employees.length === 0 ? "Add your first team member to get started." : "Try a different search term or filter."}>
-          {employees.length === 0
-            ? <button type="button" onClick={() => setEditor({})} className={primaryButton}><Icon>{icons.plus}</Icon> Add employee</button>
-            : <button type="button" onClick={() => { setSearch(""); setRoleFilter("all"); setStatusFilter("all"); }} className={secondaryButton}>Clear filters</button>}
-        </StateCard>
-      ) : (
-        <>
-          <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-gray-500">
-            <span className="font-semibold text-gray-700">{filtered.length} {filtered.length === 1 ? "employee" : "employees"}</span>
-            <span>Synced {state.syncedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <FilterSelect fit clearable className="w-auto" label="Role" value={roleFilter} onChange={(value) => { setRoleFilter(value); setPage(1); }} options={roleOptions} />
+              <button type="button" onClick={() => void load("Refresh button")} disabled={state.status === "loading"} aria-label="Refresh employees" title="Refresh" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50">
+                <Icon className={`h-4 w-4 ${state.status === "loading" ? "animate-spin" : ""}`}>{icons.refresh}</Icon>
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map((employee) => {
-              const canEdit = !!viewer && canModifyEmployee(viewer, employee);
-              const canDelete = canEdit && employee.id !== viewer?.id;
-              return (
-                <div key={employee.id} className="group relative bg-white rounded-2xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-lg hover:shadow-blue-900/5 hover:-translate-y-0.5 transition-all">
-                  <button type="button" onClick={() => setSelected(employee)} className="block w-full text-left p-5 rounded-2xl focus-visible:outline-2 focus-visible:outline-blue-600">
-                  <div className="flex items-start gap-4">
-                    <Avatar employee={employee} />
-                    <div className={`min-w-0 flex-1 ${canEdit ? "pr-[4.5rem]" : ""}`}>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-[#0a192f] truncate group-hover:text-blue-700 transition-colors">{employee.name}</h3>
-                        {employee.id === viewer?.id && <span className="shrink-0 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-extrabold uppercase tracking-wider">You</span>}
-                      </div>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <RoleBadge role={employee.role} />
-                        <StatusDot active={employee.is_active} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-4 space-y-1.5 text-xs text-gray-500">
-                    <p className="flex items-center gap-2 truncate"><Icon className="w-3.5 h-3.5 shrink-0 text-gray-400">{icons.mail}</Icon><span className="truncate">{employee.email}</span></p>
-                    <p className="flex items-center gap-2 truncate"><Icon className="w-3.5 h-3.5 shrink-0 text-gray-400">{icons.phone}</Icon><span className="truncate">{formatPhone(employee.phone) ?? "No phone added"}</span></p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-[11px] font-semibold text-gray-400">
-                    <span>Joined {formatDate(employee.created_at)}</span>
-                    {employee.is_field_staff && <span className="inline-flex items-center gap-1 text-orange-600"><Icon className="w-3.5 h-3.5">{icons.field}</Icon> Field staff</span>}
-                  </div>
-                  </button>
-                  {canEdit && (
-                    <div className="absolute top-4 right-4 flex gap-1">
-                      <button type="button" onClick={() => setEditor({ employee })} aria-label={`Edit ${employee.name}`} title="Edit" className="p-2 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                        <Icon>{icons.edit}</Icon>
+
+          {/* Body */}
+          {state.status === "loading" ? (
+            <SkeletonRows />
+          ) : state.status === "error" ? (
+            state.error.kind === "auth" || state.error.kind === "invalid_credentials" ? (
+              <Notice tone="amber" icon={icons.lock} title="Session expired" body={state.error.message}>
+                <button type="button" onClick={() => router.push("/")} className={primaryButton}>Sign in again</button>
+              </Notice>
+            ) : state.error.kind === "forbidden" ? (
+              <Notice tone="amber" icon={icons.lock} title="Access denied" body="Your account isn't allowed to view employees. Ask an admin to update your role." />
+            ) : state.error.kind === "offline" || state.error.kind === "network" ? (
+              <Notice tone="amber" icon={icons.wifiOff} title={state.error.kind === "offline" ? "You're offline" : "Can't reach the server"} body={`${state.error.message} We'll reload automatically when you're back online.`}>
+                <button type="button" onClick={() => void load("Try again button")} className={primaryButton}>Try again</button>
+              </Notice>
+            ) : (
+              <Notice tone="rose" icon={icons.alert} title="Couldn't load employees" body={state.error.message}>
+                <button type="button" onClick={() => void load("Try again button")} className={primaryButton}>Try again</button>
+              </Notice>
+            )
+          ) : filtered.length === 0 ? (
+            <Notice tone="green" icon={icons.users} title={employees.length === 0 ? "No employees yet" : "No matches found"} body={employees.length === 0 ? "Add your first team member to get started." : "Try a different search term or adjust your filters."}>
+              {employees.length === 0
+                ? <button type="button" onClick={() => setEditor({})} className={primaryButton}><Icon className="h-4 w-4">{icons.plus}</Icon> Add employee</button>
+                : <button type="button" onClick={clearFilters} className={secondaryButton}>Clear filters</button>}
+            </Notice>
+          ) : (
+            <>
+              {/* Wide screens: the employee table. Smaller screens use the cards below. */}
+              <div className="hidden overflow-x-auto xl:block">
+                <table className="w-full min-w-[900px] border-collapse text-sm">
+                  <thead className="bg-[#F7F7F9] text-left text-[13px] font-medium text-[#4B5060]">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 font-medium">Full name</th>
+                      <th scope="col" className="px-3 py-3 font-medium">Email</th>
+                      <th scope="col" className="px-3 py-3 font-medium">Role</th>
+                      <th scope="col" className="px-3 py-3 font-medium">Status</th>
+                      <th scope="col" className="px-3 py-3 font-medium">Phone number</th>
+                      <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageRows.map((employee) => {
+                      const isSelf = employee.id === viewer?.id;
+                      const canEdit = !!viewer && canModifyEmployee(viewer, employee);
+                      const canDelete = canEdit && !isSelf;
+                      return (
+                        <tr key={employee.id} onClick={() => setSelected(employee)} className="cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB]">
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-2.5">
+                              <Avatar employee={employee} size="sm" />
+                              <span className="whitespace-nowrap font-semibold text-[#1A1C21]">{employee.name}</span>
+                              {isSelf && <span className="rounded-full bg-[#E7F5EE] px-2 py-0.5 text-[11px] font-bold text-[#0E4D3A]">You</span>}
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap px-3" onClick={stop}>
+                            <a href={`mailto:${employee.email}`} className="font-medium text-[#1565D8] hover:underline">{employee.email}</a>
+                          </td>
+                          <td className="px-3"><RoleBadge role={employee.role} /></td>
+                          <td className="px-3"><StatusPill active={employee.is_active} /></td>
+                          <td className="whitespace-nowrap px-3 tabular-nums text-[#1A1C21]">{formatPhone(employee.phone) ?? <span className="text-[#B4B8C2]">Not added</span>}</td>
+                          <td className="whitespace-nowrap px-4 text-right" onClick={stop}>
+                            {canEdit && (
+                              <button type="button" onClick={() => setEditor({ employee })} aria-label={`Edit ${employee.name}`} className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[13px] font-semibold text-[#4B5060] transition-colors hover:bg-[#E7F5EE] hover:text-[#0E4D3A]">
+                                <Icon className="h-3.5 w-3.5">{icons.edit}</Icon> Edit
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button type="button" onClick={() => { setDeleteError(""); setDeleteTarget(employee); }} aria-label={`Delete ${employee.name}`} className="ml-1 inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[13px] font-semibold text-[#B42323] transition-colors hover:bg-rose-50">
+                                <Icon className="h-3.5 w-3.5">{icons.trash}</Icon> Delete
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:hidden">
+                {pageRows.map((employee) => {
+                  const canEdit = !!viewer && canModifyEmployee(viewer, employee);
+                  const canDelete = canEdit && employee.id !== viewer?.id;
+                  return (
+                    <article key={employee.id} className="relative rounded-xl border border-[#E7E7EA] bg-white transition-colors hover:border-[#7EE2A8]">
+                      <button type="button" onClick={() => setSelected(employee)} className="block w-full rounded-xl p-4 text-left focus-visible:outline-2 focus-visible:outline-[#0E4D3A]">
+                        <div className="flex items-center gap-3">
+                          <Avatar employee={employee} />
+                          <div className="min-w-0 flex-1 pr-16">
+                            <h3 className="flex items-center gap-2 text-[14px] font-semibold leading-snug text-[#1A1C21]">
+                              <span className="truncate">{employee.name}</span>
+                              {employee.id === viewer?.id && <span className="shrink-0 rounded-full bg-[#E7F5EE] px-1.5 py-0.5 text-[10px] font-bold text-[#0E4D3A]">You</span>}
+                            </h3>
+                            <p className="mt-0.5 truncate text-[12px] text-[#6B7080]">{employee.email}</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                          <RoleBadge role={employee.role} />
+                          <StatusPill active={employee.is_active} />
+                        </div>
+                        <div className="mt-3 flex items-center gap-1.5 text-[12px] text-[#6B7080]">
+                          <Icon className="h-3.5 w-3.5 shrink-0 text-[#8A8F9C]">{icons.phone}</Icon>
+                          <span className="truncate">{formatPhone(employee.phone) ?? "No phone added"}</span>
+                        </div>
+                        <div className="mt-3 border-t border-[#EFEFF2] pt-2.5 text-[11px] font-medium text-[#8A8F9C]">Joined {formatJoined(employee.created_at)}</div>
                       </button>
-                      {canDelete && (
-                        <button type="button" onClick={() => { setDeleteError(""); setDeleteTarget(employee); }} aria-label={`Delete ${employee.name}`} title="Delete" className="p-2 rounded-lg text-gray-400 hover:bg-rose-50 hover:text-rose-600 transition-colors">
-                          <Icon>{icons.trash}</Icon>
-                        </button>
+                      {canEdit && (
+                        <div className="absolute right-3 top-3.5 flex gap-1">
+                          <button type="button" onClick={() => setEditor({ employee })} aria-label={`Edit ${employee.name}`} title="Edit" className="rounded-md p-1.5 text-[#8A8F9C] transition-colors hover:bg-[#E7F5EE] hover:text-[#0E4D3A]">
+                            <Icon className="h-3.5 w-3.5">{icons.edit}</Icon>
+                          </button>
+                          {canDelete && (
+                            <button type="button" onClick={() => { setDeleteError(""); setDeleteTarget(employee); }} aria-label={`Delete ${employee.name}`} title="Delete" className="rounded-md p-1.5 text-[#8A8F9C] transition-colors hover:bg-rose-50 hover:text-rose-600">
+                              <Icon className="h-3.5 w-3.5">{icons.trash}</Icon>
+                            </button>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  )}
+                    </article>
+                  );
+                })}
+              </div>
+
+              <nav className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEFF2] px-3 py-3 sm:px-4 sm:py-3.5" aria-label="Employees pagination">
+                <p className="text-sm text-[#3A3E4A]">Showing {rangeStart} to {rangeEnd} of {filtered.length.toLocaleString()} employees{filtered.length !== employees.length ? ` (filtered from ${employees.length})` : ""}</p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button type="button" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 1} className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#E1E1E6] bg-white px-3 text-[13px] font-medium text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] disabled:cursor-not-allowed disabled:opacity-40">
+                    <Icon className="h-3.5 w-3.5" >{icons.chevronLeft}</Icon>
+                    Previous
+                  </button>
+                  {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      onClick={() => setPage(pageNumber)}
+                      aria-label={`Page ${pageNumber}`}
+                      aria-current={pageNumber === currentPage ? "page" : undefined}
+                      className={`h-9 min-w-9 rounded-[8px] px-2.5 text-[13px] font-semibold transition-colors ${pageNumber === currentPage ? ACCENT_BUTTON : "border border-[#E1E1E6] bg-white text-[#3A3E4A] hover:bg-[#F3F3F5]"}`}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+                  <button type="button" onClick={() => setPage(currentPage + 1)} disabled={currentPage === totalPages} className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#0E4D3A] px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#0B3E2F] disabled:cursor-not-allowed disabled:opacity-40">
+                    Next
+                    <Icon className="h-3.5 w-3.5">{icons.chevronRight}</Icon>
+                  </button>
                 </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+              </nav>
+            </>
+          )}
+        </section>
+      </div>
 
       {/* Detail dialog */}
       {selected && viewer && (
-        <div className="fixed inset-0 z-50 bg-white overflow-y-auto sm:grid sm:place-items-center sm:p-4 sm:bg-slate-900/50 sm:backdrop-blur-xs" onClick={() => setSelected(null)}>
+        <div className="fixed inset-0 z-[1100] bg-white overflow-y-auto sm:grid sm:place-items-center sm:p-4 sm:bg-[rgba(17,18,20,0.45)] sm:backdrop-blur-[5px]" onClick={() => setSelected(null)}>
           <section onClick={(event) => event.stopPropagation()} className="flex min-h-dvh w-full flex-col bg-gray-50 sm:min-h-0 sm:max-h-[90vh] sm:max-w-lg sm:overflow-hidden sm:rounded-2xl sm:shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="employee-title">
             <header className="relative overflow-hidden bg-gradient-to-br from-[#071428] via-[#0c2148] to-[#1a4a8a] px-5 pt-5 pb-6 text-white shrink-0">
               <div className="pointer-events-none absolute -bottom-20 -right-10 w-56 h-56 rounded-full bg-[#1d7ac4]/30 blur-3xl" />
@@ -597,7 +688,6 @@ export default function EmployeesPage() {
                 {[
                   { label: "Email", value: selected.email },
                   { label: "Phone", value: formatPhone(selected.phone) ?? "Not added" },
-                  { label: "Field staff", value: selected.is_field_staff ? "Yes" : "No" },
                   { label: "Member since", value: formatDate(selected.created_at) },
                   { label: "Last updated", value: formatDate(selected.updated_at) },
                 ].map((row) => (
@@ -628,7 +718,7 @@ export default function EmployeesPage() {
       {editor && viewer && <EmployeeFormDialog employee={editor.employee} viewer={viewer} onClose={() => setEditor(null)} onSaved={handleSaved} />}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto p-4 bg-slate-900/50 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[1110] grid place-items-center overflow-y-auto p-4 bg-[rgba(17,18,20,0.45)] backdrop-blur-[5px]">
           <section className="w-full max-w-md bg-white rounded-2xl shadow-2xl" role="alertdialog" aria-modal="true" aria-labelledby="delete-employee-title">
             <div className="px-6 pt-6">
               <h2 id="delete-employee-title" className="text-lg font-extrabold text-[#0a192f]">Delete employee?</h2>

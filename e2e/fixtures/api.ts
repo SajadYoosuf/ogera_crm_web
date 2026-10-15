@@ -37,6 +37,8 @@ export type MockApi = {
   calls: RecordedCall[];
   /** Make the next N employee-list requests fail with this status. */
   failList: (status: number, times?: number) => void;
+  /** Make the next N requests whose method matches and whose path starts with `pathPrefix` fail with this status. */
+  failRequest: (method: string, pathPrefix: string, status: number, times?: number) => void;
   /** Calls made to the API, excluding CORS preflights. */
   callsTo: (method: string, pathPrefix: string) => RecordedCall[];
 };
@@ -59,10 +61,13 @@ export async function mockApi(page: Page, options: { employees?: MockEmployee[] 
     employees: options.employees ?? seedEmployees(),
     calls: [],
     failList: () => {},
+    failRequest: () => {},
     callsTo: (method, prefix) => state.calls.filter((call) => call.method === method && call.path.startsWith(prefix)),
   };
   let failures = { status: 0, remaining: 0 };
   state.failList = (status, times = 1) => { failures = { status, remaining: times }; };
+  const forced: { method: string; prefix: string; status: number; remaining: number }[] = [];
+  state.failRequest = (method, prefix, status, times = 1) => { forced.push({ method, prefix, status, remaining: times }); };
   let nextId = 100;
 
   const json = (route: Route, status: number, body?: unknown) =>
@@ -79,6 +84,12 @@ export async function mockApi(page: Page, options: { employees?: MockEmployee[] 
     const method = request.method();
     const body = request.postDataJSON() as Record<string, unknown> | null;
     state.calls.push({ method, path: url.pathname, search: url.search, body });
+
+    const failing = forced.find((rule) => rule.remaining > 0 && rule.method === method && url.pathname.startsWith(rule.prefix));
+    if (failing) {
+      failing.remaining -= 1;
+      return json(route, failing.status, { detail: "boom" });
+    }
 
     if (url.pathname === "/auth/login" && method === "POST") {
       if (body?.password !== "correct-password") return json(route, 401, { detail: "Incorrect email or password" });
