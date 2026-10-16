@@ -213,7 +213,7 @@ export default function ContactImportModal({ leadSources, role, onClose, onImpor
                 </span>
                 <span className="text-sm font-semibold text-[#1A1C21]">Drop your file here or <span className="text-[#0E4D3A] underline">browse</span></span>
                 <span className="text-xs text-[#8A8F9C]">.xlsx, .xls or .csv — up to 10 MB</span>
-                <input ref={inputRef} id="import-file" type="file" accept=".csv,.xlsx,.xls" className="sr-only" onChange={(event) => chooseFile(event.target.files?.[0])} />
+                <input ref={inputRef} id="import-file" type="file" accept=".csv,.xlsx,.xls" className="sr-only" aria-label="Choose a file to import" onChange={(event) => chooseFile(event.target.files?.[0])} />
               </label>
 
               {file && (
