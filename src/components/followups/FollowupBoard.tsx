@@ -157,7 +157,8 @@ export default function FollowupBoard() {
     setPeriod({ mode, anchor, ...periodRange(mode, anchor, period) });
   };
   const goToday = () => {
-    setPeriod({ mode: "month", anchor: today, ...periodRange("month", today, period) });
+    const m = period.mode === "custom" ? "day" : period.mode;
+    setPeriod({ mode: m, anchor: today, ...periodRange(m, today, period) });
   };
   const { to: periodTo, from: periodFrom } = periodRange(period.mode, period.anchor, period);
   const isAtToday = periodTo >= today && periodFrom <= today;
@@ -303,22 +304,27 @@ export default function FollowupBoard() {
               )}
             </div>
 
-            {/* Date navigation (day / week / month only) */}
+            {/* Date navigation arrows + label (day / week / month only) */}
             {(period.mode === "day" || period.mode === "week" || period.mode === "month") && (
               <div className="flex items-center gap-1">
-                <button type="button" aria-label="Previous period" onClick={() => movePeriod(-1)} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[7px] bg-white text-[#4B5060] hover:bg-gray-50 transition-colors">
+                <button type="button" aria-label={`Previous ${period.mode}`} onClick={() => movePeriod(-1)} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[7px] bg-white text-[#4B5060] hover:bg-gray-50 transition-colors">
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
                 </button>
                 <span aria-live="polite" className="text-[13.5px] font-semibold text-[#1A1C21] px-0.5 whitespace-nowrap">{titleOf(period.mode, period.anchor)}</span>
-                <button type="button" aria-label="Next period" onClick={() => movePeriod(1)} disabled={periodTo >= today} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[7px] bg-white text-[#4B5060] hover:bg-gray-50 disabled:opacity-40 transition-colors">
+                <button type="button" aria-label={`Next ${period.mode}`} onClick={() => movePeriod(1)} disabled={periodTo >= today} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[7px] bg-white text-[#4B5060] hover:bg-gray-50 disabled:opacity-40 transition-colors">
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
                 </button>
-                <button type="button" onClick={goToday} disabled={isAtToday} className="h-8 px-3 border border-[#DEE1E5] rounded-[7px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors ml-0.5">This month</button>
               </div>
             )}
+            {/* Today button — standalone next to the nav group */}
+            {(period.mode === "day" || period.mode === "week" || period.mode === "month") && (
+              <button type="button" onClick={goToday} disabled={isAtToday} className="h-8 px-3 border border-[#DEE1E5] rounded-[7px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors">Today</button>
+            )}
+            {/* Last month label */}
             {period.mode === "last_month" && (
               <span className="text-[13.5px] font-semibold text-[#1A1C21] whitespace-nowrap">{titleOf("last_month", period.anchor)}</span>
             )}
+            {/* Custom date range chip */}
             {period.mode === "custom" && !showPicker && (
               <button type="button" onClick={() => setShowPicker(true)} className="h-8 px-3 border border-[#DEE1E5] rounded-[7px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 transition-colors flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5 text-[#6B7080]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
