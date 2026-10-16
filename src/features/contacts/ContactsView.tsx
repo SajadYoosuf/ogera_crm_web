@@ -242,7 +242,7 @@ export default function ContactsView() {
                     {contacts.map((contact) => {
                       const label = contact.name || contact.phone;
                       return (
-                        <tr key={contact.id} onClick={() => openEditor(contact)} className="cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB]">
+                        <tr key={contact.id} onClick={() => openEditor(contact)} className="cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB] [&_td]:py-3.5">
                           <td className="px-3">
                             <div className="flex items-center gap-2.5">
                               <span aria-hidden="true" className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${avatarTone(contact)}`}>{initialOf(contact)}</span>
