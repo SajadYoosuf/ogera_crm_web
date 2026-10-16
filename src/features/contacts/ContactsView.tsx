@@ -453,9 +453,12 @@ export default function ContactsView() {
                         id="ac-dealer-email" type="email"
                         value={editor.values.dealerEmail}
                         onChange={(e) => updateForm("dealerEmail", e.target.value)}
-                        placeholder="owner@example.com"
-                        className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
+                        placeholder="owner@business.com"
+                        className={`h-[42px] w-full rounded-[8px] border bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:ring-[3px] ${editor.values.dealerEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editor.values.dealerEmail.trim()) ? "border-rose-400 focus:border-rose-400 focus:ring-rose-100" : "border-[#DEE1E5] focus:border-[#0E7A4F] focus:ring-[rgba(14,122,79,0.12)]"}`}
                       />
+                      {editor.values.dealerEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editor.values.dealerEmail.trim()) && (
+                        <p className="text-[12px] text-rose-500">Enter a valid email (e.g. owner@business.com)</p>
+                      )}
                     </div>
                   </div>
                 )}
