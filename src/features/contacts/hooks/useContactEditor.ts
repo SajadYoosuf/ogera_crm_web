@@ -92,6 +92,7 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
     if (!phoneValidation.valid) { setFormError(phoneValidation.message || "Invalid phone number"); return; }
     if (values.contactType === "partner" && !values.partnerType) { setFormError("Select the partner type."); return; }
     if (values.contactType === "dealer" && !values.dealerOwnerName.trim()) { setFormError("Owner name is required for dealer contacts."); return; }
+    if (values.contactType === "dealer" && values.dealerEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.dealerEmail.trim())) { setFormError("Enter a valid email address (e.g. owner@business.com)."); return; }
 
     const source = leadSources.find((item) => item.name === sourceValue);
     const houseStage = values.houseStage.trim();
