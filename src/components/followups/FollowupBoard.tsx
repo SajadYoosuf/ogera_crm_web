@@ -1,20 +1,67 @@
 "use client";
 
 import Link from "next/link";
-import { DragEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { istToday } from "@/components/DatePicker";
+import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/auth";
 import { listAllEmployees } from "@/lib/api/employees";
 import { listLeadSources, type ApiContact } from "@/features/contacts/api/contacts";
 import { changeStage, listLeads, type LeadKind } from "@/lib/api/leads";
-import { TODAY_ONLY, periodRange, stepAnchor, titleOf, type Period, type PeriodMode } from "./PeriodFilter";
 import { AVATAR_COLORS, FIELD_LABELS, STAGE_DESCRIPTIONS, formatCardDate, initials, stageColors, whatsappLink } from "./stages";
 import { useStageTypes } from "./useStages";
 import LeadPanel from "./LeadPanel";
 import UnverifiedDialog from "./UnverifiedDialog";
-import CustomRangePicker from "./CustomRangePicker";
 
 const errorText = (caught: unknown) => (caught instanceof ApiError ? caught.message : "Could not load leads. Please try again.");
+
+function BoardDropdown({ label, value, onChange, options, icon }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[]; icon: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", h);
+    document.addEventListener("keydown", k);
+    return () => { document.removeEventListener("mousedown", h); document.removeEventListener("keydown", k); };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((p) => !p)}
+        className={`h-[38px] px-3 flex items-center gap-1.5 border rounded-[8px] bg-white text-[#3A3E4A] text-[13.5px] font-medium whitespace-nowrap cursor-pointer transition-colors hover:bg-[#F7F8F9] ${open ? "border-[#0E4D3A]" : "border-[#DEE1E5]"}`}
+      >
+        <span className="text-[#6B7080]">{icon}</span>
+        <span>{label} · {value || "All"}</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`transition-transform ${open ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" /></svg>
+      </button>
+      {open && (
+        <ul role="listbox" aria-label={label} className="absolute left-0 z-[1100] mt-1.5 min-w-[160px] overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
+          <li role="option" aria-selected={!value}>
+            <button type="button" onClick={() => { onChange(""); setOpen(false); }}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${!value ? "bg-blue-50 font-bold text-blue-700" : "font-medium text-gray-700 hover:bg-gray-50"}`}>
+              All
+              {!value && <svg className="ml-auto w-4 h-4 text-[#0E4D3A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>}
+            </button>
+          </li>
+          {options.map((opt) => (
+            <li key={opt} role="option" aria-selected={value === opt}>
+              <button type="button" onClick={() => { onChange(opt); setOpen(false); }}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm capitalize transition-colors ${value === opt ? "bg-blue-50 font-bold text-blue-700" : "font-medium text-gray-700 hover:bg-gray-50"}`}>
+                <span className="truncate">{opt}</span>
+                {value === opt && <svg className="ml-auto shrink-0 w-4 h-4 text-[#0E4D3A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 function currentUserId(): number | null {
   try {
@@ -22,11 +69,6 @@ function currentUserId(): number | null {
     return typeof id === "number" ? id : null;
   } catch { return null; }
 }
-
-const PERIOD_TABS: { value: PeriodMode; label: string }[] = [
-  { value: "day", label: "Day" }, { value: "week", label: "Week" },
-  { value: "month", label: "Month" }, { value: "year", label: "Year" }, { value: "custom", label: "Custom" },
-];
 
 const TYPE_COLORS: Record<LeadKind, { activeBg: string; activeFg: string }> = {
   consumer: { activeBg: "#EEF4FF", activeFg: "#1D5BBF" },
@@ -43,15 +85,6 @@ export default function FollowupBoard() {
   const [assignee, setAssignee] = useState("");
   const [source, setSource] = useState("");
   const [allSources, setAllSources] = useState<string[] | null>(null);
-  const [today] = useState(istToday);
-  const defaultPeriod = useCallback(() => TODAY_ONLY(istToday()), []);
-  const [periods, setPeriods] = useState<Record<LeadKind, Period>>(() => ({
-    consumer: defaultPeriod(), partner: defaultPeriod(), dealer: defaultPeriod(),
-  }));
-  const period = periods[kind];
-  const setPeriod = useCallback((next: Period) => setPeriods((cur) => ({ ...cur, [kind]: next })), [kind]);
-  const { from: dateFrom, to: dateTo } = period;
-  const [showPicker, setShowPicker] = useState(false);
   const [blocked, setBlocked] = useState<{ leadName: string; stageLabel: string; missing: string[] } | null>(null);
   const [panel, setPanel] = useState<{ id: number; targetId?: number } | null>(null);
   const [userId] = useState(currentUserId);
@@ -84,7 +117,7 @@ export default function FollowupBoard() {
 
   function selectKind(next: LeadKind) {
     if (next === kind) return;
-    setPanel(null); setBlocked(null); setLeads([]); setIsLoading(true); setShowPicker(false); setKind(next);
+    setPanel(null); setBlocked(null); setLeads([]); setIsLoading(true); setKind(next);
   }
 
   const assignees = useMemo(
@@ -102,11 +135,9 @@ export default function FollowupBoard() {
     return leads.filter((lead) =>
       (!assignee || lead.assigned_to?.name === assignee) &&
       (!source || lead.lead_source?.name === source) &&
-      (!dateFrom || lead.created_at.slice(0, 10) >= dateFrom) &&
-      (!dateTo || lead.created_at.slice(0, 10) <= dateTo) &&
       (!needle || (lead.name ?? "").toLowerCase().includes(needle) || lead.phone.includes(needle) || (lead.district ?? "").toLowerCase().includes(needle))
     );
-  }, [leads, search, assignee, source, dateFrom, dateTo]);
+  }, [leads, search, assignee, source]);
 
   const byStage = useMemo(() => {
     const newLeadId = stages.find((s) => s.slug === "new_lead")?.id;
@@ -119,7 +150,7 @@ export default function FollowupBoard() {
     return groups;
   }, [visible, stages]);
 
-  const hasFilters = Boolean(search.trim() || assignee || source || period.mode !== "day" || period.anchor !== today || (period.from && period.to));
+  const hasFilters = Boolean(search.trim() || assignee || source);
 
   const panelLead = panel ? leads.find((l) => l.id === panel.id) ?? null : null;
 
@@ -150,28 +181,6 @@ export default function FollowupBoard() {
     if (lead) void moveLead(lead, stageId, stageSlug);
   };
 
-  // Period nav
-  const movePeriod = (dir: -1 | 1) => {
-    const next = stepAnchor(period.mode, period.anchor, dir);
-    setPeriod({ mode: period.mode, anchor: next, ...periodRange(period.mode, next, period) });
-  };
-  const pickPeriodMode = (mode: PeriodMode) => {
-    if (mode === "custom") {
-      if (period.mode !== "custom") setPeriod({ mode: "custom", anchor: today, from: period.from || "", to: period.to || "" });
-      setShowPicker(true);
-      return;
-    }
-    setShowPicker(false);
-    if (mode === period.mode) return;
-    const anchor = period.anchor || today;
-    setPeriod({ mode, anchor, ...periodRange(mode, anchor, period) });
-  };
-  const goToday = () => {
-    setPeriod({ mode: period.mode === "custom" ? "day" : period.mode, anchor: today, ...periodRange(period.mode === "custom" ? "day" : period.mode, today, period) });
-  };
-  const { to: periodTo, from: periodFrom } = periodRange(period.mode, period.anchor, period);
-  const isAtToday = periodTo >= today && periodFrom <= today;
-
   const boardLoading = isLoading || stagesLoading;
 
   return (
@@ -194,7 +203,7 @@ export default function FollowupBoard() {
           <div className="flex items-center gap-2.5 flex-wrap">
 
             {/* Contact type tabs */}
-            <div role="tablist" aria-label="Contact type" className="flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-xl">
+            <div role="tablist" aria-label="Contact type" className="flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-[9px]">
               {(["consumer", "partner", "dealer"] as const).map((type) => {
                 const on = kind === type;
                 const colors = TYPE_COLORS[type];
@@ -206,7 +215,7 @@ export default function FollowupBoard() {
                     aria-selected={on}
                     onClick={() => selectKind(type)}
                     style={on ? { background: colors.activeBg, color: colors.activeFg } : undefined}
-                    className={`h-[34px] px-4 rounded-[10px] text-sm font-bold border-none transition-colors ${on ? "shadow-sm" : "text-[#5F6473] font-medium bg-transparent hover:bg-white/60"}`}
+                    className={`h-[34px] px-4 rounded-[7px] text-sm font-bold border-none transition-colors ${on ? "shadow-sm" : "text-[#5F6473] font-medium bg-transparent hover:bg-white/60"}`}
                   >
                     {type.charAt(0).toUpperCase() + type.slice(1)}
                   </button>
@@ -223,92 +232,33 @@ export default function FollowupBoard() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by name, phone or district"
-                className="h-[38px] w-[230px] pl-9 pr-3 border border-[#DEE1E5] rounded-[10px] text-sm text-[#1A1C21] bg-white placeholder:text-[#8A8F9C] focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] focus:ring-offset-0"
+                className="h-[38px] w-[230px] pl-9 pr-3 border border-[#DEE1E5] rounded-[8px] text-[13.5px] text-[#1A1C21] bg-white placeholder:text-[#8A8F9C] focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] focus:ring-offset-0"
               />
             </label>
 
-            {/* Date range tabs + custom picker popover */}
-            <div className="relative">
-              <div role="tablist" aria-label="Date range" className="flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-xl">
-                {PERIOD_TABS.map(({ value, label }) => {
-                  const on = period.mode === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      role="tab"
-                      aria-selected={on}
-                      onClick={() => pickPeriodMode(value)}
-                      className={`h-[30px] px-3 rounded-[10px] text-[13px] border-none transition-colors ${on ? "bg-white text-[#1A1C21] font-semibold shadow-sm" : "bg-transparent text-[#5F6473] font-medium hover:bg-white/60"}`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-              {period.mode === "custom" && showPicker && (
-                <CustomRangePicker
-                  from={period.from}
-                  to={period.to}
-                  today={today}
-                  onApply={(f, t) => { setPeriod({ mode: "custom", anchor: today, from: f, to: t }); setShowPicker(false); }}
-                  onCancel={() => setShowPicker(false)}
-                  onClear={() => { setPeriod({ mode: "custom", anchor: today, from: "", to: "" }); setShowPicker(false); }}
-                />
-              )}
-            </div>
-
-            {/* Date navigation — hidden while custom picker is open; replaced by range chip in custom mode */}
-            {period.mode !== "custom" ? (
-              <div className="flex items-center gap-1">
-                <button type="button" aria-label="Previous period" onClick={() => movePeriod(-1)} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[10px] bg-white text-[#4B5060] hover:bg-gray-50 transition-colors">
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
-                </button>
-                <span aria-live="polite" className="text-[13.5px] font-semibold text-[#1A1C21] px-0.5 whitespace-nowrap">{titleOf(period.mode, period.anchor)}</span>
-                <button type="button" aria-label="Next period" onClick={() => movePeriod(1)} disabled={periodTo >= today} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[10px] bg-white text-[#4B5060] hover:bg-gray-50 disabled:opacity-40 transition-colors">
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
-                </button>
-                <button type="button" onClick={goToday} disabled={isAtToday} className="h-8 px-3 border border-[#DEE1E5] rounded-[10px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors ml-0.5">Today</button>
-              </div>
-            ) : !showPicker && (
-              <button
-                type="button"
-                onClick={() => setShowPicker(true)}
-                className="h-8 px-3 border border-[#DEE1E5] rounded-[10px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-              >
-                <svg className="w-3.5 h-3.5 text-[#6B7080]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
-                {period.from && period.to
-                  ? `${new Date(period.from).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${new Date(period.to).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
-                  : "Pick a date range"}
-              </button>
-            )}
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {/* Lead owner */}
-            <select
+            <BoardDropdown
+              label="Lead owner"
               value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
-              className="h-[38px] pl-3 pr-8 border border-[#DEE1E5] rounded-[10px] bg-white text-[#3A3E4A] text-[13.5px] font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] appearance-none"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='13' height='13' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6' stroke='%236B7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center" }}
-            >
-              <option value="">Lead owner · All</option>
-              {assignees.map((name) => <option key={name} value={name}>{name}</option>)}
-            </select>
+              onChange={setAssignee}
+              options={assignees}
+              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="7" r="4" /><path d="M5.5 21a6.5 6.5 0 0 1 13 0" /></svg>}
+            />
 
             {/* Source */}
-            <select
+            <BoardDropdown
+              label="Source"
               value={source}
-              onChange={(e) => setSource(e.target.value)}
-              className="h-[38px] pl-3 pr-8 border border-[#DEE1E5] rounded-[10px] bg-white text-[#3A3E4A] text-[13.5px] font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] appearance-none"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='13' height='13' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6' stroke='%236B7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center" }}
-            >
-              <option value="">Source · All</option>
-              {sources.map((name) => <option key={name} value={name}>{name}</option>)}
-            </select>
+              onChange={setSource}
+              options={sources}
+              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z" /></svg>}
+            />
 
             {hasFilters && (
-              <button type="button" onClick={() => { setSearch(""); setAssignee(""); setSource(""); setShowPicker(false); setPeriod(defaultPeriod()); }} className="h-[38px] px-3 text-sm font-bold text-[#0E4D3A] hover:text-[#0B6640] transition-colors">
+              <button type="button" onClick={() => { setSearch(""); setAssignee(""); setSource(""); }} className="h-[38px] px-3 border border-[#DEE1E5] rounded-[10px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 transition-colors">
                 Clear filters
               </button>
             )}
