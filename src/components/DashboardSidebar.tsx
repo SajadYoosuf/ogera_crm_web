@@ -46,10 +46,9 @@ const menuItems: MenuItem[] = [
   },
   {
     id: "followups",
-    label: "Lead Followup",
+    label: "Lead Pipeline",
     href: "/dashboard/followups",
     category: "MAIN",
-    roles: ["admin", "sales_head"],
     icon: (
       <path d="M4 4h5v16H4zM15 4h5v10h-5z" />
     ),

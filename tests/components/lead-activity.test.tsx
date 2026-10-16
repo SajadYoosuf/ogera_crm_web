@@ -12,7 +12,7 @@ const fail = (status: number, detail: unknown) => ({ ok: false, status, json: as
 
 const lead = {
   id: 1, contact_type: "consumer", name: "Asha", phone: "9800000001", address: "Street", district: "Malappuram", profession_type: null,
-  lead_stage: { stage: "new_lead", changed_at: "2026-10-05T10:00:00" }, lead_source: { id: 1, name: "Meta" },
+  lead_stage: { stage_id: 1, stage_slug: "new_lead", stage_name: "New Lead", changed_at: "2026-10-05T10:00:00" }, lead_source: { id: 1, name: "Meta" },
   assigned_to: { id: 7, name: "Sajad" }, created_by: null, created_at: "2026-10-01T09:00:00", is_verified: true, missing_fields: [],
 } as ApiContact;
 
@@ -41,8 +41,13 @@ function serve() {
   });
 }
 
+const STAGES = [
+  { id: 1, slug: "new_lead", label: "New Lead", order_index: 0, contact_type: "consumer" },
+  { id: 2, slug: "first_call", label: "First Call", order_index: 1, contact_type: "consumer" },
+];
+
 function renderPanel() {
-  render(<LeadPanel lead={lead} userId={1} owners={OWNERS} onUnverified={vi.fn()} onClose={vi.fn()} onChanged={async () => {}} />);
+  render(<LeadPanel lead={lead} stages={STAGES} userId={1} owners={OWNERS} onUnverified={vi.fn()} onClose={vi.fn()} onChanged={async () => {}} />);
 }
 
 beforeEach(() => {
