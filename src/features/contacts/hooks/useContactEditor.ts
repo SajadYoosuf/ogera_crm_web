@@ -42,7 +42,15 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
         if (detail.referred_by) setSelectedReferral({ id: detail.referred_by.id, primary: detail.referred_by.name, secondary: detail.referred_by.phone ?? undefined });
         setEditor((current) => current?.contact?.id === contact.id ? {
           ...current, loading: false,
-          values: { ...current.values, professionType: detail.partner_profile?.profession_type ?? current.values.professionType, district: detail.district, address: detail.address ?? "", houseStage: detail.consumer_profile?.house_stage ?? "", referredByContactId: detail.referred_by_id },
+          values: {
+            ...current.values,
+            professionType: detail.partner_profile?.profession_type ?? current.values.professionType,
+            district: detail.district, address: detail.address ?? "",
+            houseStage: detail.consumer_profile?.house_stage ?? "",
+            referredByContactId: detail.referred_by_id,
+            dealerOwnerName: detail.dealer_profile?.owner_name ?? "",
+            dealerEmail: detail.dealer_profile?.email ?? "",
+          },
         } : current);
       })
       .catch((caught) => {
@@ -82,10 +90,8 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
     const values = editor.values;
     const phoneValidation = validatePhone(values.phone);
     if (!phoneValidation.valid) { setFormError(phoneValidation.message || "Invalid phone number"); return; }
-    if (!values.name.trim()) { setFormError("Name is required."); return; }
-    if (!values.district.trim()) { setFormError("District is required."); return; }
-    if (!values.address.trim()) { setFormError("Address is required."); return; }
     if (values.contactType === "partner" && !values.professionType) { setFormError("Select the partner type."); return; }
+    if (values.contactType === "dealer" && !values.dealerOwnerName.trim()) { setFormError("Owner name is required for dealer contacts."); return; }
 
     const source = leadSources.find((item) => item.name === sourceValue);
     const houseStage = values.houseStage.trim();
@@ -101,6 +107,7 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
       ...(values.assignedTo && values.assignedTo !== String(editor.contact?.assignedToId ?? "") ? { assigned_to: Number(values.assignedTo) } : {}),
       ...(values.contactType === "partner" ? { partner_profile: { profession_type: values.professionType } } : {}),
       ...(values.contactType === "consumer" && (houseStage || editor.contact) ? { consumer_profile: { house_stage: houseStage || null } } : {}),
+      ...(values.contactType === "dealer" ? { dealer_profile: { owner_name: values.dealerOwnerName.trim(), ...(values.dealerEmail.trim() ? { email: values.dealerEmail.trim() } : {}) } } : {}),
     };
     setIsSaving(true); setFormError("");
     try {

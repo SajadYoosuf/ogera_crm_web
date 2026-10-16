@@ -19,10 +19,6 @@ import { useContactEditor } from "@/features/contacts/hooks/useContactEditor";
 import { type ApiContactType } from "@/features/contacts/api/contacts";
 import { KIND_LABELS, PAGE_SIZE, TYPE_TABS, professionLabel, type Contact, type ContactSource } from "@/features/contacts/utils";
 
-const inputClass = "crm-input";
-const textareaClass = "crm-textarea";
-const labelClass = "crm-field-label";
-
 // Contacts design: purple accent, pastel avatars and a 1px-border table card.
 const ACCENT_BUTTON = "bg-[#0E4D3A] text-white transition-colors hover:bg-[#0E4D3A]";
 const AVATAR_TONES = ["bg-[#E7F5EE] text-[#0E4D3A]", "bg-[#E0F2FE] text-[#0B6AA8]", "bg-[#DCFCE7] text-[#167A44]", "bg-[#FEF3C7] text-[#9A6200]", "bg-[#FCE7F3] text-[#A8326E]"];
@@ -30,7 +26,10 @@ const DATE_FORMAT = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "s
 
 const initialOf = (contact: Contact) => (contact.name || contact.phone).charAt(0).toUpperCase();
 const avatarTone = (contact: Contact) => AVATAR_TONES[contact.id % AVATAR_TONES.length];
-const typeTone = (contact: Contact) => (contact.kind === "partner" ? "bg-[#E7F5EE] text-[#0E4D3A]" : "bg-[#EEF4FF] text-[#1D5BBF]");
+const typeTone = (contact: Contact) =>
+  contact.kind === "partner" ? "bg-[#E7F5EE] text-[#0E4D3A]" :
+  contact.kind === "dealer" ? "bg-[#FFF3E0] text-[#C45C00]" :
+  "bg-[#EEF4FF] text-[#1D5BBF]";
 
 // Page buttons with ellipses (1 2 3 … 57), so long lists keep a short pager.
 function pageItems(page: number, totalPages: number): (number | "…")[] {
@@ -347,113 +346,230 @@ export default function ContactsView() {
       </div>
 
       {editor && (
-        <div className="fixed inset-0 z-[1100] bg-white overflow-hidden md:bg-[rgba(17,18,20,0.45)] md:backdrop-blur-[5px] md:flex md:items-center md:justify-center md:overflow-visible md:p-4">
-          <section className="w-full h-dvh md:w-full md:h-auto md:max-w-xl md:max-h-[90vh] bg-white md:rounded-2xl md:shadow-2xl flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="contact-form-title">
-            <header className="relative overflow-hidden bg-white border-b border-gray-200 px-5 py-5 text-slate-900 shrink-0">
-              <button type="button" onClick={closeEditor} aria-label="Close" className="absolute top-4 right-4 z-10 p-2 rounded-lg text-gray-400 hover:text-slate-700 hover:bg-gray-100 transition-colors">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-[rgba(17,18,20,0.45)] backdrop-blur-[3px]"
+          onClick={(e) => { if (e.target === e.currentTarget) closeEditor(); }}
+        >
+          <section
+            className="w-full max-w-[560px] max-h-[90dvh] bg-white rounded-2xl shadow-[0_24px_64px_rgba(16,24,40,0.28)] flex flex-col overflow-hidden"
+            role="dialog" aria-modal="true" aria-labelledby="contact-form-title"
+          >
+            {/* Header */}
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#EFEFF2] px-6 py-5">
+              <div>
+                <h2 id="contact-form-title" className="text-[19px] font-bold tracking-[-0.01em] text-[#1A1C21]">
+                  {editor.contact ? "Edit contact" : "Add Contact"}
+                </h2>
+                <p className="mt-0.5 text-[13px] text-[#6B7080]">
+                  {editor.contact
+                    ? `Editing ${KIND_LABELS[editor.values.contactType] ?? editor.values.contactType} contact`
+                    : "Save a new lead or partner to your list"}
+                </p>
+              </div>
+              <button
+                type="button" onClick={closeEditor} aria-label="Close"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] text-[#6B7080] transition-colors hover:bg-[#F0F0F3]"
+              >
+                <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
               </button>
-              <h2 id="contact-form-title" className="relative pr-10 text-xl font-extrabold tracking-tight text-[#0a192f]">{editor.contact ? "Edit contact" : "Add contact"}</h2>
-            </header>
+            </div>
 
-            <form onSubmit={saveContact} className="flex flex-col flex-1 min-h-0">
-              <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <label className={labelClass}>
-                    Name
-                    <input value={editor.values.name} onChange={(event) => updateForm("name", event.target.value)} placeholder="Full name" className={inputClass} />
-                  </label>
-                  <SelectField label="Type" value={editor.values.contactType} onChange={(value) => updateForm("contactType", value as ApiContactType)} options={[{ value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }]} />
+            <form onSubmit={saveContact} className="flex min-h-0 flex-1 flex-col">
+              <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
 
-                  <div className="sm:col-span-2">
-                    <PhoneField key={editor.contact?.id ?? "new"} value={editor.values.phone} onChange={(value) => updateForm("phone", value)} />
+                {/* Type tabs — new contacts only; badge for edit */}
+                {!editor.contact ? (
+                  <div role="tablist" aria-label="Contact type" className="flex gap-0.5 rounded-[9px] bg-[#F3F3F5] p-[3px]">
+                    {(["consumer", "partner", "dealer"] as const).map((type) => {
+                      const active = editor.values.contactType === type;
+                      const labels = { consumer: "Consumer", partner: "Partner", dealer: "Dealer" } as const;
+                      return (
+                        <button
+                          key={type} type="button" role="tab" aria-selected={active}
+                          onClick={() => updateForm("contactType", type)}
+                          className={`flex-1 h-[34px] whitespace-nowrap rounded-[7px] text-sm transition-colors ${active ? "bg-white font-semibold text-[#1A1C21] shadow-sm" : "font-medium text-[#5F6473] hover:text-[#1A1C21]"}`}
+                        >
+                          {labels[type]}
+                        </button>
+                      );
+                    })}
                   </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center rounded-[6px] px-2.5 py-1 text-xs font-semibold ${typeTone(editor.contact)}`}>
+                      {KIND_LABELS[editor.values.contactType] ?? editor.values.contactType}
+                    </span>
+                  </div>
+                )}
 
-                  <SelectField label="Source" value={sourceValue} onChange={(value) => updateForm("source", value as ContactSource)} placeholder="Not recorded" options={[{ value: "", label: "Not recorded" }, ...sourceOptions.map((name) => ({ value: name, label: name }))]} />
-                  {editor.values.contactType === "partner" && (
-                    <SelectField label="Partner type" value={editor.values.professionType} onChange={(value) => updateForm("professionType", value)} placeholder="Select partner type"
-                      options={[...(editor.values.professionType && !partnerTypes.some((item) => item.value === editor.values.professionType) ? [{ value: editor.values.professionType, label: professionLabel(editor.values.professionType) }] : []), ...partnerTypes]} />
-                  )}
-                  {editor.values.contactType === "consumer" && (
-                    <>
-                  <SelectField
-                    label="House stage"
-                    value={editor.values.houseStage.startsWith("Under Construction") ? "Under Construction" : editor.values.houseStage}
-                    onChange={(value) => updateForm("houseStage", value === "Under Construction" ? "Under Construction - Structure" : value)}
-                    placeholder="Not recorded"
-                    options={[{ value: "", label: "Not recorded" }, { value: "Under Construction", label: "Under construction" }, { value: "Ready", label: "Ready" }, { value: "Renovation", label: "Renovation" }]}
+                {/* Name */}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ac-name" className="text-[13px] font-semibold text-[#3A3F46]">
+                    {editor.values.contactType === "dealer" ? "Shop / dealer name" : "Full name"}
+                  </label>
+                  <input
+                    id="ac-name" type="text" autoComplete="off"
+                    value={editor.values.name}
+                    onChange={(e) => updateForm("name", e.target.value)}
+                    placeholder={editor.values.contactType === "dealer" ? "e.g. Kerala Pipes & Fittings" : "e.g. Mujeeb Rahman"}
+                    className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
                   />
-                  {editor.values.houseStage.startsWith("Under Construction") && (
-                    <div className="sm:col-span-2">
+                </div>
+
+                {/* Phone */}
+                <PhoneField key={editor.contact?.id ?? "new"} value={editor.values.phone} onChange={(value) => updateForm("phone", value)} />
+
+                {/* Partner-specific: profession */}
+                {editor.values.contactType === "partner" && (
+                  <SelectField
+                    label="Partner type"
+                    value={editor.values.professionType}
+                    onChange={(value) => updateForm("professionType", value)}
+                    placeholder="Select partner type"
+                    options={[...(editor.values.professionType && !partnerTypes.some((opt) => opt.value === editor.values.professionType) ? [{ value: editor.values.professionType, label: professionLabel(editor.values.professionType) }] : []), ...partnerTypes]}
+                  />
+                )}
+
+                {/* Dealer-specific: owner name + email */}
+                {editor.values.contactType === "dealer" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="ac-owner" className="text-[13px] font-semibold text-[#3A3F46]">
+                        Owner name <span aria-hidden="true" className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        id="ac-owner" type="text"
+                        value={editor.values.dealerOwnerName}
+                        onChange={(e) => updateForm("dealerOwnerName", e.target.value)}
+                        placeholder="Owner's full name"
+                        className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="ac-dealer-email" className="text-[13px] font-semibold text-[#3A3F46]">Email</label>
+                      <input
+                        id="ac-dealer-email" type="email"
+                        value={editor.values.dealerEmail}
+                        onChange={(e) => updateForm("dealerEmail", e.target.value)}
+                        placeholder="owner@example.com"
+                        className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Source + District */}
+                <div className="grid grid-cols-2 gap-3">
+                  <SelectField
+                    label="Source"
+                    value={sourceValue}
+                    onChange={(value) => updateForm("source", value as ContactSource)}
+                    placeholder="Not recorded"
+                    options={[{ value: "", label: "Not recorded" }, ...sourceOptions.map((name) => ({ value: name, label: name }))]}
+                  />
+                  <SelectField
+                    label="District"
+                    value={editor.values.district}
+                    onChange={(value) => updateForm("district", value)}
+                    placeholder="Select district"
+                    options={districtOptions}
+                  />
+                </div>
+
+                {/* Address */}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ac-address" className="text-[13px] font-semibold text-[#3A3F46]">Address</label>
+                  <textarea
+                    id="ac-address" rows={2}
+                    value={editor.values.address}
+                    onChange={(e) => updateForm("address", e.target.value)}
+                    placeholder="House name, street, landmark"
+                    className="w-full resize-none rounded-[8px] border border-[#DEE1E5] bg-white px-3 py-2.5 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
+                  />
+                </div>
+
+                {/* Consumer-specific: house stage */}
+                {editor.values.contactType === "consumer" && (
+                  <>
+                    <SelectField
+                      label="House stage"
+                      value={editor.values.houseStage.startsWith("Under Construction") ? "Under Construction" : editor.values.houseStage}
+                      onChange={(value) => updateForm("houseStage", value === "Under Construction" ? "Under Construction - Structure" : value)}
+                      placeholder="Not recorded"
+                      options={[{ value: "", label: "Not recorded" }, { value: "Under Construction", label: "Under construction" }, { value: "Ready", label: "Ready" }, { value: "Renovation", label: "Renovation" }]}
+                    />
+                    {editor.values.houseStage.startsWith("Under Construction") && (
                       <SelectField
                         label="Construction phase"
                         value={editor.values.houseStage.includes(" - ") ? editor.values.houseStage.split(" - ")[1] : "Structure"}
                         onChange={(value) => updateForm("houseStage", `Under Construction - ${value}`)}
                         options={[{ value: "Structure", label: "Structure" }, { value: "Plastering", label: "Plastering" }, { value: "Finishing", label: "Finishing" }]}
                       />
-                    </div>
-                  )}
-                    </>
-                  )}
+                    )}
+                  </>
+                )}
 
-                  <SelectField label="District" value={editor.values.district} onChange={(value) => updateForm("district", value)} placeholder="Select district" options={districtOptions} />
-
-                  <label className={`${labelClass} sm:col-span-2`}>
-                    Address
-                    <textarea value={editor.values.address} onChange={(event) => updateForm("address", event.target.value)} placeholder="Street, area or landmark" rows={2} className={textareaClass} />
-                  </label>
-
-                  {canAssign && assigneeOptions.length > 0 ? (
-                    <div className="sm:col-span-2">
-                      <SelectField label="Assigned to" value={editor.values.assignedTo} onChange={(value) => updateForm("assignedTo", value)} placeholder="Select employee" options={assigneeOptions} />
-                    </div>
-                  ) : (
-                  <div className="sm:col-span-2 flex flex-col gap-1.5">
+                {/* Assigned to */}
+                {canAssign && assigneeOptions.length > 0 ? (
+                  <SelectField
+                    label="Assigned to"
+                    value={editor.values.assignedTo}
+                    onChange={(value) => updateForm("assignedTo", value)}
+                    placeholder="Auto-assign"
+                    options={assigneeOptions}
+                  />
+                ) : editor.contact?.assignedTo ? (
+                  <div className="flex flex-col gap-1.5">
                     <span className="text-xs font-semibold text-gray-700">Assigned to</span>
-                    <div className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 bg-white px-3">
-                      {editor.contact?.assignedTo ? (
-                        <>
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 text-[11px] font-extrabold text-white">
-                            {editor.contact.assignedTo.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}
-                          </span>
-                          <span className="truncate text-sm font-semibold text-gray-900">{editor.contact.assignedTo}</span>
-                        </>
-                      ) : (
-                        <span className="text-sm text-gray-500">{editor.contact ? "Not assigned" : "Assigned automatically when you save"}</span>
-                      )}
+                    <div className="flex h-11 items-center gap-2.5 rounded-lg border border-gray-200 bg-[#FAFAFA] px-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0E4D3A] text-[11px] font-bold text-white">
+                        {editor.contact.assignedTo.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}
+                      </span>
+                      <span className="truncate text-sm font-medium text-gray-900">{editor.contact.assignedTo}</span>
                     </div>
                   </div>
-                  )}
+                ) : null}
 
-                  <div className="sm:col-span-2">
-                    <SearchPicker
-                      label="Referred by"
-                      placeholder="Search by name or phone"
-                      selected={selectedReferral}
-                      search={searchReferral}
-                      onSelect={(item) => {
-                        setSelectedReferral(item);
-                        updateForm("referredByContactId", item ? item.id : null);
-                      }}
-                    />
-                  </div>
-                </div>
+                {/* Referred by */}
+                <SearchPicker
+                  label="Referred by"
+                  placeholder="Search by name or phone"
+                  selected={selectedReferral}
+                  search={searchReferral}
+                  onSelect={(item) => {
+                    setSelectedReferral(item);
+                    updateForm("referredByContactId", item ? item.id : null);
+                  }}
+                />
 
                 {formError && (
-                  <div role="alert" className="mt-4 px-4 py-3 rounded-xl border border-rose-200 bg-rose-50 text-sm text-rose-700 flex items-start gap-3">
-                    <svg className="w-5 h-5 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                  <div role="alert" className="flex items-start gap-3 rounded-[10px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
+                    </svg>
                     <span>{formError}</span>
                   </div>
                 )}
               </div>
 
-              <footer className="grid grid-cols-2 gap-3 px-4 py-4 border-t border-gray-100 bg-white shrink-0 sm:flex sm:justify-end sm:px-5">
-                <button type="button" disabled={isSaving} onClick={closeEditor} className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors">Cancel</button>
-                <button type="submit" disabled={isSaving || editor.loading} className="inline-flex items-center justify-center gap-2 min-h-11 px-5 rounded-xl bg-gradient-to-br from-[#0E4D3A] to-[#0B3E2F] text-white text-sm font-bold shadow-md shadow-[#0E4D3A]/25 hover:opacity-90 active:scale-[.98] disabled:opacity-60 transition-all">
-                  {isSaving && <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />}
-                  {isSaving ? "Saving…" : editor.contact ? "Save changes" : "Add contact"}
+              {/* Footer */}
+              <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-[#EFEFF2] px-6 py-4">
+                <button
+                  type="button" disabled={isSaving} onClick={closeEditor}
+                  className="h-10 rounded-[8px] border border-[#DEE1E5] bg-white px-4 text-[14px] font-semibold text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] disabled:opacity-50"
+                >
+                  Cancel
                 </button>
-              </footer>
+                <button
+                  type="submit" disabled={isSaving || editor.loading}
+                  className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#0E4D3A] px-5 text-[14px] font-bold text-white transition-colors hover:bg-[#0B3E2F] disabled:opacity-60"
+                >
+                  {isSaving && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true" />}
+                  {isSaving ? "Saving…" : editor.contact ? "Save changes" : "Add Contact"}
+                </button>
+              </div>
             </form>
           </section>
         </div>

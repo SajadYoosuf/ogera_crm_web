@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/auth";
 import { trace } from "@/lib/api/devlog";
-import { listContacts, type ApiContactType, type ContactSort } from "@/features/contacts/api/contacts";
+import { getContactTypeCounts, listContacts, type ApiContactType, type ContactSort } from "@/features/contacts/api/contacts";
 import { NO_FILTERS, PAGE_SIZE, fromApi, type Contact, type Filters } from "@/features/contacts/utils";
 
 /** The contacts list: paging, search-as-you-type and filters, loaded from the API. */
@@ -38,12 +38,8 @@ export function useContactsList() {
         search: submittedSearch || undefined,
       });
       setContacts(result.items.map(fromApi)); setTotal(result.total);
-      const [all, consumer, partner] = await Promise.all([
-        listContacts(accessToken, { limit: 1 }),
-        listContacts(accessToken, { limit: 1, contact_type: "consumer" }),
-        listContacts(accessToken, { limit: 1, contact_type: "partner" }),
-      ]);
-      setTypeCounts({ "": all.total, consumer: consumer.total, partner: partner.total });
+      // A failed count keeps the last numbers; it must not hide the list.
+      getContactTypeCounts(accessToken).then((counts) => setTypeCounts({ "": counts.all, consumer: counts.consumer, partner: counts.partner, dealer: counts.dealer ?? 0 })).catch(() => {});
     } catch (caught) {
       setContacts([]); setTotal(0);
       setError(caught instanceof ApiError ? caught.message : "Contacts could not be loaded. Please try again.");

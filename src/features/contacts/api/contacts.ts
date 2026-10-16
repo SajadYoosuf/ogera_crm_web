@@ -2,7 +2,7 @@ import { API_BASE_URL, ApiError, request } from "@/lib/api/auth";
 import { trace } from "@/lib/api/devlog";
 
 /** Mirrors the Contacts section of the parent API.md. */
-export type ApiContactType = "consumer" | "partner";
+export type ApiContactType = "consumer" | "partner" | "dealer";
 
 type NameRef = { id: number; name: string };
 
@@ -76,6 +76,11 @@ export async function listProfessionTypes(accessToken: string): Promise<Professi
 
 export type LeadSource = { id: number; name: string; slug: string };
 
+/** GET /contacts/type-counts — live totals per type for the tabs; ignores search and filters. */
+export function getContactTypeCounts(accessToken: string) {
+  return request<{ all: number; consumer: number; partner: number; dealer?: number }>("/contacts/type-counts", { headers: { Authorization: `Bearer ${accessToken}` } });
+}
+
 /** GET /lead-sources — every active source, for the contact form's Source dropdown. */
 export async function listLeadSources(accessToken: string): Promise<LeadSource[]> {
   const label = "[contacts api] GET /lead-sources";
@@ -102,6 +107,7 @@ export type ApiContactDetail = {
   lead_source_id: number | null;
   consumer_profile?: { house_stage: string | null } | null;
   partner_profile?: { profession_type: string } | null;
+  dealer_profile?: { owner_name: string; email?: string | null } | null;
 };
 
 export type ContactInput = {
@@ -117,6 +123,7 @@ export type ContactInput = {
   longitude?: number;
   consumer_profile?: { house_stage: string | null };
   partner_profile?: { profession_type: string };
+  dealer_profile?: { owner_name: string; email?: string | null };
 };
 
 /** Calls a protected /contacts route with request/response logging and session-aware errors. */

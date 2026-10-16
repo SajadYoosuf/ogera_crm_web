@@ -3,8 +3,8 @@ import type { ApiContact, ApiContactType, ProfessionOption } from "@/features/co
 export type Filters = { type: string; profession: string; source: string; district: string; assignedTo: string; createdBy: string; verified: string };
 export const NO_FILTERS: Filters = { type: "", profession: "", source: "", district: "", assignedTo: "", createdBy: "", verified: "" };
 export const PAGE_SIZE = 10;
-export const KIND_LABELS: Record<string, string> = { consumer: "Consumer", partner: "Partner" };
-export const TYPE_TABS = [{ value: "", label: "All Contacts" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }];
+export const KIND_LABELS: Record<string, string> = { consumer: "Consumer", partner: "Partner", dealer: "Dealer" };
+export const TYPE_TABS = [{ value: "", label: "All Contacts" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }, { value: "dealer", label: "Dealer" }];
 export const professionLabel = (value: string) => value.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
 // Fallback until GET /contacts/profession-types answers; the backend enum is the source of truth.
 export const DEFAULT_PARTNER_TYPES: ProfessionOption[] = ["plumber", "engineer", "interior_designer", "architect", "contractor", "electrician"]
@@ -19,11 +19,13 @@ export interface Contact {
 export interface ContactForm {
   name: string; phone: string; contactType: ApiContactType; source: ContactSource;
   address: string; district: string; houseStage: string; professionType: string; referredByContactId: number | null; assignedTo: string;
+  dealerOwnerName: string; dealerEmail: string;
 }
 
 export const blankContact: ContactForm = {
   name: "", phone: "", contactType: "consumer", source: "",
   address: "", district: "", houseStage: "", professionType: "", referredByContactId: null, assignedTo: "",
+  dealerOwnerName: "", dealerEmail: "",
 };
 export const fromApi = (contact: ApiContact): Contact => ({
   id: contact.id, name: contact.name, phone: contact.phone, kind: contact.contact_type, profession: contact.profession_type || undefined,
@@ -40,6 +42,7 @@ export const toForm = (contact: Contact): ContactForm => ({
   name: contact.name, phone: contact.phone, contactType: contact.kind, source: contact.source ?? "",
   address: contact.address ?? "", district: contact.district ?? "", houseStage: "", professionType: contact.profession ?? "", referredByContactId: null,
   assignedTo: contact.assignedToId === undefined ? "" : String(contact.assignedToId),
+  dealerOwnerName: "", dealerEmail: "",
 });
 
 export const KERALA_DISTRICTS = [
