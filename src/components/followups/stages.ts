@@ -1,19 +1,66 @@
-/** The consumer lead pipeline. Slugs match the backend `StageEnum`; order is the board's column order. */
-export type StageSlug = "new_lead" | "first_call" | "connected" | "aware" | "interested" | "quoted" | "negotiating" | "won" | "lost" | "repeat_customer";
+export type LeadKind = "consumer" | "partner" | "dealer";
 
-export type StageMeta = { slug: StageSlug; label: string; description: string; dot: string; badge: string };
+/** Stage colors from the design — indexed by slug. */
+type StageColors = { bar: string; badgeBg: string; badgeFg: string };
 
-export const STAGES: StageMeta[] = [
-  { slug: "new_lead", label: "New Lead", description: "Just entered. Not yet contacted. 24h clock ticking.", dot: "bg-blue-500", badge: "bg-blue-50 text-blue-700" },
-  { slug: "first_call", label: "First Call", description: "First call attempted. Waiting to reach them.", dot: "bg-violet-500", badge: "bg-violet-50 text-violet-700" },
-  { slug: "connected", label: "Connected", description: "Spoke to them. Qualify the need and decide the next step.", dot: "bg-cyan-500", badge: "bg-cyan-50 text-cyan-700" },
-  { slug: "aware", label: "Aware", description: "Contacted. Needs education before they're ready to hear a price.", dot: "bg-sky-500", badge: "bg-sky-50 text-sky-700" },
-  { slug: "interested", label: "Interested", description: "Understands the product. Ready for demo or detailed info.", dot: "bg-indigo-500", badge: "bg-indigo-50 text-indigo-700" },
-  { slug: "quoted", label: "Quoted", description: "Quote sent. Now the 3-day follow-up clock starts.", dot: "bg-amber-500", badge: "bg-amber-50 text-amber-700" },
-  { slug: "negotiating", label: "Negotiating", description: "Active discussion on price, timing, or terms.", dot: "bg-orange-500", badge: "bg-orange-50 text-orange-700" },
-  { slug: "won", label: "Won", description: "Deal closed. Order being created. Payment tracking begins.", dot: "bg-emerald-500", badge: "bg-emerald-50 text-emerald-700" },
-  { slug: "lost", label: "Lost", description: "Did not buy. Reason captured. Re-engage in 60 days.", dot: "bg-rose-500", badge: "bg-rose-50 text-rose-700" },
-  { slug: "repeat_customer", label: "Repeat Customer", description: "Bought again or came back for another purchase.", dot: "bg-teal-500", badge: "bg-teal-50 text-teal-700" },
+const STAGE_COLORS: Record<string, StageColors> = {
+  new_lead:             { bar: "#64748B", badgeBg: "#F1F3F5", badgeFg: "#64748B" },
+  first_call:           { bar: "#3B82F6", badgeBg: "#EAF2FE", badgeFg: "#3B82F6" },
+  connected:            { bar: "#0EA5E9", badgeBg: "#E8F6FD", badgeFg: "#0EA5E9" },
+  aware:                { bar: "#8B5CF6", badgeBg: "#F1EDFF", badgeFg: "#8B5CF6" },
+  interested:           { bar: "#A855F7", badgeBg: "#F6EEFE", badgeFg: "#A855F7" },
+  quotation:            { bar: "#D97706", badgeBg: "#FEF3DF", badgeFg: "#D97706" },
+  won:                  { bar: "#0E7A4F", badgeBg: "#EAF8EF", badgeFg: "#0E7A4F" },
+  lost:                 { bar: "#E5484D", badgeBg: "#FDECEC", badgeFg: "#E5484D" },
+  after_sales_referring:{ bar: "#0E4D3A", badgeBg: "#E6EFEA", badgeFg: "#0E4D3A" },
+  demo_introduction:    { bar: "#8B5CF6", badgeBg: "#F1EDFF", badgeFg: "#8B5CF6" },
+  active:               { bar: "#0E7A4F", badgeBg: "#EAF8EF", badgeFg: "#0E7A4F" },
+  referral:             { bar: "#0E4D3A", badgeBg: "#E6EFEA", badgeFg: "#0E4D3A" },
+  inactive:             { bar: "#8A8F9C", badgeBg: "#F0F0F3", badgeFg: "#8A8F9C" },
+  meeting_done:         { bar: "#8B5CF6", badgeBg: "#F1EDFF", badgeFg: "#8B5CF6" },
+  terms_agreed:         { bar: "#A855F7", badgeBg: "#F6EEFE", badgeFg: "#A855F7" },
+  sample_sent:          { bar: "#D97706", badgeBg: "#FEF3DF", badgeFg: "#D97706" },
+  first_order:          { bar: "#F59E0B", badgeBg: "#FEF2DE", badgeFg: "#F59E0B" },
+  placed:               { bar: "#CA8A04", badgeBg: "#FBF0CF", badgeFg: "#CA8A04" },
+  active_dealer:        { bar: "#0E7A4F", badgeBg: "#EAF8EF", badgeFg: "#0E7A4F" },
+  inactive_dealer:      { bar: "#8A8F9C", badgeBg: "#F0F0F3", badgeFg: "#8A8F9C" },
+};
+
+const DEFAULT_COLORS: StageColors = { bar: "#64748B", badgeBg: "#F1F3F5", badgeFg: "#64748B" };
+
+export const stageColors = (slug: string): StageColors => STAGE_COLORS[slug] ?? DEFAULT_COLORS;
+
+/** Short descriptions for each stage column — shown below the stage name on the board. */
+export const STAGE_DESCRIPTIONS: Record<string, string> = {
+  new_lead:             "Just entered. Not yet contacted.",
+  first_call:           "First call attempted, waiting to reach.",
+  connected:            "Spoke to them, needs qualifying.",
+  aware:                "Understands the product, still deciding.",
+  interested:           "Wants to move forward, needs pricing.",
+  quotation:            "Price sent, awaiting their decision.",
+  won:                  "Converted to a paying customer.",
+  lost:                 "Not interested, or went with someone else.",
+  after_sales_referring:"Happy customer, asking for referrals.",
+  demo_introduction:    "Product demo or intro meeting set.",
+  active:               "Onboarded and actively referring.",
+  referral:             "Bringing in new leads regularly.",
+  inactive:             "No activity in a while.",
+  meeting_done:         "In-person or call meeting completed.",
+  terms_agreed:         "Pricing and terms finalised.",
+  sample_sent:          "Product sample dispatched.",
+  first_order:          "First trial order being placed.",
+  placed:               "First order confirmed and billed.",
+  active_dealer:        "Ordering regularly, in good standing.",
+  inactive_dealer:      "No orders in a while.",
+};
+
+/** Five avatar colours that cycle across cards. */
+export const AVATAR_COLORS = [
+  { bg: "#EDE9FE", fg: "#5B3FD6" },
+  { bg: "#E0F2FE", fg: "#0B6AA8" },
+  { bg: "#DCFCE7", fg: "#167A44" },
+  { bg: "#FEF3C7", fg: "#9A6200" },
+  { bg: "#FCE7F3", fg: "#A8326E" },
 ];
 
 export const LOSS_REASONS = [
@@ -24,55 +71,8 @@ export const LOSS_REASONS = [
   { value: "other", label: "Other" },
 ];
 
-export const stageMeta = (slug: StageSlug) => STAGES.find((stage) => stage.slug === slug) ?? STAGES[0];
-
-/** Rows saved before this pipeline (referral) or with no stage still land in a column. */
-export function columnFor(stage: string | null | undefined): StageSlug {
-  if (stage && STAGES.some((item) => item.slug === stage)) return stage as StageSlug;
-  if (stage === "referral") return "repeat_customer";
-  return "new_lead";
-}
-
-const HOUR = 3_600_000;
-const CLOCKS: Partial<Record<StageSlug, { afterMs: number; waiting: string; overdue: string }>> = {
-  new_lead: { afterMs: 24 * HOUR, waiting: "First contact due", overdue: "Not contacted" },
-  quoted: { afterMs: 3 * 24 * HOUR, waiting: "Follow-up due", overdue: "Follow-up overdue" },
-  lost: { afterMs: 60 * 24 * HOUR, waiting: "Re-engage", overdue: "Re-engage now" },
-};
-
-const span = (ms: number) => {
-  const hours = Math.max(1, Math.round(ms / HOUR));
-  return hours < 48 ? `${hours}h` : `${Math.round(hours / 24)}d`;
-};
-
-/** The follow-up clock for a lead's current stage, or null for stages without one. */
-export function stageClock(slug: StageSlug, changedAt: string, now = Date.now()): { label: string; overdue: boolean } | null {
-  const clock = CLOCKS[slug];
-  const since = new Date(changedAt).getTime();
-  if (!clock || Number.isNaN(since)) return null;
-  const left = since + clock.afterMs - now;
-  if (left > 0) return { label: `${clock.waiting} in ${span(left)}`, overdue: false };
-  return { label: slug === "lost" ? clock.overdue : `${clock.overdue} ${span(-left)}`, overdue: true };
-}
-
-export function formatMoment(value: string) {
-  const moment = new Date(value);
-  if (Number.isNaN(moment.getTime())) return "";
-  return moment.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-}
-
-/** The one-click "next step" on a card; Won, Lost and Repeat Customer are where a lead stops. */
-export const NEXT_STAGE: Partial<Record<StageSlug, StageSlug>> = {
-  new_lead: "first_call", first_call: "connected", connected: "interested", aware: "interested", interested: "quoted", quoted: "negotiating", negotiating: "won",
-};
-
-/** Accent colour of each column's top bar. */
-export const STAGE_BAR: Record<StageSlug, string> = {
-  new_lead: "bg-blue-500", first_call: "bg-violet-500", connected: "bg-cyan-500", aware: "bg-sky-500", interested: "bg-indigo-500", quoted: "bg-amber-500",
-  negotiating: "bg-orange-500", won: "bg-emerald-500", lost: "bg-rose-500", repeat_customer: "bg-teal-500",
-};
-
-export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
+export const initials = (name: string) =>
+  name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
 
 /** wa.me wants digits only; bare 10-digit numbers are Indian mobiles. */
 export function whatsappLink(phone: string) {
@@ -80,8 +80,24 @@ export function whatsappLink(phone: string) {
   return `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}`;
 }
 
-/** Contact details the backend can report as missing before a lead moves on. */
 export const FIELD_LABELS: Record<string, string> = {
   name: "Name", phone: "Phone number", district: "District", address: "Address", lead_source: "Lead source",
   location: "GPS location", created_by: "Added by", house_stage: "House stage", work_area: "Work area",
 };
+
+/** Parse a UTC ISO string from the API (no Z suffix) as UTC. */
+function utcDate(iso: string) { return new Date(iso.endsWith("Z") ? iso : iso + "Z"); }
+
+/** Format a date string as "Fri, 16 Oct" for card display. */
+export function formatCardDate(iso: string) {
+  const d = utcDate(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+}
+
+/** Format a datetime string as "16 Dec · 14:30" for history display. */
+export function formatMoment(value: string) {
+  const d = utcDate(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}

@@ -1,4 +1,6 @@
-/** Activity types. Slugs match the backend `ActivityType`. */
+import { cachedLabel } from "@/hooks/useEnumOptions";
+
+/** Activity types: the fallback shown until Settings -> Activity types has loaded. Slugs are what the backend stores. */
 export const ACTIVITY_TYPES = [
   { value: "phone_call", label: "Phone call" },
   { value: "field_visit", label: "Field visit" },
@@ -11,7 +13,7 @@ export const ACTIVITY_TYPES = [
 /** An internal note is a record only; it cannot be scheduled. */
 export const SCHEDULABLE_TYPES = ACTIVITY_TYPES.filter((type) => type.value !== "internal_note");
 
-export const typeLabel = (type: string) => ACTIVITY_TYPES.find((item) => item.value === type)?.label ?? type;
+export const typeLabel = (type: string) => cachedLabel("activity_type", type) ?? ACTIVITY_TYPES.find((item) => item.value === type)?.label ?? type;
 
 /** Local calendar date as YYYY-MM-DD, `offsetDays` from today. Dates travel as plain strings so they never drift across a timezone. */
 export function isoDate(offsetDays = 0) {
@@ -44,7 +46,8 @@ export function formatClock(value: string) {
 
 /** "Today 10:22am", "Yesterday 4:05pm" or "29 Sep 10:22am" for a server timestamp. */
 export function formatWhen(value: string, now = new Date()) {
-  const moment = new Date(value);
+  // API returns UTC without Z; append it so Date() interprets the string as UTC.
+  const moment = new Date(value.endsWith("Z") ? value : value + "Z");
   if (Number.isNaN(moment.getTime())) return "";
   const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
   const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
