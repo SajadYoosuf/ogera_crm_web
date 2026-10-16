@@ -29,10 +29,11 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
   const updateForm = <Field extends keyof ContactForm>(field: Field, value: ContactForm[Field]) =>
     setEditor((current) => current ? { ...current, values: { ...current.values, [field]: value } } : current);
 
-  const openEditor = (contact?: Contact) => {
+  const openEditor = (contact?: Contact, initialType?: string) => {
     setFormError("");
     setSelectedReferral(null);
-    setEditor(contact ? { contact, values: toForm(contact), loading: true } : { values: blankContact });
+    const newValues = initialType ? { ...blankContact, contactType: initialType as typeof blankContact.contactType } : blankContact;
+    setEditor(contact ? { contact, values: toForm(contact), loading: true } : { values: newValues });
     if (!contact) return;
     // List rows lack the referrer and house stage, so load the full record.
     const accessToken = sessionStorage.getItem("ogera_access_token");

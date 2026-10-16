@@ -231,7 +231,7 @@ export default function ContactsView() {
               </p>
               <div className="mt-5 flex flex-wrap justify-center gap-2.5">
                 {genuinelyEmpty
-                  ? <button type="button" onClick={() => openEditor()} className={`inline-flex h-9 items-center justify-center rounded-lg px-4 text-[13px] font-semibold ${ACCENT_BUTTON}`}>Add your first contact</button>
+                  ? <button type="button" onClick={() => openEditor(undefined, filters.type || undefined)} className={`inline-flex h-9 items-center justify-center rounded-lg px-4 text-[13px] font-semibold ${ACCENT_BUTTON}`}>Add your first contact</button>
                   : <button type="button" onClick={clearSearchAndFilters} className="inline-flex h-9 items-center justify-center rounded-lg border border-[#E1E1E6] bg-white px-4 text-[13px] font-semibold text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5]">Clear filters</button>}
               </div>
             </div>
