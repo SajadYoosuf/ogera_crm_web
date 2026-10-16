@@ -54,18 +54,8 @@ export default function ContactsView() {
     deleteTarget, setDeleteTarget, deleteContact, isSaving, formError, setFormError, selectedReferral, setSelectedReferral,
   } = useContactEditor({ leadSources, onSaved: loadContacts });
   const [ioDialog, setIoDialog] = useState<"import" | "export" | null>(null);
-  // Row selection is kept for the page; there are no bulk actions yet, so it is cleared when the page changes.
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
-
   const submitSearch = (event: FormEvent<HTMLFormElement>) => event.preventDefault();
-  const goToPage = (next: number) => { setSelectedIds(new Set()); setPage(next); };
-  const toggleSelected = (id: number) => setSelectedIds((current) => {
-    const next = new Set(current);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
-  const allOnPageSelected = contacts.length > 0 && contacts.every((contact) => selectedIds.has(contact.id));
-  const toggleAllOnPage = () => setSelectedIds(allOnPageSelected ? new Set() : new Set(contacts.map((contact) => contact.id)));
+  const goToPage = (next: number) => { setPage(next); };
 
   const assigneeOptions = useMemo(() => {
     // Rule 1 (rule.md): admins and managers monitor and never carry a lead, so they are not offered as an assignee.
@@ -242,9 +232,6 @@ export default function ContactsView() {
                 <table className="w-full min-w-[1040px] border-collapse text-sm">
                   <thead className="bg-[#F7F7F9] text-left text-[13px] font-medium text-[#4B5060]">
                     <tr>
-                      <th scope="col" className="w-11 py-3 pl-4 pr-0">
-                        <input type="checkbox" checked={allOnPageSelected} onChange={toggleAllOnPage} aria-label="Select all contacts on this page" className="h-4 w-4 accent-[#0E4D3A]" />
-                      </th>
                       {tableColumns.map((column) => (
                         <th key={column} scope="col" className="px-3 py-3 font-medium whitespace-nowrap">{column}</th>
                       ))}
@@ -256,9 +243,6 @@ export default function ContactsView() {
                       const label = contact.name || contact.phone;
                       return (
                         <tr key={contact.id} onClick={() => openEditor(contact)} className="cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB]">
-                          <td className="h-14 py-0 pl-4 pr-0" onClick={(event) => event.stopPropagation()}>
-                            <input type="checkbox" checked={selectedIds.has(contact.id)} onChange={() => toggleSelected(contact.id)} aria-label={`Select ${label}`} className="h-4 w-4 accent-[#0E4D3A]" />
-                          </td>
                           <td className="px-3">
                             <div className="flex items-center gap-2.5">
                               <span aria-hidden="true" className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${avatarTone(contact)}`}>{initialOf(contact)}</span>
