@@ -24,13 +24,13 @@ const textareaClass = "crm-textarea";
 const labelClass = "crm-field-label";
 
 // Contacts design: purple accent, pastel avatars and a 1px-border table card.
-const ACCENT_BUTTON = "bg-[#6E4FF6] text-white transition-colors hover:bg-[#5B3FD6]";
-const AVATAR_TONES = ["bg-[#EDE9FE] text-[#5B3FD6]", "bg-[#E0F2FE] text-[#0B6AA8]", "bg-[#DCFCE7] text-[#167A44]", "bg-[#FEF3C7] text-[#9A6200]", "bg-[#FCE7F3] text-[#A8326E]"];
+const ACCENT_BUTTON = "bg-[#0E4D3A] text-white transition-colors hover:bg-[#0E4D3A]";
+const AVATAR_TONES = ["bg-[#E7F5EE] text-[#0E4D3A]", "bg-[#E0F2FE] text-[#0B6AA8]", "bg-[#DCFCE7] text-[#167A44]", "bg-[#FEF3C7] text-[#9A6200]", "bg-[#FCE7F3] text-[#A8326E]"];
 const DATE_FORMAT = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
 const initialOf = (contact: Contact) => (contact.name || contact.phone).charAt(0).toUpperCase();
 const avatarTone = (contact: Contact) => AVATAR_TONES[contact.id % AVATAR_TONES.length];
-const typeTone = (contact: Contact) => (contact.kind === "partner" ? "bg-[#F1EDFF] text-[#5B3FD6]" : "bg-[#EEF4FF] text-[#1D5BBF]");
+const typeTone = (contact: Contact) => (contact.kind === "partner" ? "bg-[#E7F5EE] text-[#0E4D3A]" : "bg-[#EEF4FF] text-[#1D5BBF]");
 
 // Page buttons with ellipses (1 2 3 … 57), so long lists keep a short pager.
 function pageItems(page: number, totalPages: number): (number | "…")[] {
@@ -115,23 +115,23 @@ export default function ContactsView() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-20 flex min-h-[72px] flex-wrap items-center justify-between gap-4 border-b border-[#E7E7EA] bg-white py-3 pl-16 pr-5 sm:px-7 lg:h-[72px] lg:py-0 lg:pl-7">
-        <h1 className="text-[26px] font-bold tracking-[-0.01em] text-[#1A1C21]">Contacts</h1>
-        <div className="flex items-center gap-2.5">
+      <header className="sticky top-0 z-20 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b border-[#E7E7EA] bg-white pl-16 pr-3 sm:gap-4 sm:px-7 lg:pl-7">
+        <h1 className="truncate text-[22px] font-bold tracking-[-0.01em] text-[#1A1C21] sm:text-[26px]">Contacts</h1>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
           <ContactsMoreMenu canImport={canManageEmployees(viewerRole)} onImport={() => setIoDialog("import")} onExport={() => setIoDialog("export")} />
-          <button type="button" onClick={() => openEditor()} className={`inline-flex h-10 items-center gap-2 rounded-[8px] px-4 text-sm font-semibold ${ACCENT_BUTTON}`}>
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            Add Contact
+          <button type="button" onClick={() => openEditor()} className={`inline-flex h-10 items-center gap-2 rounded-[8px] px-3 text-sm font-semibold sm:px-4 ${ACCENT_BUTTON}`}>
+            <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            <span className="hidden sm:inline">Add Contact</span>
           </button>
         </div>
       </header>
 
-      <div className="space-y-4 p-5 sm:px-7 sm:py-6">
+      <div className="min-w-0 space-y-4 p-4 sm:px-7 sm:py-6">
         <section aria-label="Contact list" className="flex flex-col overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-white">
           {/* Toolbar: type tabs, search and filters */}
-          <div className="flex flex-col gap-3 border-b border-[#EFEFF2] p-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div role="tablist" aria-label="Contact type" className="inline-flex w-fit gap-0.5 rounded-[9px] bg-[#F3F3F5] p-[3px]">
+          <div className="flex flex-col gap-3 border-b border-[#EFEFF2] p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+              <div role="tablist" aria-label="Contact type" className="flex w-full max-w-full gap-0.5 overflow-x-auto rounded-[9px] bg-[#F3F3F5] p-[3px] sm:w-fit">
                 {TYPE_TABS.map((tab) => {
                   const active = filters.type === tab.value;
                   return (
@@ -141,16 +141,16 @@ export default function ContactsView() {
                       role="tab"
                       aria-selected={active}
                       onClick={() => changeType(tab.value)}
-                      className={`inline-flex h-[34px] items-center gap-1.5 rounded-[7px] px-3.5 text-sm leading-none transition-colors ${active ? "bg-white font-semibold text-[#1A1C21] shadow-sm" : "font-medium text-[#5F6473] hover:text-[#1A1C21]"}`}
+                      className={`inline-flex h-[34px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] px-3 text-sm leading-none transition-colors sm:px-3.5 ${active ? "bg-white font-semibold text-[#1A1C21] shadow-sm" : "font-medium text-[#5F6473] hover:text-[#1A1C21]"}`}
                     >
                       {tab.label}
-                      <span className={`text-xs font-medium leading-none tabular-nums ${active ? "text-[#6E4FF6]" : "text-[#8A8F9C]"}`}>{(typeCounts[tab.value] ?? 0).toLocaleString()}</span>
+                      <span className={`text-xs font-medium leading-none tabular-nums ${active ? "text-[#0E4D3A]" : "text-[#8A8F9C]"}`}>{(typeCounts[tab.value] ?? 0).toLocaleString()}</span>
                     </button>
                   );
                 })}
               </div>
 
-              <form onSubmit={submitSearch} className="relative flex">
+              <form onSubmit={submitSearch} className="relative flex w-full sm:w-auto">
                 <label className="sr-only" htmlFor="contact-search">Search contacts</label>
                 <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8F9C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.25" /><path d="m16 16 4.25 4.25" /></svg>
                 <input
@@ -158,7 +158,7 @@ export default function ContactsView() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search name or phone…"
-                  className={`h-[38px] w-full rounded-[8px] border border-[#E1E1E6] bg-white pl-9 text-sm text-[#1A1C21] outline-none focus:outline-2 focus:outline-[#C9C0FF] sm:w-[260px] ${search ? "pr-9" : "pr-3"}`}
+                  className={`h-[38px] w-full rounded-[8px] border border-[#E1E1E6] bg-white pl-9 text-sm text-[#1A1C21] outline-none focus:outline-2 focus:outline-[#7EE2A8] sm:w-[260px] ${search ? "pr-9" : "pr-3"}`}
                 />
                 {search && (
                   <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#8A8F9C] hover:text-[#1A1C21]">
@@ -168,7 +168,7 @@ export default function ContactsView() {
               </form>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex w-full items-center gap-2 lg:w-auto">
               <ContactsSortMenu value={sort} onChange={changeSort} />
               <ContactsFilterMenu groups={allFilterGroups} onChange={changeFilter} onClear={clearFilters} />
             </div>
@@ -182,9 +182,9 @@ export default function ContactsView() {
                   type="button"
                   onClick={() => changeFilter(chip.key, "")}
                   aria-label={`Remove ${chip.label} filter: ${chip.value}`}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#F1EDFF] pl-3 pr-2 text-xs font-semibold text-[#5B3FD6] transition-colors hover:bg-[#E6DEFF]"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#E7F5EE] pl-3 pr-2 text-xs font-semibold text-[#0E4D3A] transition-colors hover:bg-[#D3EEDF]"
                 >
-                  <span className="font-medium text-[#8B73F9]">{chip.label}</span>
+                  <span className="font-medium text-[#2F8F6A]">{chip.label}</span>
                   {chip.value}
                   <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
                 </button>
@@ -216,7 +216,7 @@ export default function ContactsView() {
             </div>
           ) : contacts.length === 0 ? (
             <div role="status" className="flex flex-col items-center px-6 py-14 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#F1EDFF] text-[#6E4FF6]">
+              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#E7F5EE] text-[#0E4D3A]">
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19" /><circle cx="10" cy="8" r="3.25" /><path d="M17.5 11.5h3M19 10v3" /></svg>
               </span>
               <h2 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A1C21]">{submittedSearch || hasFilters ? "No matches found" : "No contacts yet"}</h2>
@@ -235,7 +235,7 @@ export default function ContactsView() {
                   <thead className="bg-[#F7F7F9] text-left text-[13px] font-medium text-[#4B5060]">
                     <tr>
                       <th scope="col" className="w-11 py-3 pl-4 pr-0">
-                        <input type="checkbox" checked={allOnPageSelected} onChange={toggleAllOnPage} aria-label="Select all contacts on this page" className="h-4 w-4 accent-[#6E4FF6]" />
+                        <input type="checkbox" checked={allOnPageSelected} onChange={toggleAllOnPage} aria-label="Select all contacts on this page" className="h-4 w-4 accent-[#0E4D3A]" />
                       </th>
                       {tableColumns.map((column) => (
                         <th key={column} scope="col" className="px-3 py-3 font-medium whitespace-nowrap">{column}</th>
@@ -249,7 +249,7 @@ export default function ContactsView() {
                       return (
                         <tr key={contact.id} onClick={() => openEditor(contact)} className="cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB]">
                           <td className="h-14 py-0 pl-4 pr-0" onClick={(event) => event.stopPropagation()}>
-                            <input type="checkbox" checked={selectedIds.has(contact.id)} onChange={() => toggleSelected(contact.id)} aria-label={`Select ${label}`} className="h-4 w-4 accent-[#6E4FF6]" />
+                            <input type="checkbox" checked={selectedIds.has(contact.id)} onChange={() => toggleSelected(contact.id)} aria-label={`Select ${label}`} className="h-4 w-4 accent-[#0E4D3A]" />
                           </td>
                           <td className="px-3">
                             <div className="flex items-center gap-2.5">
@@ -282,10 +282,10 @@ export default function ContactsView() {
                 </table>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:hidden">
+              <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:hidden">
                 {contacts.map((contact) => (
-                  <article key={contact.id} className="relative rounded-xl border border-[#E7E7EA] bg-white transition-colors hover:border-[#C9C0FF]">
-                    <button type="button" onClick={() => openEditor(contact)} className="block w-full rounded-xl p-4 text-left focus-visible:outline-2 focus-visible:outline-[#6E4FF6]">
+                  <article key={contact.id} className="relative rounded-xl border border-[#E7E7EA] bg-white transition-colors hover:border-[#7EE2A8]">
+                    <button type="button" onClick={() => openEditor(contact)} className="block w-full rounded-xl p-4 text-left focus-visible:outline-2 focus-visible:outline-[#0E4D3A]">
                       <div className="flex items-center gap-3">
                         <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${avatarTone(contact)}`}>{initialOf(contact)}</span>
                         <div className="min-w-0 flex-1 pr-14">
@@ -307,7 +307,7 @@ export default function ContactsView() {
                       </div>
                     </button>
                     <div className="absolute right-3 top-3.5 flex gap-1">
-                      <button type="button" onClick={() => openEditor(contact)} aria-label={`Edit ${contact.name || contact.phone}`} title="Edit" className="rounded-md p-1.5 text-[#8A8F9C] transition-colors hover:bg-[#F1EDFF] hover:text-[#5B3FD6]">
+                      <button type="button" onClick={() => openEditor(contact)} aria-label={`Edit ${contact.name || contact.phone}`} title="Edit" className="rounded-md p-1.5 text-[#8A8F9C] transition-colors hover:bg-[#E7F5EE] hover:text-[#0E4D3A]">
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                       </button>
                       <button type="button" onClick={() => { setFormError(""); setDeleteTarget(contact); }} aria-label={`Delete ${contact.name || contact.phone}`} title="Delete" className="rounded-md p-1.5 text-[#8A8F9C] transition-colors hover:bg-rose-50 hover:text-rose-600">
@@ -321,7 +321,7 @@ export default function ContactsView() {
           )}
 
           {!error && !isLoading && total > 0 && (
-            <nav className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEFF2] px-4 py-3.5" aria-label="Contacts pagination">
+            <nav className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEFF2] px-3 py-3 sm:px-4 sm:py-3.5" aria-label="Contacts pagination">
               <p className="text-sm text-[#3A3E4A]">Showing {rangeStart} to {rangeEnd} of {total.toLocaleString()} contacts</p>
               <div className="flex flex-wrap items-center gap-1.5">
                 <button type="button" onClick={() => goToPage(page - 1)} disabled={page === 1} className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#E1E1E6] bg-white px-3 text-[13px] font-medium text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] disabled:cursor-not-allowed disabled:opacity-40">
@@ -347,7 +347,7 @@ export default function ContactsView() {
       </div>
 
       {editor && (
-        <div className="fixed inset-0 z-50 bg-white overflow-hidden md:bg-slate-900/50 md:backdrop-blur-xs md:flex md:items-center md:justify-center md:overflow-visible md:p-4">
+        <div className="fixed inset-0 z-[1100] bg-white overflow-hidden md:bg-[rgba(17,18,20,0.45)] md:backdrop-blur-[5px] md:flex md:items-center md:justify-center md:overflow-visible md:p-4">
           <section className="w-full h-dvh md:w-full md:h-auto md:max-w-xl md:max-h-[90vh] bg-white md:rounded-2xl md:shadow-2xl flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="contact-form-title">
             <header className="relative overflow-hidden bg-white border-b border-gray-200 px-5 py-5 text-slate-900 shrink-0">
               <button type="button" onClick={closeEditor} aria-label="Close" className="absolute top-4 right-4 z-10 p-2 rounded-lg text-gray-400 hover:text-slate-700 hover:bg-gray-100 transition-colors">
@@ -449,7 +449,7 @@ export default function ContactsView() {
 
               <footer className="grid grid-cols-2 gap-3 px-4 py-4 border-t border-gray-100 bg-white shrink-0 sm:flex sm:justify-end sm:px-5">
                 <button type="button" disabled={isSaving} onClick={closeEditor} className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors">Cancel</button>
-                <button type="submit" disabled={isSaving || editor.loading} className="inline-flex items-center justify-center gap-2 min-h-11 px-5 rounded-xl bg-gradient-to-br from-[#1d7ac4] to-[#1462a0] text-white text-sm font-bold shadow-md shadow-blue-600/25 hover:opacity-90 active:scale-[.98] disabled:opacity-60 transition-all">
+                <button type="submit" disabled={isSaving || editor.loading} className="inline-flex items-center justify-center gap-2 min-h-11 px-5 rounded-xl bg-gradient-to-br from-[#0E4D3A] to-[#0B3E2F] text-white text-sm font-bold shadow-md shadow-[#0E4D3A]/25 hover:opacity-90 active:scale-[.98] disabled:opacity-60 transition-all">
                   {isSaving && <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />}
                   {isSaving ? "Saving…" : editor.contact ? "Save changes" : "Add contact"}
                 </button>
@@ -460,7 +460,7 @@ export default function ContactsView() {
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-[rgba(17,18,20,0.45)] backdrop-blur-[5px]">
           <section className="w-full max-w-md bg-white rounded-2xl shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="delete-title">
             <div className="px-6 pt-6">
               <h2 id="delete-title" className="text-lg font-bold text-[#0a192f]">Delete contact?</h2>

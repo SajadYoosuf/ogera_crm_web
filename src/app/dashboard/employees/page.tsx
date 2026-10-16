@@ -458,16 +458,16 @@ export default function EmployeesPage() {
 
   return (
     <div className={`${dmSans.className} flex min-h-full flex-col`}>
-      <header className="sticky top-0 z-20 flex min-h-[72px] flex-wrap items-center justify-between gap-4 border-b border-[#E7E7EA] bg-white py-3 pl-16 pr-4 sm:px-7 lg:h-[72px] lg:py-0 lg:pl-7">
-        <h1 className="text-[26px] font-bold tracking-[-0.01em] text-[#1A1C21]">Employees</h1>
-        <div className="flex items-center gap-2.5">
+      <header className="sticky top-0 z-20 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b border-[#E7E7EA] bg-white pl-16 pr-3 sm:gap-4 sm:px-7 lg:pl-7">
+        <h1 className="truncate text-[22px] font-bold tracking-[-0.01em] text-[#1A1C21] sm:text-[26px]">Employees</h1>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
           <button type="button" onClick={() => downloadCsv(filtered)} disabled={!isReady || filtered.length === 0} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#DEE1E5] bg-white px-3.5 text-sm font-medium text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] disabled:opacity-50">
-            <Icon className="h-4 w-4">{icons.download}</Icon>
+            <Icon className="h-4 w-4 shrink-0">{icons.download}</Icon>
             Export
           </button>
-          <button type="button" onClick={() => setEditor({})} className={`inline-flex h-10 items-center gap-2 rounded-[8px] px-4 text-sm font-semibold ${ACCENT_BUTTON}`}>
-            <Icon className="h-4 w-4" >{icons.plus}</Icon>
-            Add Employee
+          <button type="button" onClick={() => setEditor({})} className={`inline-flex h-10 items-center justify-center gap-2 rounded-[8px] px-2.5 text-sm font-semibold sm:px-4 ${ACCENT_BUTTON}`} title="Add Employee" aria-label="Add Employee">
+            <Icon className="h-4 w-4 shrink-0">{icons.plus}</Icon>
+            <span className="hidden sm:inline">Add Employee</span>
           </button>
         </div>
       </header>
