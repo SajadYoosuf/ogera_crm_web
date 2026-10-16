@@ -118,9 +118,9 @@ export default function ContactsView() {
         <h1 className="truncate text-[22px] font-bold tracking-[-0.01em] text-[#1A1C21] sm:text-[26px]">Contacts</h1>
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
           <ContactsMoreMenu canImport={canManageEmployees(viewerRole)} onImport={() => setIoDialog("import")} onExport={() => setIoDialog("export")} />
-          <button type="button" onClick={() => openEditor()} className={`inline-flex h-10 items-center gap-2 rounded-[8px] px-3 text-sm font-semibold sm:px-4 ${ACCENT_BUTTON}`}>
+          <button type="button" aria-label="Add Contact" onClick={() => openEditor()} className={`inline-flex h-10 items-center gap-2 rounded-[8px] px-3 text-sm font-semibold sm:px-4 ${ACCENT_BUTTON}`}>
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            <span className="hidden sm:inline">Add Contact</span>
+            <span className="hidden sm:inline" aria-hidden="true">Add Contact</span>
           </button>
         </div>
       </header>
