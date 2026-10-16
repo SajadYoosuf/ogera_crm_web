@@ -90,7 +90,7 @@ export default function ContactsView() {
   // Type is a tab, so the panel holds the rest; partner type only appears for partners.
   const allFilterGroups: FilterGroup[] = [
     ...filterGroups,
-    ...(filters.type === "partner" ? [{ key: "profession", label: "Partner type", value: filters.profession, options: partnerTypes }] : []),
+    ...(filters.type === "partner" ? [{ key: "partnerType", label: "Partner type", value: filters.partnerType, options: partnerTypes }] : []),
   ];
   const activeChips = allFilterGroups
     .filter((group) => group.value)
@@ -425,10 +425,10 @@ export default function ContactsView() {
                 {editor.values.contactType === "partner" && (
                   <SelectField
                     label="Partner type"
-                    value={editor.values.professionType}
-                    onChange={(value) => updateForm("professionType", value)}
+                    value={editor.values.partnerType}
+                    onChange={(value) => updateForm("partnerType", value)}
                     placeholder="Select partner type"
-                    options={[...(editor.values.professionType && !partnerTypes.some((opt) => opt.value === editor.values.professionType) ? [{ value: editor.values.professionType, label: professionLabel(editor.values.professionType) }] : []), ...partnerTypes]}
+                    options={[...(editor.values.partnerType && !partnerTypes.some((opt) => opt.value === editor.values.partnerType) ? [{ value: editor.values.partnerType, label: professionLabel(editor.values.partnerType) }] : []), ...partnerTypes]}
                   />
                 )}
 
@@ -595,7 +595,7 @@ export default function ContactsView() {
         <ContactExportModal leadSources={leadSources} onClose={() => setIoDialog(null)}
           initial={{
             contact_type: (filters.type || undefined) as ApiContactType | undefined,
-            profession_type: filters.type === "partner" ? filters.profession || undefined : undefined,
+            profession_type: filters.type === "partner" ? filters.partnerType || undefined : undefined,
             lead_source_id: filters.source ? Number(filters.source) : undefined,
             district: filters.district || undefined,
             assigned_to: filters.assignedTo ? Number(filters.assignedTo) : undefined,
@@ -603,7 +603,7 @@ export default function ContactsView() {
             verified: filters.verified ? filters.verified === "verified" : undefined,
             search: submittedSearch || undefined,
           }}
-          extraFilterCount={[filters.profession && filters.type === "partner", filters.district, filters.assignedTo, filters.createdBy, filters.verified, submittedSearch].filter(Boolean).length} />
+          extraFilterCount={[filters.partnerType && filters.type === "partner", filters.district, filters.assignedTo, filters.createdBy, filters.verified, submittedSearch].filter(Boolean).length} />
       )}
       {ioDialog === "import" && <ContactImportModal leadSources={leadSources} role={viewerRole} onClose={() => setIoDialog(null)} onImported={() => { setPage(1); void loadContacts(); }} />}
     </div>

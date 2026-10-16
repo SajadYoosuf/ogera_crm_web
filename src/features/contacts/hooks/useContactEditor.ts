@@ -44,7 +44,7 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
           ...current, loading: false,
           values: {
             ...current.values,
-            professionType: detail.partner_profile?.profession_type ?? current.values.professionType,
+            partnerType: detail.partner_profile?.profession_type ?? current.values.partnerType,
             district: detail.district, address: detail.address ?? "",
             houseStage: detail.consumer_profile?.house_stage ?? "",
             referredByContactId: detail.referred_by_id,
@@ -90,7 +90,7 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
     const values = editor.values;
     const phoneValidation = validatePhone(values.phone);
     if (!phoneValidation.valid) { setFormError(phoneValidation.message || "Invalid phone number"); return; }
-    if (values.contactType === "partner" && !values.professionType) { setFormError("Select the partner type."); return; }
+    if (values.contactType === "partner" && !values.partnerType) { setFormError("Select the partner type."); return; }
     if (values.contactType === "dealer" && !values.dealerOwnerName.trim()) { setFormError("Owner name is required for dealer contacts."); return; }
 
     const source = leadSources.find((item) => item.name === sourceValue);
@@ -105,7 +105,7 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
       lead_source_id: source?.id ?? null,
       // Send the owner only when it was chosen (create) or changed (edit); otherwise the backend keeps or auto-picks it.
       ...(values.assignedTo && values.assignedTo !== String(editor.contact?.assignedToId ?? "") ? { assigned_to: Number(values.assignedTo) } : {}),
-      ...(values.contactType === "partner" ? { partner_profile: { profession_type: values.professionType } } : {}),
+      ...(values.contactType === "partner" ? { partner_profile: { profession_type: values.partnerType } } : {}),
       ...(values.contactType === "consumer" && (houseStage || editor.contact) ? { consumer_profile: { house_stage: houseStage || null } } : {}),
       ...(values.contactType === "dealer" ? { dealer_profile: { owner_name: values.dealerOwnerName.trim(), ...(values.dealerEmail.trim() ? { email: values.dealerEmail.trim() } : {}) } } : {}),
     };

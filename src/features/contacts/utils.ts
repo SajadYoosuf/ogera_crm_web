@@ -1,7 +1,7 @@
 import type { ApiContact, ApiContactType, ProfessionOption } from "@/features/contacts/api/contacts";
 
-export type Filters = { type: string; profession: string; source: string; district: string; assignedTo: string; createdBy: string; verified: string };
-export const NO_FILTERS: Filters = { type: "", profession: "", source: "", district: "", assignedTo: "", createdBy: "", verified: "" };
+export type Filters = { type: string; partnerType: string; source: string; district: string; assignedTo: string; createdBy: string; verified: string };
+export const NO_FILTERS: Filters = { type: "", partnerType: "", source: "", district: "", assignedTo: "", createdBy: "", verified: "" };
 export const PAGE_SIZE = 10;
 export const KIND_LABELS: Record<string, string> = { consumer: "Consumer", partner: "Partner", dealer: "Dealer" };
 export const TYPE_TABS = [{ value: "", label: "All Contacts" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }, { value: "dealer", label: "Dealer" }];
@@ -18,13 +18,13 @@ export interface Contact {
 }
 export interface ContactForm {
   name: string; phone: string; contactType: ApiContactType; source: ContactSource;
-  address: string; district: string; houseStage: string; professionType: string; referredByContactId: number | null; assignedTo: string;
+  address: string; district: string; houseStage: string; partnerType: string; referredByContactId: number | null; assignedTo: string;
   dealerOwnerName: string; dealerEmail: string;
 }
 
 export const blankContact: ContactForm = {
   name: "", phone: "", contactType: "consumer", source: "",
-  address: "", district: "", houseStage: "", professionType: "", referredByContactId: null, assignedTo: "",
+  address: "", district: "", houseStage: "", partnerType: "", referredByContactId: null, assignedTo: "",
   dealerOwnerName: "", dealerEmail: "",
 };
 export const fromApi = (contact: ApiContact): Contact => ({
@@ -40,7 +40,7 @@ export const FIELD_LABELS: Record<string, string> = {
 export const displayLocation = (contact: Contact) => contact.address || contact.district || "Location not added";
 export const toForm = (contact: Contact): ContactForm => ({
   name: contact.name, phone: contact.phone, contactType: contact.kind, source: contact.source ?? "",
-  address: contact.address ?? "", district: contact.district ?? "", houseStage: "", professionType: contact.profession ?? "", referredByContactId: null,
+  address: contact.address ?? "", district: contact.district ?? "", houseStage: "", partnerType: contact.profession ?? "", referredByContactId: null,
   assignedTo: contact.assignedToId === undefined ? "" : String(contact.assignedToId),
   dealerOwnerName: "", dealerEmail: "",
 });

@@ -29,7 +29,7 @@ export function useContactsList() {
     setIsLoading(true); setError("");
     try {
       const result = await listContacts(accessToken, { skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE, sort, contact_type: (filters.type || undefined) as ApiContactType | undefined,
-        profession_type: filters.type === "partner" ? filters.profession || undefined : undefined,
+        profession_type: filters.type === "partner" ? filters.partnerType || undefined : undefined,
         lead_source_id: filters.source ? Number(filters.source) : undefined,
         district: filters.district || undefined,
         assigned_to: filters.assignedTo ? Number(filters.assignedTo) : undefined,
@@ -57,7 +57,7 @@ export function useContactsList() {
 
   const changeFilter = (key: string, value: string) => { setFilters((current) => ({ ...current, [key]: value })); setPage(1); };
   // Partner type only applies to partners, so switching the contact type resets it.
-  const changeType = (value: string) => { setFilters((current) => ({ ...current, type: value, profession: "" })); setPage(1); };
+  const changeType = (value: string) => { setFilters((current) => ({ ...current, type: value, partnerType: "" })); setPage(1); };
   const changeSort = (value: ContactSort) => { setSort(value); setPage(1); };
   const clearFilters = () => { setFilters(NO_FILTERS); setPage(1); };
   const clearSearchAndFilters = () => { setSearch(""); setSubmittedSearch(""); clearFilters(); };

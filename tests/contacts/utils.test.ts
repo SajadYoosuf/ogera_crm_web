@@ -19,8 +19,8 @@ describe("blankContact", () => {
     expect(blankContact.dealerEmail).toBe("");
   });
 
-  it("has empty profession and house stage", () => {
-    expect(blankContact.professionType).toBe("");
+  it("has empty partner type and house stage", () => {
+    expect(blankContact.partnerType).toBe("");
     expect(blankContact.houseStage).toBe("");
   });
 
@@ -43,10 +43,10 @@ describe("toForm", () => {
     expect(form.dealerEmail).toBe("");
   });
 
-  it("maps a partner contact and preserves profession type from the list row", () => {
+  it("maps a partner contact and preserves partner type from the list row", () => {
     const form = toForm(baseContact({ kind: "partner", profession: "plumber" }));
     expect(form.contactType).toBe("partner");
-    expect(form.professionType).toBe("plumber");
+    expect(form.partnerType).toBe("plumber");
   });
 
   it("sets assignedTo from assignedToId as a string", () => {
