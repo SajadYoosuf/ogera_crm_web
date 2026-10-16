@@ -172,7 +172,7 @@ export default function FollowupBoard() {
       <header className="shrink-0 h-[72px] bg-white border-b border-[#E5E7EA] flex items-center justify-between gap-4 px-7 pt-16 lg:pt-0">
         <h1 className="text-[26px] font-bold tracking-tight text-[#1A1C21]">Lead Pipeline</h1>
         <Link href="/contacts">
-          <button type="button" className="h-10 px-4 flex items-center gap-2 rounded-md bg-[#0E7A4F] text-white text-sm font-semibold hover:bg-[#0B6640] transition-colors">
+          <button type="button" className="h-10 px-4 flex items-center gap-2 rounded-[10px] bg-[#0E7A4F] text-white text-sm font-semibold hover:bg-[#0B6640] transition-colors">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             Add Lead
           </button>
@@ -186,7 +186,7 @@ export default function FollowupBoard() {
           <div className="flex items-center gap-2.5 flex-wrap">
 
             {/* Contact type tabs */}
-            <div role="tablist" aria-label="Contact type" className="flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded">
+            <div role="tablist" aria-label="Contact type" className="flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-xl">
               {(["consumer", "partner", "dealer"] as const).map((type) => {
                 const on = kind === type;
                 const colors = TYPE_COLORS[type];
@@ -198,7 +198,7 @@ export default function FollowupBoard() {
                     aria-selected={on}
                     onClick={() => selectKind(type)}
                     style={on ? { background: colors.activeBg, color: colors.activeFg } : undefined}
-                    className={`h-[34px] px-4 rounded-sm text-sm font-bold border-none transition-colors ${on ? "shadow-sm" : "text-[#5F6473] font-medium bg-transparent hover:bg-white/60"}`}
+                    className={`h-[34px] px-4 rounded-[10px] text-sm font-bold border-none transition-colors ${on ? "shadow-sm" : "text-[#5F6473] font-medium bg-transparent hover:bg-white/60"}`}
                   >
                     {type.charAt(0).toUpperCase() + type.slice(1)}
                   </button>
@@ -215,12 +215,12 @@ export default function FollowupBoard() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by name, phone or district"
-                className="h-[38px] w-[230px] pl-9 pr-3 border border-[#DEE1E5] rounded text-sm text-[#1A1C21] bg-white placeholder:text-[#8A8F9C] focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] focus:ring-offset-0"
+                className="h-[38px] w-[230px] pl-9 pr-3 border border-[#DEE1E5] rounded-[10px] text-sm text-[#1A1C21] bg-white placeholder:text-[#8A8F9C] focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] focus:ring-offset-0"
               />
             </label>
 
             {/* Date range tabs */}
-            <div role="tablist" aria-label="Date range" className="flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded">
+            <div role="tablist" aria-label="Date range" className="flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-xl">
               {PERIOD_TABS.map(({ value, label }) => {
                 const on = period.mode === value;
                 return (
@@ -230,7 +230,7 @@ export default function FollowupBoard() {
                     role="tab"
                     aria-selected={on}
                     onClick={() => pickPeriodMode(value)}
-                    className={`h-[30px] px-3 rounded-sm text-[13px] border-none transition-colors ${on ? "bg-white text-[#1A1C21] font-semibold shadow-sm" : "bg-transparent text-[#5F6473] font-medium hover:bg-white/60"}`}
+                    className={`h-[30px] px-3 rounded-[10px] text-[13px] border-none transition-colors ${on ? "bg-white text-[#1A1C21] font-semibold shadow-sm" : "bg-transparent text-[#5F6473] font-medium hover:bg-white/60"}`}
                   >
                     {label}
                   </button>
@@ -240,14 +240,14 @@ export default function FollowupBoard() {
 
             {/* Date navigation */}
             <div className="flex items-center gap-1">
-              <button type="button" aria-label="Previous period" onClick={() => movePeriod(-1)} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded bg-white text-[#4B5060] hover:bg-gray-50 transition-colors">
+              <button type="button" aria-label="Previous period" onClick={() => movePeriod(-1)} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[10px] bg-white text-[#4B5060] hover:bg-gray-50 transition-colors">
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
               </button>
               <span aria-live="polite" className="text-[13.5px] font-semibold text-[#1A1C21] px-0.5 whitespace-nowrap">{titleOf(period.mode, period.anchor)}</span>
-              <button type="button" aria-label="Next period" onClick={() => movePeriod(1)} disabled={periodTo >= today} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded bg-white text-[#4B5060] hover:bg-gray-50 disabled:opacity-40 transition-colors">
+              <button type="button" aria-label="Next period" onClick={() => movePeriod(1)} disabled={periodTo >= today} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[10px] bg-white text-[#4B5060] hover:bg-gray-50 disabled:opacity-40 transition-colors">
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
               </button>
-              <button type="button" onClick={goToday} disabled={isAtToday} className="h-8 px-3 border border-[#DEE1E5] rounded bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors ml-0.5">Today</button>
+              <button type="button" onClick={goToday} disabled={isAtToday} className="h-8 px-3 border border-[#DEE1E5] rounded-[10px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors ml-0.5">Today</button>
             </div>
           </div>
 
@@ -256,7 +256,7 @@ export default function FollowupBoard() {
             <select
               value={assignee}
               onChange={(e) => setAssignee(e.target.value)}
-              className="h-[38px] pl-3 pr-8 border border-[#DEE1E5] rounded bg-white text-[#3A3E4A] text-[13.5px] font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] appearance-none"
+              className="h-[38px] pl-3 pr-8 border border-[#DEE1E5] rounded-[10px] bg-white text-[#3A3E4A] text-[13.5px] font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] appearance-none"
               style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='13' height='13' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6' stroke='%236B7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center" }}
             >
               <option value="">Lead owner · All</option>
@@ -267,7 +267,7 @@ export default function FollowupBoard() {
             <select
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              className="h-[38px] pl-3 pr-8 border border-[#DEE1E5] rounded bg-white text-[#3A3E4A] text-[13.5px] font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] appearance-none"
+              className="h-[38px] pl-3 pr-8 border border-[#DEE1E5] rounded-[10px] bg-white text-[#3A3E4A] text-[13.5px] font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] appearance-none"
               style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='13' height='13' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6' stroke='%236B7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center" }}
             >
               <option value="">Source · All</option>
