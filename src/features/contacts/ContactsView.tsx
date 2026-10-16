@@ -111,6 +111,9 @@ export default function ContactsView() {
   const tableColumns = ["Contact", "Contact Type", "Contact Number", "Location", "Source", "Stage", ...(canAssign ? ["Assigned to"] : []), "Status"];
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
+  const hasNonTypeFilters = Object.entries(filters).some(([k, v]) => k !== "type" && Boolean(v));
+  const genuinelyEmpty = (typeCounts[filters.type || ""] ?? -1) === 0 && !submittedSearch && !hasNonTypeFilters;
+  const emptyTypeLabel = filters.type ? (KIND_LABELS[filters.type] ?? filters.type) : "";
 
   return (
     <div className="flex min-h-full flex-col">
@@ -218,10 +221,16 @@ export default function ContactsView() {
               <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#E7F5EE] text-[#0E4D3A]">
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19" /><circle cx="10" cy="8" r="3.25" /><path d="M17.5 11.5h3M19 10v3" /></svg>
               </span>
-              <h2 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A1C21]">{submittedSearch || hasFilters ? "No matches found" : "No contacts yet"}</h2>
-              <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-[#6B7080]">{submittedSearch || hasFilters ? "Try a different search term or adjust your filters." : "Add your first contact to start building the pipeline."}</p>
+              <h2 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A1C21]">
+                {genuinelyEmpty ? (emptyTypeLabel ? `No ${emptyTypeLabel.toLowerCase()} contacts yet` : "No contacts yet") : "No matches found"}
+              </h2>
+              <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-[#6B7080]">
+                {genuinelyEmpty
+                  ? (emptyTypeLabel ? `Add your first ${emptyTypeLabel.toLowerCase()} contact to get started.` : "Add your first contact to start building the pipeline.")
+                  : "Try a different search term or adjust your filters."}
+              </p>
               <div className="mt-5 flex flex-wrap justify-center gap-2.5">
-                {!submittedSearch && !hasFilters
+                {genuinelyEmpty
                   ? <button type="button" onClick={() => openEditor()} className={`inline-flex h-9 items-center justify-center rounded-lg px-4 text-[13px] font-semibold ${ACCENT_BUTTON}`}>Add your first contact</button>
                   : <button type="button" onClick={clearSearchAndFilters} className="inline-flex h-9 items-center justify-center rounded-lg border border-[#E1E1E6] bg-white px-4 text-[13px] font-semibold text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5]">Clear filters</button>}
               </div>
