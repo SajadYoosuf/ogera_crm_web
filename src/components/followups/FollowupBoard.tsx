@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { istToday } from "@/components/DatePicker";
 import { ApiError } from "@/lib/api/auth";
 import { listAllEmployees } from "@/lib/api/employees";
 import { listLeadSources, type ApiContact } from "@/features/contacts/api/contacts";
 import { changeStage, listLeads, type LeadKind } from "@/lib/api/leads";
+import { THIS_MONTH, periodRange, stepAnchor, titleOf, type Period, type PeriodMode } from "./PeriodFilter";
 import { AVATAR_COLORS, FIELD_LABELS, STAGE_DESCRIPTIONS, formatCardDate, initials, stageColors, whatsappLink } from "./stages";
 import { useStageTypes } from "./useStages";
 import LeadPanel from "./LeadPanel";
 import UnverifiedDialog from "./UnverifiedDialog";
+import CustomRangePicker from "./CustomRangePicker";
 
 const errorText = (caught: unknown) => (caught instanceof ApiError ? caught.message : "Could not load leads. Please try again.");
 
@@ -70,6 +73,11 @@ function currentUserId(): number | null {
   } catch { return null; }
 }
 
+const PERIOD_TABS: { value: PeriodMode; label: string }[] = [
+  { value: "day", label: "Today" }, { value: "week", label: "This Week" },
+  { value: "month", label: "This Month" }, { value: "last_month", label: "Last Month" }, { value: "custom", label: "Custom" },
+];
+
 const TYPE_COLORS: Record<LeadKind, { activeBg: string; activeFg: string }> = {
   consumer: { activeBg: "#EEF4FF", activeFg: "#1D5BBF" },
   partner:  { activeBg: "#F1EDFF", activeFg: "#5B3FD6" },
@@ -85,6 +93,15 @@ export default function FollowupBoard() {
   const [assignee, setAssignee] = useState("");
   const [source, setSource] = useState("");
   const [allSources, setAllSources] = useState<string[] | null>(null);
+  const [today] = useState(istToday);
+  const defaultPeriod = useCallback(() => THIS_MONTH(istToday()), []);
+  const [periods, setPeriods] = useState<Record<LeadKind, Period>>(() => ({
+    consumer: THIS_MONTH(istToday()), partner: THIS_MONTH(istToday()), dealer: THIS_MONTH(istToday()),
+  }));
+  const period = periods[kind];
+  const setPeriod = useCallback((next: Period) => setPeriods((cur) => ({ ...cur, [kind]: next })), [kind]);
+  const { from: dateFrom, to: dateTo } = period;
+  const [showPicker, setShowPicker] = useState(false);
   const [blocked, setBlocked] = useState<{ leadName: string; stageLabel: string; missing: string[] } | null>(null);
   const [panel, setPanel] = useState<{ id: number; targetId?: number } | null>(null);
   const [userId] = useState(currentUserId);
@@ -98,7 +115,7 @@ export default function FollowupBoard() {
     setError("");
     try {
       const [leadRows, staffRows, sourceNames] = await Promise.all([
-        listLeads(accessToken, kind),
+        listLeads(accessToken, kind, dateFrom || undefined, dateTo || undefined),
         listAllEmployees(accessToken).catch(() => null),
         listLeadSources(accessToken).then((items) => items.map((item) => item.name)).catch(() => null),
       ]);
@@ -108,7 +125,7 @@ export default function FollowupBoard() {
     } catch (caught) {
       setError(errorText(caught));
     } finally { setIsLoading(false); }
-  }, [kind]);
+  }, [kind, dateFrom, dateTo]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
@@ -117,8 +134,33 @@ export default function FollowupBoard() {
 
   function selectKind(next: LeadKind) {
     if (next === kind) return;
-    setPanel(null); setBlocked(null); setLeads([]); setIsLoading(true); setKind(next);
+    setPanel(null); setBlocked(null); setLeads([]); setIsLoading(true); setShowPicker(false); setKind(next);
   }
+
+  const movePeriod = (dir: -1 | 1) => {
+    const next = stepAnchor(period.mode, period.anchor, dir);
+    setPeriod({ mode: period.mode, anchor: next, ...periodRange(period.mode, next, period) });
+  };
+  const pickPeriodMode = (mode: PeriodMode) => {
+    setShowPicker(false);
+    if (mode === "custom") {
+      setPeriod({ mode: "custom", anchor: today, from: period.from || "", to: period.to || "" });
+      setShowPicker(true);
+      return;
+    }
+    if (mode === "last_month") {
+      setPeriod({ mode: "last_month", anchor: today, ...periodRange("last_month", today, period) });
+      return;
+    }
+    if (mode === period.mode) return;
+    const anchor = period.mode === "custom" ? today : period.anchor;
+    setPeriod({ mode, anchor, ...periodRange(mode, anchor, period) });
+  };
+  const goToday = () => {
+    setPeriod({ mode: "month", anchor: today, ...periodRange("month", today, period) });
+  };
+  const { to: periodTo, from: periodFrom } = periodRange(period.mode, period.anchor, period);
+  const isAtToday = periodTo >= today && periodFrom <= today;
 
   const assignees = useMemo(
     () => [...new Set(staff ? staff.filter((m) => m.role !== "admin").map((m) => m.name) : leads.map((l) => l.assigned_to?.name).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b)),
@@ -150,7 +192,7 @@ export default function FollowupBoard() {
     return groups;
   }, [visible, stages]);
 
-  const hasFilters = Boolean(search.trim() || assignee || source);
+  const hasFilters = Boolean(search.trim() || assignee || source || period.mode !== "month" || period.anchor !== today);
 
   const panelLead = panel ? leads.find((l) => l.id === panel.id) ?? null : null;
 
@@ -236,6 +278,56 @@ export default function FollowupBoard() {
               />
             </label>
 
+            {/* Date range tabs */}
+            <div className="relative">
+              <div role="tablist" aria-label="Created period" className="flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-[9px]">
+                {PERIOD_TABS.map(({ value, label }) => {
+                  const on = period.mode === value;
+                  return (
+                    <button key={value} type="button" role="tab" aria-selected={on} onClick={() => pickPeriodMode(value)}
+                      className={`h-[30px] px-3 rounded-[7px] text-[13px] border-none transition-colors ${on ? "bg-white text-[#1A1C21] font-semibold shadow-sm" : "bg-transparent text-[#5F6473] font-medium hover:bg-white/60"}`}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {period.mode === "custom" && showPicker && (
+                <CustomRangePicker
+                  from={period.from}
+                  to={period.to}
+                  today={today}
+                  onApply={(f, t) => { setPeriod({ mode: "custom", anchor: today, from: f, to: t }); setShowPicker(false); }}
+                  onCancel={() => setShowPicker(false)}
+                  onClear={() => { setPeriod({ mode: "custom", anchor: today, from: "", to: "" }); setShowPicker(false); }}
+                />
+              )}
+            </div>
+
+            {/* Date navigation (day / week / month only) */}
+            {(period.mode === "day" || period.mode === "week" || period.mode === "month") && (
+              <div className="flex items-center gap-1">
+                <button type="button" aria-label="Previous period" onClick={() => movePeriod(-1)} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[7px] bg-white text-[#4B5060] hover:bg-gray-50 transition-colors">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+                </button>
+                <span aria-live="polite" className="text-[13.5px] font-semibold text-[#1A1C21] px-0.5 whitespace-nowrap">{titleOf(period.mode, period.anchor)}</span>
+                <button type="button" aria-label="Next period" onClick={() => movePeriod(1)} disabled={periodTo >= today} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[7px] bg-white text-[#4B5060] hover:bg-gray-50 disabled:opacity-40 transition-colors">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+                </button>
+                <button type="button" onClick={goToday} disabled={isAtToday} className="h-8 px-3 border border-[#DEE1E5] rounded-[7px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors ml-0.5">This month</button>
+              </div>
+            )}
+            {period.mode === "last_month" && (
+              <span className="text-[13.5px] font-semibold text-[#1A1C21] whitespace-nowrap">{titleOf("last_month", period.anchor)}</span>
+            )}
+            {period.mode === "custom" && !showPicker && (
+              <button type="button" onClick={() => setShowPicker(true)} className="h-8 px-3 border border-[#DEE1E5] rounded-[7px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-[#6B7080]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                {period.from && period.to
+                  ? `${new Date(period.from).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${new Date(period.to).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+                  : "Pick a date range"}
+              </button>
+            )}
+
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -258,7 +350,7 @@ export default function FollowupBoard() {
             />
 
             {hasFilters && (
-              <button type="button" onClick={() => { setSearch(""); setAssignee(""); setSource(""); }} className="h-[38px] px-3 border border-[#DEE1E5] rounded-[10px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 transition-colors">
+              <button type="button" onClick={() => { setSearch(""); setAssignee(""); setSource(""); setShowPicker(false); setPeriod(defaultPeriod()); }} className="h-[38px] px-3 border border-[#DEE1E5] rounded-[10px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 transition-colors">
                 Clear filters
               </button>
             )}
