@@ -369,7 +369,7 @@ export default function ContactsView() {
               </button>
             </div>
 
-            <form onSubmit={saveContact} className="flex min-h-0 flex-1 flex-col">
+            <form onSubmit={saveContact} noValidate className="flex min-h-0 flex-1 flex-col">
               <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
 
                 {/* Type tabs — new contacts only; badge for edit */}
