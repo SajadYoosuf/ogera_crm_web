@@ -60,12 +60,12 @@ export async function listContacts(accessToken: string, params: { skip?: number;
 
 export type ProfessionOption = { value: string; label: string };
 
-/** GET /contacts/profession-types — the partner types the backend accepts. */
+/** GET /contacts/partner-types — the partner types the backend accepts. */
 export async function listProfessionTypes(accessToken: string): Promise<ProfessionOption[]> {
-  const label = "[contacts api] GET /contacts/profession-types";
-  trace("log", `${label} → request`, { url: `${API_BASE_URL}/contacts/profession-types`, headers: { Authorization: "Bearer ***" } });
+  const label = "[contacts api] GET /contacts/partner-types";
+  trace("log", `${label} → request`, { url: `${API_BASE_URL}/contacts/partner-types`, headers: { Authorization: "Bearer ***" } });
   try {
-    const options = await request<ProfessionOption[]>("/contacts/profession-types", { headers: { Authorization: `Bearer ${accessToken}` } });
+    const options = await request<ProfessionOption[]>("/contacts/partner-types", { headers: { Authorization: `Bearer ${accessToken}` } });
     trace("log", `${label} ← response`, options);
     return options;
   } catch (error) {

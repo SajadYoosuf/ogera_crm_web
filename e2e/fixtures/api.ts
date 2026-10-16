@@ -157,7 +157,7 @@ export async function mockApi(page: Page, options: { employees?: MockEmployee[];
 
     // Contacts routes
     if (url.pathname === "/lead-sources" && method === "GET") return json(route, 200, LEAD_SOURCES);
-    if (url.pathname === "/contacts/profession-types" && method === "GET") return json(route, 200, PROFESSION_TYPES);
+    if (url.pathname === "/contacts/partner-types" && method === "GET") return json(route, 200, PROFESSION_TYPES);
     if (url.pathname === "/contacts/type-counts" && method === "GET") {
       return json(route, 200, {
         all: state.contacts.length,
