@@ -171,7 +171,7 @@ export default function FollowupBoard() {
       {/* ── Page header ── */}
       <header className="shrink-0 h-[72px] bg-white border-b border-[#E5E7EA] flex items-center justify-between gap-4 px-7 pt-16 lg:pt-0">
         <h1 className="text-[26px] font-bold tracking-tight text-[#1A1C21]">Lead Pipeline</h1>
-        <Link href="/contacts">
+        <Link href="/contacts?add=1&returnTo=/dashboard/followups">
           <button type="button" className="h-10 px-4 flex items-center gap-2 rounded-[10px] bg-[#0E7A4F] text-white text-sm font-semibold hover:bg-[#0B6640] transition-colors">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             Add Lead
