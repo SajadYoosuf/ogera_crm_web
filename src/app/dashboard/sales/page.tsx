@@ -1,15 +1,33 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import DateRangePicker from "@/components/DateRangePicker";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import SaleFormModal from "@/components/SaleFormModal";
-import SelectField from "@/components/SelectField";
 import { ApiError } from "@/lib/api/auth";
-import { listProducts, type ProductListItem } from "@/lib/api/products";
-import { canEditSales, deleteSale, listSaleProducts, listSales, type Sale } from "@/lib/api/sales";
+import { canEditSales, listSaleProducts, listSales, type Sale } from "@/lib/api/sales";
+import { dmSans, sora } from "@/lib/auth-fonts";
 
-const PAGE_SIZE = 20;
-const formatDate = (value: string | null) => value ? new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T00:00:00`)) : "—";
+const PAGE_SIZE = 8;
+const EXPORT_PAGE_SIZE = 100; // the largest page the API allows
+const AVATAR_TINTS = [
+  "bg-[#E7F5EE] text-[#0E4D3A]",
+  "bg-[#E0F2FE] text-[#075985]",
+  "bg-[#FEF3C7] text-[#92400E]",
+  "bg-[#FFE4E6] text-[#9F1239]",
+];
+
+const todayIso = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+const formatDate = (value: string | null) =>
+  value ? new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T00:00:00`)) : "—";
+
+/** Page numbers to show: the first pages, the current one, and the last one, with gaps marked. */
+function pageItems(page: number, pages: number): (number | "…")[] {
+  if (pages <= 7) return Array.from({ length: pages }, (_, i) => i + 1);
+  if (page <= 4) return [1, 2, 3, 4, 5, "…", pages];
+  if (page >= pages - 3) return [1, "…", pages - 4, pages - 3, pages - 2, pages - 1, pages];
+  return [1, "…", page - 1, page, page + 1, "…", pages];
+}
+
+const toCsvCell = (value: string | null) => `"${(value ?? "").replace(/"/g, '""')}"`;
 
 export default function SalesPage() {
   const [sales, setSales] = useState<Sale[]>([]);
@@ -17,214 +35,248 @@ export default function SalesPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [submittedSearch, setSubmittedSearch] = useState("");
-  const [product, setProduct] = useState("");
-  const [range, setRange] = useState({ from: "", to: "" });
-  const [products, setProducts] = useState<string[]>([]);
-  const [catalogue, setCatalogue] = useState<ProductListItem[]>([]); // active products the form can link to
+  const [productNames, setProductNames] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState("");
-  const [editing, setEditing] = useState<Sale | null | "new">(null);
-  const [deleteTarget, setDeleteTarget] = useState<Sale | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [actionError, setActionError] = useState("");
+  const [editing, setEditing] = useState<Sale | "new" | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const latestRequest = useRef(0);
 
   const storedUser = useSyncExternalStore(() => () => {}, () => sessionStorage.getItem("ogera_user"), () => null);
-  const viewerRole = useMemo(() => { try { return (JSON.parse(storedUser ?? "null") as { role?: string } | null)?.role; } catch { return undefined; } }, [storedUser]);
+  const viewerRole = useMemo(() => {
+    try { return (JSON.parse(storedUser ?? "null") as { role?: string } | null)?.role; } catch { return undefined; }
+  }, [storedUser]);
   const canEdit = canEditSales(viewerRole);
 
-  const load = useCallback(async () => {
+  // Search waits for a short pause in typing, then goes back to the first page.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSubmittedSearch(search.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  const load = useCallback(() => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setSales([]); setError("Sign in to see the sales."); setIsLoading(false); return; }
+    if (!accessToken) { setError("Sign in to see the sales."); setIsLoading(false); return; }
     const requestId = ++latestRequest.current;
     setIsLoading(true);
     setError("");
-    try {
-      const result = await listSales(accessToken, {
-        skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE, search: submittedSearch || undefined, product: product || undefined,
-        purchased_from: range.from || undefined, purchased_to: range.to || undefined,
+    listSales(accessToken, { search: submittedSearch || undefined, skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE })
+      .then((result) => {
+        if (requestId !== latestRequest.current) return; // a newer request has replaced this one
+        setSales(result.items);
+        setTotal(result.total);
+      })
+      .catch((caught) => {
+        if (requestId !== latestRequest.current) return;
+        setSales([]);
+        setTotal(0);
+        setError(caught instanceof ApiError ? caught.message : "Could not load the sales. Please try again.");
+      })
+      .finally(() => {
+        if (requestId === latestRequest.current) setIsLoading(false);
       });
-      if (requestId !== latestRequest.current) return; // a newer search is already running
-      setSales(result.items);
-      setTotal(result.total);
-    } catch (caught) {
-      if (requestId !== latestRequest.current) return;
-      setSales([]);
-      setError(caught instanceof ApiError ? caught.message : "Could not load the sales. Please try again.");
-    } finally {
-      if (requestId === latestRequest.current) setIsLoading(false);
-    }
-  }, [page, submittedSearch, product, range]);
+  }, [page, submittedSearch]);
 
-  const loadProducts = useCallback(() => {
+  useEffect(() => {
+    const timer = window.setTimeout(() => load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load, reloadKey]);
+
+  useEffect(() => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
     if (!accessToken) return;
-    listSaleProducts(accessToken).then(setProducts).catch(() => setProducts([]));
-    listProducts(accessToken, { limit: 100 }).then((result) => setCatalogue(result.items.filter((item) => item.is_active))).catch(() => setCatalogue([])); // the form still works as plain text
-  }, []);
+    listSaleProducts(accessToken).then(setProductNames).catch(() => setProductNames([]));
+  }, [reloadKey]);
 
-  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
-  useEffect(() => { const timer = window.setTimeout(loadProducts, 0); return () => window.clearTimeout(timer); }, [loadProducts]);
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const hasFilters = Boolean(submittedSearch || product || range.from || range.to);
-
-  const submitSearch = (event: FormEvent) => { event.preventDefault(); setPage(1); setSubmittedSearch(search.trim()); };
-  const clearFilters = () => { setSearch(""); setSubmittedSearch(""); setProduct(""); setRange({ from: "", to: "" }); setPage(1); };
-
-  const confirmDelete = async () => {
+  const exportCsv = async () => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!deleteTarget || !accessToken) return;
-    setIsDeleting(true);
-    setActionError("");
+    if (!accessToken) return;
+    setIsExporting(true);
+    setError("");
     try {
-      await deleteSale(accessToken, deleteTarget.id);
-      setDeleteTarget(null);
-      if (sales.length === 1 && page > 1) setPage(page - 1); else void load();
-      loadProducts();
+      // Every row that matches the search, not only the page on screen.
+      const rows: Sale[] = [];
+      for (let skip = 0; ; skip += EXPORT_PAGE_SIZE) {
+        const result = await listSales(accessToken, { search: submittedSearch || undefined, skip, limit: EXPORT_PAGE_SIZE });
+        rows.push(...result.items);
+        if (result.items.length === 0 || rows.length >= result.total) break;
+      }
+      const header = ["Customer", "Phone", "Alternate phone", "Address", "Product purchased", "Purchase date"];
+      const body = rows.map((r) => [r.name, r.phone, r.alt_phone, r.address, r.purchased_product, r.purchase_date]);
+      const csv = [header, ...body].map((line) => line.map(toCsvCell).join(",")).join("\r\n");
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `sales-${todayIso()}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
     } catch (caught) {
-      setActionError(caught instanceof ApiError ? caught.message : "Could not delete the sale. Please try again.");
+      setError(caught instanceof ApiError ? caught.message : "Could not export the sales. Please try again.");
     } finally {
-      setIsDeleting(false);
+      setIsExporting(false);
     }
   };
 
-  const saved = () => { setEditing(null); void load(); loadProducts(); };
-
-  const rowActions = (sale: Sale) => canEdit && (
-    <div className="flex justify-end gap-1">
-      <button type="button" onClick={() => setEditing(sale)} aria-label={`Edit sale of ${sale.name}`} title="Edit" className="p-2 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-      </button>
-      <button type="button" onClick={() => { setActionError(""); setDeleteTarget(sale); }} aria-label={`Delete sale of ${sale.name}`} title="Delete" className="p-2 rounded-lg text-gray-400 hover:bg-rose-50 hover:text-rose-600 transition-colors">
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" /></svg>
-      </button>
-    </div>
-  );
-
   return (
-    <div className="p-5 pt-20 lg:p-6 lg:pt-6 flex flex-col gap-5">
-      <header className="relative overflow-hidden rounded-2xl bg-[#0a192f] text-white">
-        <div className="pointer-events-none absolute -top-24 -left-16 w-80 h-80 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="relative p-5 sm:p-7 flex flex-col lg:flex-row lg:items-end justify-between gap-5">
-          <div className="max-w-xl">
-            <h1 className="text-[26px] sm:text-[34px] font-extrabold tracking-tight leading-tight">Sales</h1>
-            <p className="mt-2 text-sm sm:text-[15px] text-white/65 leading-relaxed">Who bought what, and when. Kept separate from contacts.</p>
-          </div>
-          {canEdit && (
-            <button type="button" onClick={() => setEditing("new")} className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl bg-white text-[#0a192f] text-sm font-bold shadow-lg shadow-black/20 hover:bg-sky-50 active:scale-[.98] transition-all">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-              Add sale
-            </button>
-          )}
-        </div>
+    <div className={`${dmSans.variable} ${sora.variable} flex min-h-full flex-col font-[family-name:var(--font-dm-sans)] text-[#1A1C21]`}>
+      <header className="flex h-[72px] shrink-0 flex-wrap items-center justify-between gap-4 border-b border-[#E5E7EA] bg-white px-7">
+        <h1 className="whitespace-nowrap font-[family-name:var(--font-sora)] text-xl font-bold tracking-[-0.01em] text-[#1A1C21]">Sales Register</h1>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setEditing("new")}
+            className="flex h-10 shrink-0 items-center gap-2 rounded-[8px] bg-[#0E4D3A] px-4 text-sm font-semibold text-white hover:opacity-90"
+          >
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+            Add New Sale
+          </button>
+        )}
       </header>
 
-      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col gap-3 lg:flex-row lg:items-center">
-        <form onSubmit={submitSearch} className="flex items-center h-11 w-full lg:max-w-md rounded-xl border border-gray-200 bg-gray-50 overflow-hidden focus-within:border-blue-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-600/15 transition-colors">
-          <label className="sr-only" htmlFor="sale-search">Search sales</label>
-          <svg className="w-4 h-4 ml-3.5 mr-2 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.25" /><path d="m16 16 4.25 4.25" /></svg>
-          <input id="sale-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, phone, address or product" className="flex-1 min-w-0 h-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400" />
-        </form>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <DateRangePicker label="Purchased" from={range.from} to={range.to} className="w-full sm:w-64" onChange={(from, to) => { setRange({ from, to }); setPage(1); }} />
-          <div className="sm:w-56">
-            <SelectField label="Product" value={product} options={[{ value: "", label: "All products" }, ...products.map((item) => ({ value: item, label: item }))]} onChange={(value) => { setProduct(value); setPage(1); }} />
-          </div>
-          {hasFilters && <button type="button" onClick={clearFilters} className="min-h-11 px-3 text-sm font-semibold text-blue-700 hover:underline">Clear filters</button>}
-        </div>
-      </section>
+      <div className="flex flex-col gap-3.5 px-7 pb-6 pt-[22px]">
+        <p className="text-[13.5px] leading-normal text-[#6B7080]">Every walk-in and direct sale recorded for your team — who bought what, and when. Click a row to view, edit or remove an entry.</p>
 
-      {error ? (
-        <div role="alert" className="bg-white rounded-2xl border border-rose-200 p-6 text-center">
-          <p className="text-sm font-semibold text-rose-700">{error}</p>
-          <button type="button" onClick={() => void load()} className="mt-3 min-h-11 px-4 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50">Try again</button>
-        </div>
-      ) : isLoading && sales.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100" aria-busy="true" aria-label="Loading sales">
-          {Array.from({ length: 6 }, (_, index) => (
-            <div key={index} className="p-4 animate-pulse flex items-center gap-4"><span className="h-3.5 w-40 rounded bg-gray-100" /><span className="h-3.5 w-24 rounded bg-gray-100" /><span className="h-3.5 w-32 rounded bg-gray-100 ml-auto" /></div>
-          ))}
-        </div>
-      ) : sales.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
-          <p className="text-sm font-bold text-[#0a192f]">{hasFilters ? "No sales match these filters." : "No sales yet."}</p>
-          {hasFilters ? <button type="button" onClick={clearFilters} className="mt-3 min-h-11 px-4 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50">Clear filters</button>
-            : canEdit && <button type="button" onClick={() => setEditing("new")} className="mt-3 min-h-11 px-4 rounded-xl bg-[#1d7ac4] text-sm font-bold text-white hover:opacity-90">Add the first sale</button>}
-        </div>
-      ) : (
-        <div className={isLoading ? "opacity-60 transition-opacity" : "transition-opacity"}>
-          <p className="mb-2 text-xs text-gray-500">{total.toLocaleString("en-IN")} sale{total === 1 ? "" : "s"}</p>
-          <div className="hidden lg:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-500 text-[11px] font-extrabold tracking-wider uppercase border-b border-gray-200">
-                <tr>
-                  <th scope="col" className="px-5 py-3.5">Buyer</th>
-                  <th scope="col" className="px-4 py-3.5">Phone</th>
-                  <th scope="col" className="px-4 py-3.5">Product</th>
-                  <th scope="col" className="px-4 py-3.5">Purchased</th>
-                  <th scope="col" className="px-4 py-3.5">Address</th>
-                  <th scope="col" className="px-4 py-3.5"><span className="sr-only">Actions</span></th>
+        <section aria-label="Sales list" className="flex flex-col overflow-hidden rounded-[18px] border border-[#E5E7EA] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EFEFF2] p-4">
+            <label className="relative flex min-w-[220px] max-w-[360px] flex-1 items-center">
+              <span className="sr-only">Search sales</span>
+              <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A8F9C" strokeWidth="1.8" strokeLinecap="round" className="absolute left-3">
+                <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
+              </svg>
+              <input
+                className="sr-search h-[38px] w-full rounded-[8px] border border-[#DEE1E5] bg-[#F7F8F9] py-0 pl-[34px] pr-3 text-[13.5px] text-[#1A1C21] outline-none focus:border-[#0E4D3A]"
+                type="search"
+                placeholder="Search by name, phone or product…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={isExporting}
+              className="flex h-[38px] items-center gap-1.5 rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-sm font-medium text-[#3A3E4A] hover:bg-[#F7F8F9] disabled:opacity-50"
+            >
+              <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 21h16" /></svg>
+              Export
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1040px] border-collapse text-sm">
+              <thead>
+                <tr className="bg-[#F7F7F9] text-left text-[13px] text-[#4B5060]">
+                  <th scope="col" className="px-4 py-3 font-medium">Customer</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Phone</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Address</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Product Purchased</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Purchase Date</th>
+                  <th scope="col" className="px-4 py-3 text-center font-medium">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {sales.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-gray-50/60">
-                    <td className="px-5 py-3.5 font-bold text-[#0a192f]">{sale.name}</td>
-                    <td className="px-4 py-3.5 whitespace-nowrap text-gray-600">{sale.phone ?? "—"}{sale.alt_phone && <span className="block text-xs text-gray-400">{sale.alt_phone}</span>}</td>
-                    <td className="px-4 py-3.5 text-gray-600">{sale.purchased_product ?? "—"}</td>
-                    <td className="px-4 py-3.5 whitespace-nowrap text-gray-600">{formatDate(sale.purchase_date)}</td>
-                    <td className="px-4 py-3.5 text-gray-500 max-w-[18rem] truncate" title={sale.address ?? undefined}>{sale.address ?? "—"}</td>
-                    <td className="px-4 py-3.5">{rowActions(sale)}</td>
+                  <tr
+                    key={sale.id}
+                    onClick={() => setEditing(sale)}
+                    className="cursor-pointer border-t border-[#EFEFF2] hover:bg-[#FAFAFB]"
+                  >
+                    <td className="h-14 px-4">
+                      <div className="flex items-center gap-2.5">
+                        <span aria-hidden="true" className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${AVATAR_TINTS[sale.name.charCodeAt(0) % AVATAR_TINTS.length]}`}>
+                          {sale.name.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="whitespace-nowrap font-semibold text-[#1A1C21]">{sale.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-3">
+                      <div className="flex flex-col gap-px">
+                        <span className="whitespace-nowrap text-[#3A3E4A]">{sale.phone ?? "—"}</span>
+                        {sale.alt_phone && <span className="whitespace-nowrap text-[11px] text-[#9AA0AC]">Alt: {sale.alt_phone}</span>}
+                      </div>
+                    </td>
+                    <td className="max-w-[220px] truncate whitespace-nowrap px-3 text-[#6B7080]" title={sale.address ?? undefined}>{sale.address ?? "—"}</td>
+                    <td className="whitespace-nowrap px-3 text-[#3A3E4A]">{sale.purchased_product ?? "—"}</td>
+                    <td className="whitespace-nowrap px-3 text-[#6B7080]">{formatDate(sale.purchase_date)}</td>
+                    <td className="px-4 text-center">
+                      <button
+                        type="button"
+                        aria-label={`Actions for ${sale.name}`}
+                        onClick={(e) => { e.stopPropagation(); setEditing(sale); }}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-[8px] text-[#1A1C21] hover:bg-[#F1F2F4]"
+                      >
+                        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="12" cy="19" r="1.8" /></svg>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            {!isLoading && sales.length === 0 && (
+              <p className="px-4 py-10 text-center text-sm text-[#6B7080]">
+                {error || (submittedSearch ? "No sales match your search." : "No sales recorded yet.")}
+              </p>
+            )}
+            {error && sales.length > 0 && <p role="alert" className="px-4 py-3 text-center text-sm text-rose-700">{error}</p>}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:hidden">
-            {sales.map((sale) => (
-              <article key={sale.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h2 className="font-bold text-[#0a192f] truncate">{sale.name}</h2>
-                    <p className="text-xs text-gray-500">{formatDate(sale.purchase_date)}</p>
-                  </div>
-                  {rowActions(sale)}
-                </div>
-                {sale.purchased_product && <p className="mt-2 inline-flex px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold">{sale.purchased_product}</p>}
-                {sale.phone && <p className="mt-2 text-sm"><a href={`tel:${sale.phone}`} className="text-blue-700 font-semibold">{sale.phone}</a>{sale.alt_phone && <span className="text-gray-400"> · {sale.alt_phone}</span>}</p>}
-                {sale.address && <p className="mt-1 text-xs text-gray-500 line-clamp-2">{sale.address}</p>}
-              </article>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!error && total > PAGE_SIZE && (
-        <nav className="flex items-center justify-between gap-4" aria-label="Sales pagination">
-          <p className="text-xs text-gray-500">Page {page} of {totalPages}</p>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setPage((current) => current - 1)} disabled={page === 1} className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Previous</button>
-            <button type="button" onClick={() => setPage((current) => current + 1)} disabled={page === totalPages} className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next</button>
-          </div>
-        </nav>
-      )}
-
-      {editing && <SaleFormModal sale={editing === "new" ? null : editing} products={products} catalogue={catalogue} onClose={() => setEditing(null)} onSaved={saved} />}
-
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/50 backdrop-blur-xs">
-          <section className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 sm:p-6" role="alertdialog" aria-modal="true" aria-labelledby="delete-sale-title">
-            <h2 id="delete-sale-title" className="text-lg font-extrabold text-[#0a192f]">Delete this sale?</h2>
-            <p className="mt-2 text-sm text-gray-600">The sale of {deleteTarget.purchased_product ?? "an item"} to {deleteTarget.name} will be removed for good.</p>
-            {actionError && <p role="alert" className="mt-3 px-3 py-2.5 rounded-lg border border-rose-200 bg-rose-50 text-sm text-rose-700">{actionError}</p>}
-            <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-              <button type="button" onClick={() => setDeleteTarget(null)} disabled={isDeleting} className="min-h-11 px-4 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">Cancel</button>
-              <button type="button" onClick={() => void confirmDelete()} disabled={isDeleting} className="min-h-11 px-5 rounded-xl bg-rose-600 text-white text-sm font-bold hover:bg-rose-700 disabled:opacity-60">{isDeleting ? "Deleting…" : "Delete"}</button>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEFF2] px-4 py-3.5">
+            <p className="text-sm text-[#3A3E4A]">Showing {from} to {to} of {total} sales</p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[13px] font-medium text-[#3A3E4A] hover:bg-[#F7F8F9] disabled:opacity-40"
+              >
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
+                Previous
+              </button>
+              {pageItems(page, pages).map((item, index) =>
+                item === "…" ? (
+                  <span key={`gap-${index}`} aria-hidden="true" className="px-1 text-[#8A8F9C]">…</span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setPage(item)}
+                    aria-current={item === page ? "page" : undefined}
+                    className={`h-9 w-9 rounded-[8px] text-[13px] ${item === page ? "bg-[#0E4D3A] font-semibold text-white" : "text-[#4B5060] hover:bg-[#F1F2F4]"}`}
+                  >
+                    {item}
+                  </button>
+                ),
+              )}
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(pages, p + 1))}
+                disabled={page >= pages}
+                className="flex h-9 items-center gap-1.5 rounded-[8px] bg-[#0E4D3A] px-3.5 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-40"
+              >
+                Next
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </button>
             </div>
-          </section>
-        </div>
+          </div>
+        </section>
+      </div>
+
+      {editing && (
+        <SaleFormModal
+          sale={editing === "new" ? null : editing}
+          canEdit={canEdit}
+          productNames={productNames}
+          onClose={() => setEditing(null)}
+          onChanged={() => { setEditing(null); setReloadKey((k) => k + 1); }}
+        />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import { ApiError, request } from "./auth";
 
-/** Mirrors the Sales section of the parent API.md. Sales are not linked to contacts. */
+/** Mirrors the Sales section of the backend API. Sales are not linked to contacts or products. */
 export type Sale = {
   id: number;
   purchase_date: string | null;
@@ -9,7 +9,6 @@ export type Sale = {
   alt_phone: string | null;
   address: string | null;
   purchased_product: string | null;
-  product_id: number | null; // set when picked from the products catalogue
   created_at: string;
 };
 
@@ -22,10 +21,7 @@ export type SaleInput = {
   alt_phone?: string | null;
   address?: string | null;
   purchased_product?: string | null;
-  product_id?: number | null;
 };
-
-export type SaleFilters = { search?: string; product?: string; purchased_from?: string; purchased_to?: string };
 
 /** Only admins and managers may add, edit or delete sales (the backend enforces it too). */
 export const canEditSales = (role: string | undefined) => role === "admin" || role === "manager";
@@ -45,16 +41,13 @@ async function authed<T>(method: string, path: string, accessToken: string, body
 }
 
 /** GET /sales — one page, newest purchase first. */
-export function listSales(accessToken: string, params: SaleFilters & { skip?: number; limit?: number } = {}) {
+export function listSales(accessToken: string, params: { search?: string; skip?: number; limit?: number } = {}) {
   const query = new URLSearchParams({ skip: String(params.skip ?? 0), limit: String(params.limit ?? 20) });
   if (params.search) query.set("search", params.search);
-  if (params.product) query.set("product", params.product);
-  if (params.purchased_from) query.set("purchased_from", params.purchased_from);
-  if (params.purchased_to) query.set("purchased_to", params.purchased_to);
   return authed<SaleList>("GET", `/sales?${query}`, accessToken);
 }
 
-/** GET /sales/products — distinct products, for the filter and the form's suggestions. */
+/** GET /sales/products — distinct product names, for the form's suggestions. */
 export const listSaleProducts = (accessToken: string) => authed<string[]>("GET", "/sales/products", accessToken);
 
 export const createSale = (accessToken: string, input: SaleInput) => authed<Sale>("POST", "/sales", accessToken, input);

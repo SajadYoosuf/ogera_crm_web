@@ -63,6 +63,15 @@ const menuItems: MenuItem[] = [
     ),
   },
   {
+    id: "sales",
+    label: "Sales",
+    href: "/dashboard/sales",
+    category: "MAIN",
+    icon: (
+      <path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" />
+    ),
+  },
+  {
     id: "employees",
     label: "Employees",
     href: "/dashboard/employees",
