@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-10-17 — `6578d3a` (branch `phase1-redesign`)
+
+**Task status tabs To do, In Progress, Completed on the Tasks page**
+
+Author: sajad yoosuf
+Previous commit on this side: `58d4e9b` Add Other to activity type list (2026-10-16)
+
+### Summary
+Tasks navbar, toolbar and list follow the Tasks design. The status tabs are All, To do, In Progress and Completed; the page opens on To do. The table keeps its header when empty, and the Filter menu adds Dealer to Lead type.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/components/tasks/TasksBoard.tsx` | Navbar, toolbar with status tabs, search and Filter menu, list states |
+| Added | `src/components/tasks/TaskTable.tsx` | Table with Task Title, Assigned, Task Type, Status, Due Date; empty row |
+| Modified | `src/components/tasks/TaskCard.tsx` | Status pill colours and button styles |
+| Deleted | `src/components/tasks/TaskViews.tsx` | Day/Week/Month calendar views, replaced by the flat list |
+| Modified | `src/components/tasks/calendar.ts` | Custom range and no-limit range helpers |
+| Modified | `src/app/dashboard/tasks/page.tsx` | DM Sans and Sora on the Tasks route |
+| Modified | `src/lib/api/tasks.ts` | `TaskStatus` is todo, inprogress, completed, all; `contactType` accepts dealer |
+| Modified | `tests/components/tasks-board.test.tsx` | Tests for the new tabs and Filter menu |
+
+### Notes
+Tab counts are off: the summary does not yet include To do or In Progress counts. Overdue still shows on each row as a status pill. Not browser-checked yet.
+
 ## 2026-10-12 — `c944450` (branch `phase1-redesign`)
 
 **Redesign the Contacts page to the design and add Sort by**
