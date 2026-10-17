@@ -1,5 +1,9 @@
 /** Date maths for the Tasks screen. Dates travel as plain YYYY-MM-DD strings so they never drift across a timezone. */
-export type TaskView = "day" | "week" | "month";
+/** "custom" is a range the user picks; its dates are held by the screen, so the date maths below never see it. */
+export type TaskView = "all" | "day" | "week" | "month" | "custom";
+
+/** The server refuses longer ranges (MAX_RANGE_DAYS in routes/tasks.py). */
+export const MAX_CUSTOM_DAYS = 62;
 
 export function toISO(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -37,7 +41,8 @@ export function monthWeeks(value: string) {
 
 /** First and last day the view needs from the server. */
 export function rangeFor(view: TaskView, value: string) {
-  if (view === "day") return { from: value, to: value };
+  if (view === "all") return { from: "", to: "" }; // no date limit
+  if (view === "day" || view === "custom") return { from: value, to: value };
   if (view === "week") { const from = startOfWeek(value); return { from, to: addDays(from, 6) }; }
   const weeks = monthWeeks(value);
   return { from: weeks[0][0], to: weeks[weeks.length - 1][6] };
@@ -45,7 +50,7 @@ export function rangeFor(view: TaskView, value: string) {
 
 /** Move the anchor one day, week or month back (-1) or forward (1). */
 export function shift(view: TaskView, value: string, direction: -1 | 1) {
-  if (view === "day") return addDays(value, direction);
+  if (view === "day" || view === "custom") return addDays(value, direction);
   if (view === "week") return addDays(value, 7 * direction);
   const date = fromISO(value);
   const target = new Date(date.getFullYear(), date.getMonth() + direction, 1);
@@ -57,7 +62,7 @@ const SHORT = { day: "numeric", month: "short" } as const;
 
 /** "Fri, 9 Oct 2026", "5 Oct – 11 Oct 2026" or "October 2026". */
 export function titleFor(view: TaskView, value: string) {
-  if (view === "day") return fromISO(value).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  if (view === "day" || view === "custom") return fromISO(value).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   if (view === "month") return fromISO(value).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
   const { from, to } = rangeFor("week", value);
   return `${fromISO(from).toLocaleDateString("en-GB", SHORT)} – ${fromISO(to).toLocaleDateString("en-GB", { ...SHORT, year: "numeric" })}`;

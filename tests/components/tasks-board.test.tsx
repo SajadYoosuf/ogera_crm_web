@@ -10,7 +10,7 @@ const ok = (data: unknown, status = 200) => ({ ok: true, status, json: async () 
 const fail = (status: number, detail: unknown) => ({ ok: false, status, json: async () => ({ detail }) });
 
 const task = (overrides: Partial<TaskItem>): TaskItem => ({
-  id: 5, type: "phone_call", notes: "Confirm quote decision", status: "pending", scheduled_date: isoDate(), scheduled_time: "10:30:00",
+  id: 5, title: null, type: "phone_call", notes: "Confirm quote decision", status: "pending", scheduled_date: isoDate(), scheduled_time: "10:30:00",
   assigned_to: 7, assigned_to_name: "Rajan", completed_at: null, completed_by: null, completed_by_name: null, coordinates: null, task_id: null,
   created_by: 1, created_by_name: "Ada", created_at: "2026-10-01T09:00:00", task_state: "due_today", overdue_days: 0,
   contact_id: 12, contact_name: "Anil Kumar", contact_phone: "9111111111", contact_type: "consumer", ...overrides,
@@ -41,29 +41,43 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); fetchMock.mockReset(); sessionStorage.clear(); });
 
 describe("tasks screen", () => {
-  it("opens on today and asks the server for that day, including what was missed", async () => {
+  it("opens on all dates, so a task due on another day shows without picking a range", async () => {
     signIn("sales_executive");
+    tasks = [task({ id: 9, notes: "Send brochure", scheduled_date: isoDate(1), task_state: "pending", contact_name: "Future Lead" })];
     render(<TasksBoard />);
-    expect(await screen.findByText("Anil Kumar")).toBeTruthy();
+    expect(await screen.findByText("Future Lead")).toBeTruthy();
     const [first] = urlsFor("/tasks");
-    expect(first.searchParams.get("date_from")).toBe(isoDate());
-    expect(first.searchParams.get("date_to")).toBe(isoDate());
-    expect(first.searchParams.get("include_overdue")).toBe("true");
-    expect(screen.getByText("10:30am")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Employee/ })).toBeNull(); // staff only see their own tasks
+    expect(first.searchParams.get("date_from")).toBeNull();
+    expect(first.searchParams.get("date_to")).toBeNull();
   });
 
-  it("asks for the whole week and the whole month grid when the view changes", async () => {
+  it("can switch to today, which also includes what was missed", async () => {
     signIn("sales_executive");
     render(<TasksBoard />);
     await screen.findByText("Anil Kumar");
-    fireEvent.click(screen.getByRole("button", { name: "Week" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    await waitFor(() => expect(urlsFor("/tasks").at(-1)!.searchParams.get("date_from")).toBe(isoDate()));
+    const today = urlsFor("/tasks").at(-1)!;
+    expect(today.searchParams.get("date_to")).toBe(isoDate());
+    expect(today.searchParams.get("include_overdue")).toBe("true");
+    expect(screen.getByText("10:30am")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    expect(screen.queryByRole("button", { name: "Rajan" })).toBeNull(); // staff only see their own tasks
+  });
+
+  it("asks for the whole week and the whole month when the due date changes", async () => {
+    signIn("sales_executive");
+    render(<TasksBoard />);
+    await screen.findByText("Anil Kumar");
+    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    fireEvent.click(screen.getByRole("button", { name: "This week" }));
     await waitFor(() => expect(urlsFor("/tasks").some((url) => url.searchParams.get("date_from") !== url.searchParams.get("date_to"))).toBe(true));
     const week = urlsFor("/tasks").at(-1)!;
     expect(week.searchParams.get("include_overdue")).toBeNull();
     expect((new Date(week.searchParams.get("date_to")!).getTime() - new Date(week.searchParams.get("date_from")!).getTime()) / 86400000).toBe(6);
 
-    fireEvent.click(screen.getByRole("button", { name: "Month" }));
+    fireEvent.click(screen.getByRole("button", { name: "This month" }));
     await waitFor(() => {
       const last = urlsFor("/tasks").at(-1)!;
       expect((new Date(last.searchParams.get("date_to")!).getTime() - new Date(last.searchParams.get("date_from")!).getTime()) / 86400000).toBeGreaterThanOrEqual(27);
@@ -74,9 +88,24 @@ describe("tasks screen", () => {
     signIn("manager");
     render(<TasksBoard />);
     await screen.findByText("Anil Kumar");
-    fireEvent.click(screen.getByRole("button", { name: /Employee/ }));
-    fireEvent.click(within(await screen.findByRole("option", { name: "Rajan" })).getByRole("button"));
+    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rajan" }));
     await waitFor(() => expect(urlsFor("/tasks").at(-1)!.searchParams.get("assigned_to")).toBe("7"));
+  });
+
+  it("shows Mark done and Reschedule in the table on desktop", async () => {
+    signIn("sales_executive");
+    vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }));
+    render(<TasksBoard />);
+    expect(await screen.findByRole("columnheader", { name: "Priority" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Actions for/ }));
+    expect(screen.getByRole("menu").parentElement).toBe(document.body); // drawn outside the table so nothing clips it
+    fireEvent.click(screen.getByRole("menuitem", { name: "Reschedule" }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Actions for/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Mark done" }));
+    expect(screen.getByRole("button", { name: "Save & mark done" })).toBeTruthy();
   });
 
   it("needs an outcome before a task can be marked done, then logs it with the completion", async () => {
@@ -105,5 +134,32 @@ describe("tasks screen", () => {
     render(<TasksBoard />);
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+  });
+
+  it("starts on All, offers the status tabs, and filters consumer or partner from the Filter menu", async () => {
+    signIn("sales_executive");
+    render(<TasksBoard />);
+    await screen.findByText("Anil Kumar");
+    const statusTabs = within(screen.getByRole("tablist", { name: "Task status filter" })).getAllByRole("tab").map((tab) => tab.textContent);
+    expect(statusTabs).toEqual(["All", "To do", "In Progress", "Completed"]);
+    expect(urlsFor("/tasks").at(-1)!.searchParams.get("status")).toBe("all");
+
+    fireEvent.click(screen.getByRole("tab", { name: "In Progress" }));
+    await waitFor(() => expect(urlsFor("/tasks").at(-1)!.searchParams.get("status")).toBe("inprogress"));
+    fireEvent.click(screen.getByRole("tab", { name: "To do" }));
+
+    // Due date "All dates" asks for every date
+    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    fireEvent.click(screen.getByRole("button", { name: "All dates" }));
+    await waitFor(() => {
+      const last = urlsFor("/tasks").at(-1)!;
+      expect(last.searchParams.get("date_from")).toBeNull();
+      expect(last.searchParams.get("date_to")).toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Partner" }));
+    await waitFor(() => expect(urlsFor("/tasks").at(-1)!.searchParams.get("contact_type")).toBe("partner"));
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(urlsFor("/tasks").at(-1)!.searchParams.get("contact_type")).toBeNull());
   });
 });
