@@ -49,6 +49,34 @@ export async function listLeads(accessToken: string, kind: LeadKind, dateFrom?: 
 export const listStageTypes = (accessToken: string, contactType: LeadKind) =>
   request<StageTypeItem[]>(`/contacts/stage-types?contact_type=${contactType}`, { headers: authHeader(accessToken) });
 
+/** One row of GET /contacts/{id}/history (backend HistoryItem). Fields not used by an event type are null. */
+export type HistoryEvent = {
+  event_type: "stage" | "activity" | "followup" | "followup_rescheduled" | "assignment";
+  timestamp: string;
+  actor_id: number | null;
+  actor_name: string | null;
+  stage_slug: string | null;
+  stage_name: string | null;
+  previous_stage_name: string | null;
+  stage_note: string | null;
+  activity_type: string | null;
+  title: string | null;
+  outcome: string | null;
+  notes: string | null;
+  followup_id: number | null;
+  channel: string | null;
+  due_at: string | null;
+  /** For a reschedule: the due date before the move (due_at is the new one). */
+  previous_due_at?: string | null;
+  followup_status: string | null;
+  assigned_to_name: string | null;
+  assigned_from_name: string | null;
+};
+
+/** Stages, scheduled follow-ups, logged activities and owner changes for one lead, newest first. */
+export const getLeadHistory = (accessToken: string, contactId: number) =>
+  request<HistoryEvent[]>(`/contacts/${contactId}/history`, { headers: authHeader(accessToken) });
+
 export const getStageHistory = (accessToken: string, contactId: number) =>
   request<StageEntry[]>(`/contacts/${contactId}/stages`, { headers: authHeader(accessToken) });
 

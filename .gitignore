@@ -7,3 +7,5 @@
 # Environment files (may hold secrets)
 .env
 .env.*
+/playwright-report-live/
+/test-results-live/

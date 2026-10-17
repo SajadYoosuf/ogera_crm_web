@@ -41,7 +41,7 @@ describe("whatsappLink", () => {
 
 describe("formatCardDate", () => {
   it("returns a short weekday + date string", () => {
-    expect(formatCardDate("2026-10-16T09:00:00")).toMatch(/\w{3}, \d+ \w{3}/);
+    expect(formatCardDate("2026-10-16T09:00:00")).toMatch(/\w{3},? \d+ \w{3}/) // the comma depends on the Node locale data;
   });
 
   it("returns empty string for an invalid date", () => {

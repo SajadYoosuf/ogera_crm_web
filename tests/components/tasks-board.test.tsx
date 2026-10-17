@@ -34,7 +34,7 @@ beforeEach(() => {
     const url = new URL(input);
     if (url.pathname === "/tasks") return ok(list(tasks));
     if (url.pathname === "/employees") return ok({ items: [{ id: 7, name: "Rajan", role: "sales_executive", is_active: true }], total: 1, skip: 0, limit: 100 });
-    if (url.pathname === "/contacts/12/activities/5" && init?.method === "PATCH") { tasks = []; return ok(task({ status: "done", task_state: "done" })); }
+    if (url.pathname === "/contacts/12/followups/5" && init?.method === "PATCH") { tasks = []; return ok({ id: 5 }); }
     return fail(404, `Unmocked ${url.pathname}`);
   });
 });
@@ -101,14 +101,14 @@ describe("tasks screen", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Actions for/ }));
     expect(screen.getByRole("menu").parentElement).toBe(document.body); // drawn outside the table so nothing clips it
     fireEvent.click(screen.getByRole("menuitem", { name: "Reschedule" }));
-    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save new date" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: /^Actions for/ }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Mark done" }));
     expect(screen.getByRole("button", { name: "Save & mark done" })).toBeTruthy();
   });
 
-  it("needs an outcome before a task can be marked done, then logs it with the completion", async () => {
+  it("logs what happened before a task is marked done, then asks about the next follow-up", async () => {
     signIn("sales_executive");
     render(<TasksBoard />);
     fireEvent.click(await screen.findByRole("button", { name: "Mark done" }));
@@ -118,9 +118,33 @@ describe("tasks screen", () => {
 
     fireEvent.change(screen.getByLabelText("What happened?"), { target: { value: "Spoke to Anil, quote on Friday" } });
     fireEvent.click(screen.getByRole("button", { name: "Save & mark done" }));
-    expect(await screen.findByText(/The outcome was logged for Anil Kumar/)).toBeTruthy();
-    expect(patchBody()).toEqual({ status: "done", outcome: "Spoke to Anil, quote on Friday" });
+    expect(await screen.findByRole("heading", { name: "Schedule a follow-up?" })).toBeTruthy();
+    expect(patchBody()).toEqual({ status: "completed", outcome: "done", notes: "Spoke to Anil, quote on Friday" });
+
+    fireEvent.click(screen.getByRole("button", { name: "No, that's all" }));
+    expect(await screen.findByText(/The activity was logged for Anil Kumar/)).toBeTruthy();
     await waitFor(() => expect(screen.queryByText("Anil Kumar")).toBeNull()); // the list reloads without the finished task
+  });
+
+  it("opens the schedule form when the next follow-up is wanted after marking done", async () => {
+    signIn("sales_executive");
+    render(<TasksBoard />);
+    fireEvent.click(await screen.findByRole("button", { name: "Mark done" }));
+    fireEvent.change(screen.getByLabelText("What happened?"), { target: { value: "Called, will confirm" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save & mark done" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Yes, schedule" }));
+    expect(await screen.findByRole("button", { name: "Schedule Followup" })).toBeTruthy();
+  });
+
+  it("reschedules from a dialog that shows the task, and saves the new date", async () => {
+    signIn("sales_executive");
+    render(<TasksBoard />);
+    fireEvent.click(await screen.findByRole("button", { name: "Reschedule" }));
+    expect(screen.getByText("Confirm quote decision")).toBeTruthy(); // the task's own values are shown
+    const next = isoDate(2);
+    fireEvent.change(screen.getByLabelText("New due date"), { target: { value: next } });
+    fireEvent.click(screen.getByRole("button", { name: "Save new date" }));
+    await waitFor(() => expect(patchBody()).toEqual({ due_at: `${next}T23:59:00` }));
   });
 
   it("shows the empty state, and an error with a retry", async () => {

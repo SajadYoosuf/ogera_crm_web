@@ -5,12 +5,14 @@ import { isoDate } from "@/components/followups/activities";
 import { useEnumOptions } from "@/hooks/useEnumOptions";
 import { ApiError } from "@/lib/api/auth";
 import { markFollowupDone, rescheduleFollowup } from "@/lib/api/activities";
+import FollowupScheduleForm from "@/components/followups/FollowupScheduleForm";
 import { isMonitoringRole, listAllEmployees } from "@/lib/api/employees";
 import { listTasks, type TaskItem, type TaskList, type TaskStatus } from "@/lib/api/tasks";
 import DateRangePicker from "@/components/DateRangePicker";
 import { addDays, MAX_CUSTOM_DAYS, rangeFor, startOfWeek, type TaskView } from "./calendar";
 import TaskCard from "./TaskCard";
 import TaskTable, { useWide } from "./TaskTable";
+import { CompleteTaskDialog, NextFollowupDialog, RescheduleTaskDialog } from "./TaskDialogs";
 
 // Due date picks the range the list covers. Today is the day view on today's date.
 type DueKey = "all" | "today" | "week" | "month" | "custom";
@@ -110,25 +112,36 @@ export default function TasksBoard() {
     return () => document.removeEventListener("mousedown", onPointer);
   }, [filterOpen]);
 
-  async function markDone(task: TaskItem, outcome: string) {
+  // One dialog at a time. Mark done runs: log the activity, then ask about the next follow-up. Reschedule is one dialog.
+  const [dialog, setDialog] = useState<{ step: "complete" | "next" | "schedule" | "reschedule"; task: TaskItem } | null>(null);
+
+  function accessTokenOrThrow() {
     const accessToken = sessionStorage.getItem("ogera_access_token");
     if (!accessToken) throw new Error("Sign in again to continue.");
+    return accessToken;
+  }
+
+  async function completeTask(task: TaskItem, notes: string) {
+    const accessToken = accessTokenOrThrow();
     if (task.contact_id === null) throw new Error("This task is not linked to a lead, so it cannot be marked here.");
-    try { await markFollowupDone(accessToken, task.contact_id, task.id, outcome); }
+    try { await markFollowupDone(accessToken, task.contact_id, task.id, notes); }
     catch (caught) { throw new Error(caught instanceof ApiError ? caught.message : "Could not save. Please try again."); }
-    setNotice(`Done. The outcome was logged for ${task.contact_name}.`);
+    setDialog({ step: "next", task });
     await load(true);
   }
 
-  async function reschedule(task: TaskItem, newDate: string, time: string) {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) throw new Error("Sign in again to continue.");
+  async function rescheduleTask(task: TaskItem, date: string, time: string) {
+    const accessToken = accessTokenOrThrow();
     if (task.contact_id === null) throw new Error("This task is not linked to a lead, so it cannot be moved here.");
-    try { await rescheduleFollowup(accessToken, task.contact_id, task.id, newDate, time || undefined); }
+    try { await rescheduleFollowup(accessToken, task.contact_id, task.id, date, time || undefined); }
     catch (caught) { throw new Error(caught instanceof ApiError ? caught.message : "Could not reschedule. Please try again."); }
-    setNotice(`Moved to ${newDate}.`);
+    setDialog(null);
+    setNotice(`Moved to ${date}.`);
     await load(true);
   }
+
+  const startMarkDone = (task: TaskItem) => setDialog({ step: "complete", task });
+  const startReschedule = (task: TaskItem) => setDialog({ step: "reschedule", task });
 
   const dueKey: DueKey = view === "day" ? "today" : view;
   function pickDue(value: DueKey) { setRangeError(""); setView(value === "today" ? "day" : value); }
@@ -304,12 +317,12 @@ export default function TasksBoard() {
               ))}
             </div>
           ) : data && (
-            <div className={`flex-1 ${isLoading ? "opacity-60 transition-opacity" : "transition-opacity"}`}>
+            <div className={`min-w-0 flex-1 ${isLoading ? "opacity-60 transition-opacity" : "transition-opacity"}`}>
               {wide ? (
-                <TaskTable tasks={items} empty={items.length === 0 ? emptyState : undefined} onMarkDone={markDone} onReschedule={reschedule} />
+                <TaskTable tasks={items} empty={items.length === 0 ? emptyState : undefined} onStartMarkDone={startMarkDone} onStartReschedule={startReschedule} />
               ) : items.length === 0 ? emptyState : (
                 <ul className="space-y-3 p-4">
-                  {items.map((task) => <li key={task.id}><TaskCard task={task} showAssignee={isManager || Boolean(assignee)} onMarkDone={markDone} onReschedule={reschedule} /></li>)}
+                  {items.map((task) => <li key={task.id}><TaskCard task={task} showAssignee={isManager || Boolean(assignee)} onStartMarkDone={startMarkDone} onStartReschedule={startReschedule} /></li>)}
                 </ul>
               )}
             </div>
@@ -319,6 +332,22 @@ export default function TasksBoard() {
           {data && items.length > 0 && <div className="mt-auto border-t border-[#EFEFF2] px-4 py-3.5 text-sm text-[#3A3E4A]">Showing {items.length} {items.length === 1 ? "task" : "tasks"}</div>}
         </section>
       </div>
+
+      {dialog?.step === "complete" && (
+        <CompleteTaskDialog task={dialog.task} onSave={(notes) => completeTask(dialog.task, notes)} onCancel={() => setDialog(null)} />
+      )}
+      {dialog?.step === "next" && (
+        <NextFollowupDialog task={dialog.task} onSchedule={() => setDialog({ step: "schedule", task: dialog.task })} onDone={() => { setDialog(null); setNotice(`Done. The activity was logged for ${dialog.task.contact_name}.`); }} />
+      )}
+      {dialog?.step === "schedule" && dialog.task.contact_id !== null && (
+        <FollowupScheduleForm contactId={dialog.task.contact_id} contactName={dialog.task.contact_name}
+          staff={isManager && staff.length > 0 ? staff : dialog.task.assigned_to === null ? [] : [{ id: dialog.task.assigned_to, name: dialog.task.assigned_to_name ?? "Assignee" }]}
+          defaultAssignee={dialog.task.assigned_to} onCancel={() => setDialog(null)}
+          onSaved={async () => { const { task } = dialog; setDialog(null); setNotice(`Follow-up scheduled for ${task.contact_name}.`); await load(true); }} />
+      )}
+      {dialog?.step === "reschedule" && (
+        <RescheduleTaskDialog task={dialog.task} onSave={(date, time) => rescheduleTask(dialog.task, date, time)} onCancel={() => setDialog(null)} />
+      )}
     </div>
   );
 }

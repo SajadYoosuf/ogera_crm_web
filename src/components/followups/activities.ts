@@ -3,19 +3,19 @@ import { cachedLabel } from "@/hooks/useEnumOptions";
 /** Label from Settings -> Activity types (the API). Until it loads, the raw slug is shown; no label is hardcoded here. */
 export const typeLabel = (type: string) => cachedLabel("activity_type", type) ?? type.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
 
+/** True when `date` is today and `time` (HH:MM) has already passed. No time means the whole day, so it is never past. */
+export function isPastTimeToday(date: string, time?: string) {
+  if (!time || date !== isoDate()) return false;
+  const now = new Date();
+  return time < `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
 /** Local calendar date as YYYY-MM-DD, `offsetDays` from today. Dates travel as plain strings so they never drift across a timezone. */
 export function isoDate(offsetDays = 0) {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
-
-export const DATE_CHIPS = [
-  { label: "Today", days: 0 },
-  { label: "Tomorrow", days: 1 },
-  { label: "In 3 days", days: 3 },
-  { label: "Next week", days: 7 },
-];
 
 /** "Mon 29 Sep" for a YYYY-MM-DD date. */
 export function formatDay(value: string) {
