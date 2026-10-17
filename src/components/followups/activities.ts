@@ -1,19 +1,7 @@
 import { cachedLabel } from "@/hooks/useEnumOptions";
 
-/** Activity types: the fallback shown until Settings -> Activity types has loaded. Slugs are what the backend stores. */
-export const ACTIVITY_TYPES = [
-  { value: "phone_call", label: "Phone call" },
-  { value: "field_visit", label: "Field visit" },
-  { value: "whatsapp", label: "WhatsApp message" },
-  { value: "quote", label: "Send quote" },
-  { value: "demo", label: "Demo / sample" },
-  { value: "internal_note", label: "Internal note" },
-];
-
-/** An internal note is a record only; it cannot be scheduled. */
-export const SCHEDULABLE_TYPES = ACTIVITY_TYPES.filter((type) => type.value !== "internal_note");
-
-export const typeLabel = (type: string) => cachedLabel("activity_type", type) ?? ACTIVITY_TYPES.find((item) => item.value === type)?.label ?? type;
+/** Label from Settings -> Activity types (the API). Until it loads, the raw slug is shown; no label is hardcoded here. */
+export const typeLabel = (type: string) => cachedLabel("activity_type", type) ?? type.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
 
 /** Local calendar date as YYYY-MM-DD, `offsetDays` from today. Dates travel as plain strings so they never drift across a timezone. */
 export function isoDate(offsetDays = 0) {
