@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-18 — `a0824a6` (branch `phase1-redesign`)
+
+**feat(web): settings API client and shared settings UI**
+
+Previous commit on this side: `0a9aa84` fix: clear stored localhost:8000 backend addresses on load
+
+### Summary
+Adds the web client for the settings endpoints (enum options, company, permission matrix, roles, my account) and the shared panel, button, notice and error pieces the Settings tabs use. The Settings page is not linked from the sidebar until its own commit lands.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| Modified | `src/lib/api/settings.ts` | see commit |
+| New | `src/components/settings/ui.tsx` | see commit |
+
+---
+
 ## 2026-10-18 — `0a9aa84` (branch `phase1-redesign`)
 
 **fix: clear stored localhost:8000 backend addresses on load**
