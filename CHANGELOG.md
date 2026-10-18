@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-18 — `c0ab4a4` (branch `phase1-redesign`)
+
+**fix: Add employee dialog fits phone screens**
+
+Author: sajad yoosuf
+Previous commit on this side: `f61673e` docs: update changelog for e377589
+
+### Summary
+The Add employee dialog now uses the full viewport height on phones, so its field list scrolls and the Add employee button stays visible at 280px and 320px.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| Modified | `src/app/dashboard/employees/page.tsx` | +1 / -1 |
+
+### Notes
+Fixes the two failures recorded in e377589. Responsive audit after this change: 182 passed, 0 failed. employees.spec.ts: 64 passed. Tablet and desktop layout unchanged.
+
 ## 2026-10-18 — `e377589` (branch `phase1-redesign`)
 
 **feat: design system, design tokens and responsive audit**
