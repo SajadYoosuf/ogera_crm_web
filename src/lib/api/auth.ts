@@ -1,7 +1,7 @@
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(/\/+$/, "");
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://ogera-crm.onrender.com").replace(/\/+$/, "");
 
 // Shown once in the browser console so a deployment can be checked: which backend is this build calling,
-// and was NEXT_PUBLIC_API_BASE_URL set when it was built (otherwise it falls back to localhost).
+// and was NEXT_PUBLIC_API_BASE_URL set when it was built (otherwise it falls back to the production API).
 if (typeof window !== "undefined") {
   console.info(`[Ogera CRM] API base URL: ${API_BASE_URL}${process.env.NEXT_PUBLIC_API_BASE_URL ? "" : " (NEXT_PUBLIC_API_BASE_URL was not set at build time)"}`);
 }
