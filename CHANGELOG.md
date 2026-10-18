@@ -1,5 +1,173 @@
 # Changelog
 
+## 2026-10-18 — `863c40c` (branch `phase1-redesign`)
+
+**feat: pipeline, contacts, team and enum-driven web updates**
+
+Author: sajad yoosuf
+Previous commit on this side: `eb13d6d` feat: forgot-password flow on the web with 6-digit email code
+
+### Summary
+Updates the lead pipeline, follow-up board, contacts list and menus for the three contact types and the role-scoped views; dropdowns read enum options through useEnumOptions.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| Modified | `e2e/employees.spec.ts` | +23 / -29 |
+| Modified | `src/app/contacts/layout.tsx` | +1 / -1 |
+| Modified | `src/app/dashboard/employees/page.tsx` | +28 / -3 |
+| Modified | `src/app/dashboard/layout.tsx` | +1 / -1 |
+| Modified | `src/app/dashboard/professionals/page.tsx` | +14 / -14 |
+| Modified | `src/app/globals.css` | +195 / -0 |
+| Modified | `src/app/page.tsx` | +7 / -6 |
+| Modified | `src/components/DatePicker.tsx` | +4 / -4 |
+| Modified | `src/components/DateRangePicker.tsx` | +29 / -14 |
+| Modified | `src/components/FilterPanel.tsx` | +1 / -1 |
+| Modified | `src/components/FilterSelect.tsx` | +3 / -1 |
+| Modified | `src/components/PhoneField.tsx` | +2 / -2 |
+| Modified | `src/components/SchedulePickers.tsx` | +3 / -3 |
+| Modified | `src/components/SearchPicker.tsx` | +1 / -1 |
+| Modified | `src/components/SelectField.tsx` | +5 / -3 |
+| Modified | `src/components/followups/ActivityList.tsx` | +59 / -37 |
+| Modified | `src/components/followups/ActivityLogForm.tsx` | +91 / -28 |
+| Modified | `src/components/followups/FollowupBoard.tsx` | +38 / -38 |
+| Modified | `src/components/followups/LeadPanel.tsx` | +229 / -162 |
+| Modified | `src/components/followups/OutcomeForm.tsx` | +2 / -2 |
+| Modified | `src/components/followups/UnverifiedDialog.tsx` | +2 / -2 |
+| Added | `src/components/followups/designTokens.ts` | +130 / -0 |
+| Added | `src/components/followups/useActivityTypes.ts` | +22 / -0 |
+| Modified | `src/components/followups/useStages.ts` | +25 / -36 |
+| Modified | `src/features/contacts/ContactsView.tsx` | +4 / -3 |
+| Modified | `src/features/contacts/api/contacts.ts` | +1 / -1 |
+| Modified | `src/features/contacts/api/contactsIo.ts` | +35 / -4 |
+| Modified | `src/features/contacts/components/ContactExportModal.tsx` | +3 / -3 |
+| Modified | `src/features/contacts/components/ContactsFilterMenu.tsx` | +5 / -3 |
+| Modified | `src/features/contacts/components/ContactsMoreMenu.tsx` | +15 / -10 |
+| Modified | `src/features/contacts/components/ContactsSortMenu.tsx` | +3 / -1 |
+| Modified | `src/features/contacts/components/VerifiedBadge.tsx` | +1 / -1 |
+| Modified | `src/features/contacts/utils.ts` | +1 / -1 |
+| Added | `src/hooks/useEnumOptions.ts` | +58 / -0 |
+| Added | `src/hooks/usePopoverFit.ts` | +25 / -0 |
+| Modified | `src/lib/api/employees.ts` | +13 / -2 |
+| Added | `src/lib/api/settings.ts` | +93 / -0 |
+| Added | `src/lib/permissions.ts` | +22 / -0 |
+| Modified | `tests/components/followup-board.test.tsx` | +40 / -0 |
+| Added | `tests/components/settings-enums.test.tsx` | +105 / -0 |
+| Modified | `tests/followups/activities.test.ts` | +4 / -9 |
+
+### Notes
+The settings pages (app/dashboard/settings, components/settings) are not in this commit; they are phase 2. Type-check: `tsc --noEmit` exits 0.
+
+## 2026-10-18 — `eb13d6d` (branch `phase1-redesign`)
+
+**feat: forgot-password flow on the web with 6-digit email code**
+
+Author: sajad yoosuf
+Previous commit on this side: `0cac251` feat: products catalogue reinstated with a modal editor
+
+### Summary
+Adds the /forgot-password page with the OTP input, the shared password rules and the matching API client.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| Modified | `docs/FRONTEND_AUTHENTICATION.md` | +11 / -24 |
+| Added | `e2e/forgot-password.spec.ts` | +209 / -0 |
+| Added | `src/app/forgot-password/page.tsx` | +366 / -0 |
+| Added | `src/components/auth/OtpInput.tsx` | +84 / -0 |
+| Modified | `src/lib/api/auth.ts` | +6 / -1 |
+| Added | `src/lib/api/password-reset.ts` | +34 / -0 |
+| Added | `src/lib/auth-fonts.ts` | +6 / -0 |
+| Added | `src/lib/password-rules.ts` | +20 / -0 |
+| Added | `tests/components/otp-input.test.tsx` | +48 / -0 |
+| Added | `tests/lib/password-rules.test.ts` | +23 / -0 |
+
+### Notes
+The backend reset routes were already in place. Unknown or inactive emails get the same 404 as the backend and no email (rule.md section 4). Tests: otp-input and password-rules unit tests, forgot-password e2e spec.
+
+## 2026-10-18 — `0cac251` (branch `phase1-redesign`)
+
+**feat: products catalogue reinstated with a modal editor**
+
+Author: sajad yoosuf
+Previous commit on this side: `946afa4` refactor: remove retired modules and superseded files (rule 9)
+
+### Summary
+Products list with a modal for view/edit and Add New Product; uses the shared PageHeader.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| Added | `docs/changes/2026-10-17-products-reinstated.md` | +20 / -0 |
+| Modified | `src/app/dashboard/products/page.tsx` | +324 / -138 |
+| Added | `src/components/PageHeader.tsx` | +27 / -0 |
+| Added | `src/components/products/ProductModal.tsx` | +479 / -0 |
+| Modified | `src/lib/api/products.ts` | +43 / -16 |
+
+### Notes
+Notes: docs/changes/2026-10-17-products-reinstated.md. Mobile has no products screen yet (rule 9).
+
+## 2026-10-18 — `946afa4` (branch `phase1-redesign`)
+
+**refactor: remove retired modules and superseded files (rule 9)**
+
+Author: sajad yoosuf
+Previous commit on this side: `3ac224a` docs: changelog for 7da9092 (home dashboard)
+
+### Summary
+Removes the field map, performance page and staff location UI, and the old product detail/new pages and sales ledger components that the current design replaces.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| Deleted | `docs/CONTACT_INTAKE.md` | +0 / -154 |
+| Deleted | `docs/CONTACT_MAP.md` | +0 / -217 |
+| Deleted | `docs/DB_CONNECTION_RESILIENCE.md` | +0 / -103 |
+| Deleted | `docs/PHONE_VALIDATION.md` | +0 / -104 |
+| Deleted | `docs/PROFESSIONALS.md` | +0 / -176 |
+| Deleted | `docs/SALES_LEDGER.md` | +0 / -296 |
+| Deleted | `docs/changes/2026-10-02-contacts-redesign-api.md` | +0 / -21 |
+| Deleted | `docs/changes/2026-10-05-contact-verification.md` | +0 / -14 |
+| Deleted | `docs/changes/2026-10-05-lead-activities.md` | +0 / -16 |
+| Deleted | `docs/changes/2026-10-05-lead-followup-board.md` | +0 / -20 |
+| Deleted | `docs/changes/2026-10-06-activity-followup-schedule.md` | +0 / -34 |
+| Deleted | `docs/changes/2026-10-06-offline-location-on-create.md` | +0 / -14 |
+| Deleted | `docs/changes/2026-10-08-contact-import-export.md` | +0 / -22 |
+| Deleted | `docs/changes/2026-10-08-partner-profession-type.md` | +0 / -14 |
+| Deleted | `docs/changes/2026-10-09-performance-dashboard.md` | +0 / -21 |
+| Deleted | `docs/changes/2026-10-09-products.md` | +0 / -16 |
+| Deleted | `docs/changes/2026-10-09-sales-page.md` | +0 / -16 |
+| Deleted | `docs/changes/2026-10-09-sales-product-link.md` | +0 / -15 |
+| Deleted | `docs/changes/2026-10-09-tasks-calendar-outcome.md` | +0 / -24 |
+| Deleted | `docs/changes/2026-10-12-contacts-redesign.md` | +0 / -20 |
+| Deleted | `docs/image.png` | +- / -- |
+| Deleted | `docs/location-tracking-test-checklist.md` | +0 / -350 |
+| Deleted | `docs/staff-live-location-redesign-checklist.md` | +0 / -42 |
+| Deleted | `src/app/dashboard/map/page.tsx` | +0 / -11 |
+| Deleted | `src/app/dashboard/performance/page.tsx` | +0 / -331 |
+| Deleted | `src/app/dashboard/products/[id]/page.tsx` | +0 / -11 |
+| Deleted | `src/app/dashboard/products/new/page.tsx` | +0 / -7 |
+| Modified | `src/components/DashboardSidebar.tsx` | +17 / -13 |
+| Deleted | `src/components/MapWorkspace.tsx` | +0 / -7 |
+| Deleted | `src/components/MapWorkspaceLoader.tsx` | +0 / -10 |
+| Deleted | `src/components/SaleDetailModal.tsx` | +0 / -225 |
+| Deleted | `src/components/SaleEditorDrawer.tsx` | +0 / -308 |
+| Deleted | `src/components/StaffLiveMap.tsx` | +0 / -570 |
+| Deleted | `src/components/products/PageHeader.tsx` | +0 / -23 |
+| Deleted | `src/components/products/ProductForm.tsx` | +0 / -378 |
+| Deleted | `src/lib/api/performance.ts` | +0 / -42 |
+| Deleted | `src/lib/api/staff-locations.ts` | +0 / -42 |
+| Deleted | `src/lib/location.ts` | +0 / -63 |
+| Deleted | `src/lib/saleTypes.ts` | +0 / -73 |
+| Deleted | `src/lib/salesExport.ts` | +0 / -116 |
+| Deleted | `tests/components/performance-page.test.tsx` | +0 / -405 |
+| Deleted | `tests/components/sale-form-modal.test.tsx` | +0 / -42 |
+| Deleted | `tests/components/sales-page.test.tsx` | +0 / -50 |
+| Deleted | `tests/components/staff-live-map.test.tsx` | +0 / -207 |
+
+### Notes
+Products are edited in a modal (ProductModal) and the sales register is a separate page; nothing in the build imports the removed files (checked with grep and `tsc --noEmit`, exit 0).
+
 ## 2026-10-17 — `7da9092` (branch `phase1-redesign`)
 
 **Home dashboard summary API and IST business clock**
