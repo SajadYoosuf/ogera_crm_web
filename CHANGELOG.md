@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-18 — `1b8cca7` (branch `phase1-redesign`)
+
+**feat(web): Lists & Options settings tab**
+
+Previous commit on this side: `3cc103f` docs: update changelog for 4c8a999
+
+### Summary
+Admin and manager rename, reorder, hide and add dropdown values for lead sources, lead stages (per contact type), activity types, loss reasons, partner types and districts. Locked options can be renamed but not turned off. Districts are still listed; removing them is not decided yet.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| New | `src/components/settings/EnumsTab.tsx` | see commit |
+| New | `tests/components/enums-activity-types.test.tsx` | see commit |
+
+---
+
 ## 2026-10-18 — `4c8a999` (branch `phase1-redesign`)
 
 **feat(web): My account and General settings tabs**
