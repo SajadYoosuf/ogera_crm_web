@@ -6,6 +6,26 @@ if (typeof window !== "undefined") {
   console.info(`[Ogera CRM] API base URL: ${API_BASE_URL}${process.env.NEXT_PUBLIC_API_BASE_URL ? "" : " (NEXT_PUBLIC_API_BASE_URL was not set at build time)"}`);
 }
 
+// Drop any stored value that still points at the local dev backend (port 8000), so an old
+// session or cached address cannot keep sending requests there. Runs once per page load.
+const LOCAL_BACKEND_PATTERN = /(localhost|127\.0\.0\.1):8000/;
+
+function clearLocalBackendStorage(store: Storage) {
+  try {
+    for (let i = store.length - 1; i >= 0; i -= 1) {
+      const key = store.key(i);
+      if (key && LOCAL_BACKEND_PATTERN.test(store.getItem(key) ?? "")) store.removeItem(key);
+    }
+  } catch {
+    // Storage disabled (private window, blocked site data): nothing to clear.
+  }
+}
+
+if (typeof window !== "undefined") {
+  clearLocalBackendStorage(localStorage);
+  clearLocalBackendStorage(sessionStorage);
+}
+
 const REQUEST_TIMEOUT_MS = 15_000;
 
 export type Employee = {
