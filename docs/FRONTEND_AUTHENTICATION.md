@@ -115,20 +115,22 @@ await fetch(`${API_BASE_URL}/employees`, { headers: { Authorization: `Bearer ${t
 
 ## Forgot password
 
-A user who cannot sign in uses **Forgot password? Reset here** on the login page, which opens `/forgot-password`. The flow is: send a 6-digit code by email, enter it, set a new password, and sign in again.
+A user who cannot sign in uses **Forgot password? Reset here** on the login page, which opens `/forgot-password`. The flow is: enter email, receive a 6-digit code, enter it, set a new password, and sign in again.
 
 ### Steps and UI states
 
 | Step | Screen | What the user sees |
 | --- | --- | --- |
-| `sending` | "Sending your code…" | Spinner. Starts automatically when the page opens. |
+| `email` | "Reset your password" | Email input and "Send code" button. |
+| `sending` | "Sending your code…" | Spinner while the request is in flight. |
 | `send_failed` | "Check your email" | The error message and "Try again" (or "Back to Login"). |
 | `otp` | "Check your email" | "We've sent a 6-digit code to <masked address>." Six boxes, "Verify Code" (enabled when all six are filled), "Resend code" after a cooldown. |
 | `reset` | "Create a new password" | New and confirm password fields with show/hide. "Reset Password". |
 | `done` | "Password updated" | "Back to Login". |
 
 Transitions:
-- Opening the page runs `getResetTarget()`, then `requestResetCode()`. A failure in either moves to `send_failed`.
+- The page opens on the `email` step. The user enters their email and submits to move to `sending`.
+- A send failure moves to `send_failed`. "Try again" retries with the same email.
 - A wrong code clears the boxes and shows the message. A code that is expired, locked or missing also marks "request a new code" and shows "Start again" after the reset step.
 - "Resend code" is hidden for the cooldown, then shows "Resend in Ns" until it's available again.
 - A successful reset clears the password fields and shows `done`. The user is not signed in.
@@ -137,12 +139,11 @@ Transitions:
 
 These are the calls the frontend makes (`src/lib/api/password-reset.ts`). The backend side is in `ogera_crm_backend/routes/password_reset.py`.
 
-| Frontend call | Request | Backend contract | Used for |
-| --- | --- | --- | --- |
-| `getResetTarget()` | `GET /auth/password-reset/target` | **Not implemented in the backend.** | Masked address shown on the sending screen. |
-| `requestResetCode()` | `POST /auth/password-reset/request` with `{}` | Expects `{ "email": "<address>" }`. | Emails a code. Returns `{ email_masked, expires_in_seconds, resend_in_seconds }`. |
-| `verifyResetCode(code)` | `POST /auth/password-reset/verify` with `{ code }` | Expects `{ "email": "<address>", "code": "<6 digits>" }`. | Returns `{ reset_token, expires_in_seconds }`. |
-| `resetPassword(token, password)` | `POST /auth/password-reset/reset` with `{ reset_token, new_password }` | Matches. | Sets the new password. |
+| Frontend call | Request | Used for |
+| --- | --- | --- |
+| `requestResetCode(email)` | `POST /auth/password-reset/request` with `{ email }` | Emails a code. Returns `{ email_masked, expires_in_seconds, resend_in_seconds }`. |
+| `verifyResetCode(email, code)` | `POST /auth/password-reset/verify` with `{ email, code }` | Returns `{ reset_token, expires_in_seconds }`. |
+| `resetPassword(token, password)` | `POST /auth/password-reset/reset` with `{ reset_token, new_password }` | Sets the new password. |
 
 Backend rules the UI relies on (`routes/password_reset.py`, `config.py`):
 - A code is valid for `RESET_CODE_TTL_MINUTES` (default 10).
@@ -159,31 +160,17 @@ Error text from the backend is shown as-is. The reset screen uses it to decide w
 | "expired", "Too many", "No active code" | Marks "request a new code". |
 | "expired or was already used" (reset step) | Marks "Start again". |
 
-### Known issue: the forgot-password flow does not work against the current backend
-
-The screens, copy and error handling are built, but the calls do not match the backend:
-
-1. **`GET /auth/password-reset/target` does not exist.** The request returns `404`, so the sending screen always lands on "Check your email" with an error.
-2. **`POST /auth/password-reset/request` is sent with `{}`.** The backend requires `email`, so the request returns `422`.
-3. **`POST /auth/password-reset/verify` is sent with `{ code }` only.** The backend requires `email` too, so verification returns `422`.
-4. **The copy says "the admin email".** The backend accepts any active employee's email. The frontend has no email field, so it cannot tell the backend whose account to reset.
-
-The e2e spec (`e2e/forgot-password.spec.ts`) mocks the `/target` endpoint and so passes without exercising the real contract. Fixing this needs a decision on how the user gives their email (a field on the forgot-password screen is the simplest) and then the frontend and the e2e mock must change together.
-
 ## Password rules
 
 | Where | Rule |
 | --- | --- |
 | Login | None on the client. The backend decides. |
-| Reset screen (`password-rules.ts`) | 6 to 10 characters. Confirm must match. |
+| Reset screen (`password-rules.ts`) | 6 to 15 characters. Confirm must match. |
 | Reset backend (`routes/password_reset.py`) | `PASSWORD_MIN_LENGTH` (default 6) to `PASSWORD_MAX_LENGTH` (default 15). The new password must differ from the current one. |
 | Employee add/edit form | 8+ characters with a letter and a digit (client). The backend also requires a letter and a digit, and 6 to 15 characters. |
 
-The reset screen's maximum of 10 is stricter than the backend default of 15. If the backend setting changes, update `password-rules.ts` as well.
-
 ## Known gaps
 
-- **Forgot password does not work end to end.** See the known issue above.
 - **No session check when the dashboard loads.** `dashboard/layout.tsx` renders the shell for anyone. An expired token is only noticed when a data request returns `401`. `getMe()` is ready to use for this.
 - **Dev-only Next route.** `src/app/api/dev-log/route.ts` relays console logs to the terminal in development. It is not used in production.
 - **Stale role value in the sidebar.** One `DashboardSidebar` menu item still lists `sales_head` in its allowed roles (`roles: ["admin", "sales_head"]`). Backend roles are the slugs in `EMPLOYEE_ROLES`, so that entry never matches a current employee. The login flow itself does not check roles.

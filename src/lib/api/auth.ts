@@ -15,6 +15,8 @@ export type Employee = {
   role: string;
   is_field_staff: boolean;
   phone: string | null;
+  /** The team lead this employee reports to. Null when they have no team. */
+  team_lead_id?: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -31,6 +33,7 @@ export type ApiErrorKind =
   | "offline" // browser reports no connection
   | "network" // request never reached the server (down, CORS, DNS)
   | "timeout"
+  | "cancelled" // the user cancelled an upload
   | "invalid_credentials" // 401
   | "inactive_account" // 403 on login
   | "forbidden" // 403 on a protected route (role not allowed)
@@ -77,13 +80,15 @@ function extractMissing(body: unknown): { message: string; missing: string[] } |
   return typeof message === "string" && Array.isArray(missing) ? { message, missing: missing.map(String) } : null;
 }
 
-function errorFromResponse(status: number, body: unknown): ApiError {
+export function errorFromResponse(status: number, body: unknown): ApiError {
   const incomplete = status === 409 ? extractMissing(body) : null;
   if (incomplete) return new ApiError("unknown", incomplete.message, status, incomplete.missing);
   const detail = extractDetail(body);
   if (status === 401) return new ApiError("invalid_credentials", "Incorrect email or password.", status);
   if (status === 403) return new ApiError("inactive_account", "This account is inactive. Contact your administrator.", status);
   if (status === 422) return new ApiError("validation", detail ?? "Please check the email and password you entered.", status);
+  // 503 is used for "the server cannot do this right now" (for example, email is not configured), so its message is shown.
+  if (status === 503 && detail) return new ApiError("server", detail, status);
   if (status >= 500) return new ApiError("server", "The server ran into a problem. Please try again in a moment.", status);
   return new ApiError("unknown", detail ?? "Something went wrong. Please try again.", status);
 }
