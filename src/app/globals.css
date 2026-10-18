@@ -426,6 +426,201 @@ button, input, select, textarea { font: inherit; }
   text-underline-offset: 3px;
 }
 
+/* Forgot password (shares the login layout) */
+.login-back {
+  align-self: flex-start;
+  color: #5b616a;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.login-back:hover {
+  color: #0e4d3a;
+}
+.login-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.login-note {
+  margin: 0;
+  color: #5b616a;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.login-note strong {
+  color: #111418;
+}
+.login-field-title {
+  color: #3a3f46;
+  font-size: 14px;
+  font-weight: 600;
+}
+.login-field-error {
+  margin: 0;
+  color: #c0392b;
+  font-size: 13px;
+}
+.login-otp-row {
+  display: flex;
+  gap: 10px;
+}
+.login-otp-box {
+  width: 100%;
+  max-width: 52px;
+  height: 56px;
+  border: 1.5px solid #d5d8dc;
+  border-radius: 10px;
+  background: #fafafb;
+  color: #111418;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+}
+.login-otp-box:focus {
+  outline: none;
+  border-color: #0e4d3a;
+  background: #ffffff;
+}
+.login-otp-box:disabled {
+  opacity: 0.6;
+}
+.login-links-line {
+  margin: 0;
+  color: #5b616a;
+  font-size: 14px;
+  text-align: center;
+}
+.login-text-button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #111418;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.login-text-button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.login-success {
+  align-items: center;
+  gap: 18px;
+  padding: 20px 0;
+  text-align: center;
+}
+.login-success-icon {
+  display: flex;
+  width: 60px;
+  height: 60px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #eaf8ef;
+}
+.login-submit-link {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
+/* Sending-code screen */
+.login-sending {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  animation: login-fade 0.5s ease both;
+}
+.login-sending-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 8px 0 4px;
+  text-align: center;
+}
+.login-sending-body .login-form-stack {
+  align-items: center;
+  max-width: 320px;
+}
+.login-ring {
+  position: relative;
+  display: flex;
+  width: 108px;
+  height: 108px;
+  align-items: center;
+  justify-content: center;
+}
+.login-ring-spin {
+  position: absolute;
+  inset: 0;
+  width: 108px;
+  height: 108px;
+  animation: login-spin 1.2s linear infinite;
+}
+.login-ping {
+  position: absolute;
+  border-radius: 50%;
+  background: #7ee2a8;
+  animation: login-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.login-ping-1 {
+  inset: 0;
+  opacity: 0.18;
+}
+.login-ping-2 {
+  inset: 12px;
+  opacity: 0.26;
+  animation-delay: 0.35s;
+}
+.login-ring-core {
+  position: relative;
+  display: flex;
+  width: 58px;
+  height: 58px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgb(17 18 20 / 14%);
+}
+.login-secure-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgb(14 77 58 / 7%);
+  color: #0e4d3a;
+  font-size: 13px;
+  font-weight: 600;
+}
+@keyframes login-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes login-ping {
+  0% { transform: scale(1); }
+  75%, 100% { transform: scale(1.9); opacity: 0; }
+}
+@keyframes login-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-ring-spin,
+  .login-ping,
+  .login-sending {
+    animation: none;
+  }
+}
+
 .eyebrow { margin: 0 0 10px; font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 
 /* Tablet and phone: stack the panels, keep the brand block short */

@@ -47,7 +47,7 @@ export default function SearchPicker({ label, placeholder, selected, onSelect, s
             <span className="text-sm font-semibold text-gray-900 truncate">{selected.primary}</span>
             {selected.secondary && <span className="text-xs text-gray-500 truncate">{selected.secondary}</span>}
           </span>
-          <button type="button" onClick={() => { onSelect(null); setQuery(""); }} className="shrink-0 text-xs font-semibold text-blue-600 hover:text-blue-700">Clear</button>
+          <button type="button" onClick={() => { onSelect(null); setQuery(""); }} className="shrink-0 text-xs font-semibold text-[#0E4D3A] hover:text-blue-700">Clear</button>
         </div>
       ) : (
         <input

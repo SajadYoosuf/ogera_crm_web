@@ -101,7 +101,7 @@ function Trigger({ triggerRef, open, onClick, icon, text, filled, invalid, label
 }) {
   return (
     <button ref={triggerRef} type="button" onClick={onClick} aria-haspopup="dialog" aria-expanded={open} aria-label={label}
-      className={`flex min-h-11 w-full items-center gap-2 rounded-xl border bg-white px-3.5 text-sm shadow-xs transition-colors hover:border-gray-300 ${open ? "border-blue-600 ring-2 ring-blue-600/15" : invalid ? "border-red-400" : "border-gray-200"}`}>
+      className={`flex min-h-11 w-full items-center gap-2 rounded-xl border bg-white px-3.5 text-sm shadow-xs transition-colors hover:border-gray-300 ${open ? "border-[#0E4D3A] ring-2 ring-[#0E4D3A]/15" : invalid ? "border-red-400" : "border-gray-200"}`}>
       <svg className="h-4 w-4 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icon}</svg>
       <span className={`truncate font-semibold ${filled ? "text-gray-900" : "text-gray-400"}`}>{text}</span>
     </button>
@@ -147,7 +147,7 @@ export function DatePickerField({ value, onChange, min, label = "Date", placehol
               return (
                 <button key={key} type="button" role="gridcell" aria-selected={selected} aria-label={new Date(parse(key).y, parse(key).m, parse(key).d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
                   disabled={off} onClick={() => { onChange(key); close(); }}
-                  className={`mx-auto grid h-9 w-9 place-items-center rounded-full text-sm transition ${selected ? "bg-blue-600 font-semibold text-white shadow-sm" : off ? "cursor-not-allowed text-gray-300" : "text-gray-800 hover:bg-blue-50"} ${key === todayKey && !selected ? "font-semibold text-blue-700 ring-1 ring-inset ring-blue-300" : ""}`}>
+                  className={`mx-auto grid h-9 w-9 place-items-center rounded-full text-sm transition ${selected ? "bg-[#0E4D3A] font-semibold text-white shadow-sm" : off ? "cursor-not-allowed text-gray-300" : "text-gray-800 hover:bg-blue-50"} ${key === todayKey && !selected ? "font-semibold text-blue-700 ring-1 ring-inset ring-blue-300" : ""}`}>
                   {parse(key).d}
                 </button>
               );
@@ -177,7 +177,7 @@ export function TimePickerField({ value, onChange, label = "Time", placeholder =
           <div role="listbox" aria-label="Times" className="grid max-h-60 grid-cols-3 gap-1.5 overflow-y-auto">
             {SLOTS.map((slot) => (
               <button key={slot} type="button" role="option" aria-selected={slot === value} onClick={() => { onChange(slot); close(); }}
-                className={`rounded-lg px-2 py-2 text-sm font-semibold transition ${slot === value ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-800 hover:bg-blue-50"}`}>{timeLabel(slot, "")}</button>
+                className={`rounded-lg px-2 py-2 text-sm font-semibold transition ${slot === value ? "bg-[#0E4D3A] text-white" : "bg-gray-50 text-gray-800 hover:bg-blue-50"}`}>{timeLabel(slot, "")}</button>
             ))}
           </div>
         </Panel>

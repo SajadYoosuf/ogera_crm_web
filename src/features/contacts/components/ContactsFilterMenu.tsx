@@ -32,13 +32,15 @@ export default function ContactsFilterMenu({ groups, onChange, onClear }: {
       >
         <svg className="h-[15px] w-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z" /></svg>
         Filter
-        {activeCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6E4FF6] px-1.5 text-[11px] font-bold text-white">{activeCount}</span>}
+        {activeCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0E4D3A] px-1.5 text-[11px] font-bold text-white">{activeCount}</span>}
       </button>
 
       {open && (
-        <div role="dialog" aria-label="Filter contacts" className="absolute right-0 z-30 mt-2 w-80 rounded-2xl bg-white p-5 shadow-xl ring-1 ring-slate-900/5">
+        // Phones: a full-screen sheet that scrolls, so the nested option lists are never clipped.
+        // Wider screens: a panel under the button.
+        <div role="dialog" aria-label="Filter contacts" className="fixed inset-0 z-[1100] overflow-y-auto bg-white p-5 sm:absolute sm:inset-auto sm:right-0 sm:z-30 sm:mt-2 sm:top-full sm:w-[min(640px,calc(100vw-2rem))] sm:overflow-visible sm:rounded-2xl sm:shadow-xl sm:ring-1 sm:ring-slate-900/5">
           <h2 className="text-sm font-semibold text-slate-900">Filter contacts</h2>
-          <div className="mt-4 space-y-4">
+          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
             {groups.map((group) => (
               <div key={group.key}>
                 <span className="mb-1.5 block text-xs font-semibold text-slate-500">{group.label}</span>

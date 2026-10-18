@@ -57,4 +57,44 @@ describe("FollowupBoard", () => {
     for (const source of SOURCES) expect(options).toContain(source.name);
     expect(options).toContain("All");
   });
+
+  it("switches between the consumer and partner boards, each with its own stages and its own request", async () => {
+    serve({
+      "/contacts": (url) => ok({ items: url.searchParams.get("contact_type") === "partner" ? [{ ...lead(5, "Raju", "Meta", "won"), contact_type: "partner", created_at: new Date().toISOString() }] : [], total: 1, skip: 0, limit: 100 }),
+      "/employees": () => ok({ items: [], total: 0 }),
+      "/lead-sources": () => ok(SOURCES),
+    });
+    render(<FollowupBoard />);
+    await screen.findByText("No consumer leads yet");
+    expect(screen.queryByText("Active Referral")).toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Partner" }));
+    expect(await screen.findByText("Active Referral")).toBeTruthy();
+    for (const label of ["New Lead", "Connected", "Demo / Introduction", "Aware", "Interested", "Inactive"]) expect(screen.getByText(label)).toBeTruthy();
+    expect(screen.queryByText("Negotiating")).toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("contact_type=partner"))).toBe(true);
+    // a partner saved with the consumer "Won" stage shows under Active Referral, not in a missing column
+    expect(screen.getByText("Raju")).toBeTruthy();
+  });
+
+  it("opens the partner board on today like consumers, filters partners by their created date, and All brings back older ones", async () => {
+    serve({
+      "/contacts": (url) => ok({ items: url.searchParams.get("contact_type") === "partner" ? [{ ...lead(8, "Old Partner", "Meta"), contact_type: "partner", created_at: "2026-07-01T09:00:00" }] : [], total: 1, skip: 0, limit: 100 }),
+      "/employees": () => ok({ items: [], total: 0 }),
+      "/lead-sources": () => ok(SOURCES),
+    });
+    render(<FollowupBoard />);
+    await screen.findByText("No consumer leads yet");
+    expect(screen.getByRole("button", { name: "Day" }).getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Partner" }));
+    expect(await screen.findByRole("tab", { name: "Partner" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Day" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByText("Old Partner")).toBeNull(); // created in July, not today
+
+    fireEvent.click(screen.getByRole("button", { name: "Month" })); // this month has no partner created in it
+    expect(screen.queryByText("Old Partner")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "All" }));
+    expect(screen.getByText("Old Partner")).toBeTruthy();
+  });
 });

@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { listAllEmployees } from "@/lib/api/employees";
 import { ActivityTypeIcon } from "./ActivityIcons";
+import ModalShell from "./ModalShell";
+import { ACTIVITY_TILE, ACTIVITY_TILE_DEFAULT, COLOR, MODAL_CANCEL, MODAL_FIELD_CLASS, MODAL_FIELD_LABEL, MODAL_INPUT, MODAL_SAVE, TYPE } from "./designTokens";
 import { ApiError } from "@/lib/api/auth";
 import { logActivity } from "@/lib/api/activities";
-import { ACTIVITY_TYPES } from "./activities";
+import { useActivityTypes } from "./useActivityTypes";
+import { isoDate } from "./activities";
 
 /** One quick GPS fix for a field visit. It never blocks the save: denied, unavailable or slow all resolve to null. */
 function currentPosition(): Promise<{ lat: number; lng: number } | null> {
@@ -19,8 +23,32 @@ function currentPosition(): Promise<{ lat: number; lng: number } | null> {
 }
 
 /** Record something that already happened. The time is the server's, so there is no date field. */
-export default function ActivityLogForm({ contactId, onSaved, onCancel }: { contactId: number; onSaved: () => Promise<void>; onCancel: () => void }) {
+export default function ActivityLogForm({ contactId, contactName, onSaved, onCancel }: {
+  contactId: number; contactName: string; onSaved: () => Promise<void>; onCancel: () => void;
+}) {
+  const { types: activityTypes, loaded: typesLoaded, error: typesError } = useActivityTypes();
   const [type, setType] = useState("phone_call");
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState(() => isoDate());
+  const [time, setTime] = useState("");
+  const [staff, setStaff] = useState<{ id: number; name: string }[]>([]);
+  const [loggedBy, setLoggedBy] = useState("");
+
+  useEffect(() => {
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    if (!accessToken) return;
+    let cancelled = false;
+    listAllEmployees(accessToken)
+      .then((result) => {
+        if (cancelled) return;
+        const active = result.employees.filter((e) => e.is_active).map(({ id, name }) => ({ id, name }));
+        setStaff(active);
+        const me = (JSON.parse(sessionStorage.getItem("ogera_user") ?? "null") as { id?: number } | null)?.id;
+        if (typeof me === "number" && active.some((member) => member.id === me)) setLoggedBy(String(me));
+      })
+      .catch(() => { /* the select stays empty; the name is shown only when the list loads */ });
+    return () => { cancelled = true; };
+  }, []);
   const [notes, setNotes] = useState("");
   const [notesError, setNotesError] = useState("");
   const [error, setError] = useState("");
@@ -33,7 +61,7 @@ export default function ActivityLogForm({ contactId, onSaved, onCancel }: { cont
     setIsSaving(true); setError(""); setNotesError("");
     try {
       const coordinates = type === "field_visit" ? await currentPosition() : null;
-      await logActivity(accessToken, contactId, { type, notes: notes.trim(), ...(coordinates ? { coordinates } : {}) });
+      await logActivity(accessToken, contactId, { activity_type: type, notes: notes.trim(), ...(coordinates ? { coordinates } : {}) });
       await onSaved();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "The activity could not be saved. Please try again.");
@@ -41,35 +69,70 @@ export default function ActivityLogForm({ contactId, onSaved, onCancel }: { cont
   }
 
   return (
-    <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="mt-3 overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm" aria-label="Log activity">
-      <div className="flex items-center gap-2 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800">
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>
-        Log what happened
-      </div>
-      <div className="space-y-4 p-4">
-        <div>
-          <p className="text-xs font-semibold text-gray-700">What did you do?</p>
-          <div role="radiogroup" aria-label="Type" className="mt-2 grid grid-cols-3 gap-2">
-            {ACTIVITY_TYPES.map((option) => (
-              <button key={option.value} type="button" role="radio" aria-checked={type === option.value} onClick={() => setType(option.value)}
-                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-2 text-center text-[11px] font-semibold leading-tight transition-colors ${type === option.value ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>
-                <ActivityTypeIcon type={option.value} className="h-5 w-5" />
-                {option.label}
-              </button>
-            ))}
+    <ModalShell
+      title="Log New Activity"
+      subtitle={`Record an interaction with ${contactName}`}
+      onClose={onCancel}
+      onSubmit={(event) => { event.preventDefault(); void save(); }}
+      footer={
+        <>
+          <button type="button" disabled={isSaving} onClick={onCancel} style={MODAL_CANCEL} className="disabled:opacity-60">Cancel</button>
+          <button type="submit" disabled={isSaving} style={MODAL_SAVE} className="disabled:opacity-60">{isSaving ? "Saving…" : "Save Activity"}</button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4 px-6 py-5">
+        <div className="flex flex-col gap-2">
+          <span style={MODAL_FIELD_LABEL}>Activity type</span>
+          {typesError && <p role="alert" className="text-xs font-semibold text-red-600">{typesError}</p>}
+          {typesLoaded && !typesError && activityTypes.length === 0 && <p className="text-xs text-gray-500">No activity types are set up in Settings.</p>}
+          <div role="radiogroup" aria-label="Type" className="grid grid-cols-3 gap-2">
+            {activityTypes.map((option) => {
+              const on = type === option.value;
+              const tile = ACTIVITY_TILE[option.value] ?? ACTIVITY_TILE_DEFAULT;
+              return (
+                <button key={option.value} type="button" role="radio" aria-checked={on} onClick={() => setType(option.value)}
+                  className="flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors"
+                  style={{
+                    ...TYPE.bodyMd,
+                    fontWeight: 600,
+                    borderColor: on ? COLOR.accent : COLOR.borderStrong,
+                    background: on ? COLOR.accentTint06 : COLOR.surfaceWhite,
+                    color: on ? COLOR.textHeading : COLOR.textSecondary,
+                  }}>
+                  <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg" style={{ background: tile.bg, color: tile.fg }}>
+                    <ActivityTypeIcon type={option.value} className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 truncate">{option.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
-        <label className="crm-field-label">Notes
-          <textarea value={notes} onChange={(event) => { setNotes(event.target.value); setNotesError(""); }} rows={3} className="crm-textarea"
-            placeholder="What happened? e.g. Called, customer asked about 500L tank price" aria-invalid={Boolean(notesError)} />
+        <label className="flex flex-col gap-1.5" style={MODAL_FIELD_LABEL}>Title
+          <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Quotation shared" className={MODAL_FIELD_CLASS} style={MODAL_INPUT} />
+        </label>
+        <label className="flex flex-col gap-1.5" style={MODAL_FIELD_LABEL}>Details
+          <textarea value={notes} onChange={(event) => { setNotes(event.target.value); setNotesError(""); }} rows={3}
+            placeholder="What happened? e.g. Called, customer asked about 500L tank price" aria-invalid={Boolean(notesError)}
+            style={{ ...MODAL_INPUT, height: "auto", minHeight: 42, padding: "10px 12px", resize: "vertical" }} />
           {notesError && <span role="alert" className="text-xs font-semibold text-red-600">{notesError}</span>}
         </label>
-        {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-        <div className="flex items-center gap-2">
-          <button type="submit" disabled={isSaving} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">{isSaving ? "Saving…" : "Save Activity"}</button>
-          <button type="button" disabled={isSaving} onClick={onCancel} className="min-h-11 px-3 text-sm font-semibold text-blue-600 underline-offset-2 hover:underline">Cancel</button>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5" style={MODAL_FIELD_LABEL}>Date
+            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={MODAL_FIELD_CLASS} style={MODAL_INPUT} />
+          </label>
+          <label className="flex flex-col gap-1.5" style={MODAL_FIELD_LABEL}>Time
+            <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className={MODAL_FIELD_CLASS} style={MODAL_INPUT} />
+          </label>
         </div>
+        <label className="flex flex-col gap-1.5" style={MODAL_FIELD_LABEL}>Logged By
+          <select value={loggedBy} onChange={(event) => setLoggedBy(event.target.value)} className={MODAL_FIELD_CLASS} style={MODAL_INPUT}>
+            {staff.map((member) => <option key={member.id} value={String(member.id)}>{member.name}</option>)}
+          </select>
+        </label>
+        {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
       </div>
-    </form>
+    </ModalShell>
   );
 }

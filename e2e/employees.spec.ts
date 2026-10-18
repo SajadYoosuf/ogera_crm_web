@@ -14,7 +14,8 @@ const manyEmployees = (count: number): MockEmployee[] => Array.from({ length: co
 
 async function openEmployees(page: Page, viewer: Viewer = ADMIN, options: Parameters<typeof mockApi>[1] = {}) {
   await signInAs(page, viewer);
-  const api = await mockApi(page, options);
+  // The mock applies the backend's visibility rule for whoever is signed in.
+  const api = await mockApi(page, { ...options, viewer });
   await page.goto("/dashboard/employees");
   return api;
 }
@@ -30,8 +31,8 @@ test.describe("employees list", () => {
     const api = await openEmployees(page);
 
     await expect(page.getByRole("heading", { level: 1, name: "Employees" })).toBeVisible();
-    await expect(people(page)).toHaveCount(8);
-    await expect(page.getByText("Showing 1 to 8 of 8 employees")).toBeVisible();
+    await expect(people(page)).toHaveCount(7); // Ada Admin is never listed for an admin
+    await expect(page.getByText("Showing 1 to 7 of 7 employees")).toBeVisible();
 
     expect(api.callsTo("GET", "/employees").length).toBeGreaterThan(0);
     expect(api.calls.filter((call) => call.path.startsWith("/contacts"))).toHaveLength(0);
@@ -47,7 +48,7 @@ test.describe("employees list", () => {
     await page.getByLabel("Search employees").fill("zzz");
     await expect(page.getByText("No matches found")).toBeVisible();
     await page.getByRole("button", { name: "Clear filters" }).click();
-    await expect(people(page)).toHaveCount(8);
+    await expect(people(page)).toHaveCount(7);
   });
 
   test("shows the phone number in the details dialog", async ({ page }) => {
@@ -69,6 +70,7 @@ test.describe("employees list", () => {
     await options.filter({ hasText: /^sales executive/i }).click();
     await expect(people(page)).toHaveCount(2);
     await expect(page.getByRole("listbox")).toBeHidden();
+    // (Sam Sales and Ian Inactive are the two sales executives visible to an admin.)
   });
 
   test("the role dropdown shows only its label until chosen, and re-picking clears the choice", async ({ page }) => {
@@ -85,7 +87,7 @@ test.describe("employees list", () => {
 
     await openDropdown(page, "Role");
     await page.getByRole("option", { name: /^sales executive/i }).click();
-    await expect(people(page)).toHaveCount(8);
+    await expect(people(page)).toHaveCount(7);
     await expect(page.getByRole("button", { name: /^Role$/ })).toBeVisible();
   });
 
@@ -121,7 +123,7 @@ test.describe("employees list", () => {
 
   test("does not overflow horizontally", async ({ page }) => {
     await openEmployees(page);
-    await expect(people(page)).toHaveCount(8);
+    await expect(people(page)).toHaveCount(7);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
   });
@@ -218,21 +220,22 @@ test.describe("edit and delete", () => {
     expect(api.callsTo("DELETE", "/employees/7")).toHaveLength(1);
   });
 
-  test("an admin cannot delete their own account", async ({ page }) => {
+  test("an admin's own account is not listed, so it cannot be edited or deleted here", async ({ page }) => {
     await openEmployees(page);
-    await expect(page.getByRole("button", { name: "Edit Ada Admin" })).toBeVisible();
+    await expect(people(page).filter({ hasText: "Ada Admin" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Edit Ada Admin" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Delete Ada Admin" })).toHaveCount(0);
   });
 
-  test("a manager cannot modify other managers or admins", async ({ page }) => {
+  test("a manager sees neither admins nor managers, including themselves", async ({ page }) => {
     const employees = [...seedEmployees(), { ...seedEmployees()[1], id: 9, name: "Mo Manager", email: "mo@ogera.com" }];
     await openEmployees(page, MANAGER, { employees });
 
+    // Six visible: Tara Lead, Sam, Tia, Fay, Sue and Ian. Ada, Maya and Mo are hidden.
+    await expect(people(page)).toHaveCount(6);
     await expect(page.getByRole("button", { name: "Edit Sam Sales" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Delete Sam Sales" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Edit Maya Manager" })).toBeVisible(); // themselves
-    await expect(page.getByRole("button", { name: "Delete Maya Manager" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^(Edit|Delete) (Ada Admin|Mo Manager)$/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^(Edit|Delete) (Ada Admin|Maya Manager|Mo Manager)$/ })).toHaveCount(0);
 
     await page.getByRole("button", { name: "Add employee" }).first().click();
     const roleOptions = await dialog(page, "Add employee").getByLabel("Role").locator("option").allTextContents();
@@ -246,15 +249,16 @@ test.describe("edge cases", () => {
     await openEmployees(page, ADMIN, { employees: [...seedEmployees(), ...manyEmployees(17)] });
     const pager = page.getByRole("navigation", { name: "Employees pagination" });
 
-    await expect(page.getByText("Showing 1 to 10 of 25 employees")).toBeVisible();
+    // 25 accounts, one of them the admin's own (never listed for an admin): 24 are shown.
+    await expect(page.getByText("Showing 1 to 10 of 24 employees")).toBeVisible();
     await expect(people(page)).toHaveCount(10);
     await pager.getByRole("button", { name: "Next" }).click();
-    await expect(page.getByText("Showing 11 to 20 of 25 employees")).toBeVisible();
+    await expect(page.getByText("Showing 11 to 20 of 24 employees")).toBeVisible();
     await pager.getByRole("button", { name: "Next" }).click();
-    await expect(page.getByText("Showing 21 to 25 of 25 employees")).toBeVisible();
+    await expect(page.getByText("Showing 21 to 24 of 24 employees")).toBeVisible();
     await expect(pager.getByRole("button", { name: "Next" })).toBeDisabled();
     await pager.getByRole("button", { name: "Previous" }).click();
-    await expect(page.getByText("Showing 11 to 20 of 25 employees")).toBeVisible();
+    await expect(page.getByText("Showing 11 to 20 of 24 employees")).toBeVisible();
   });
 
   test("returns to the first page when a search narrows the list", async ({ page }) => {
@@ -309,14 +313,14 @@ test.describe("edge cases", () => {
 
   test("the list reloads by itself when the connection returns after a failed refresh", async ({ page, context }) => {
     await openEmployees(page);
-    await expect(people(page)).toHaveCount(8);
+    await expect(people(page)).toHaveCount(7);
 
     await context.setOffline(true);
     await page.getByRole("button", { name: "Refresh employees" }).click();
     await expect(page.getByRole("heading", { name: "You're offline" })).toBeVisible();
 
     await context.setOffline(false);
-    await expect(people(page)).toHaveCount(8);
+    await expect(people(page)).toHaveCount(7);
   });
 
   test("a server error during delete keeps the employee and shows the message", async ({ page }) => {
@@ -338,16 +342,6 @@ test.describe("edge cases", () => {
 
     await expect(page.getByRole("status").filter({ hasText: "Tia Caller was updated." })).toBeVisible();
     expect(api.callsTo("PUT", "/employees/5")[0].body).toEqual({ is_active: false });
-  });
-
-  test("an admin cannot change their own role or deactivate themselves", async ({ page }) => {
-    await openEmployees(page);
-    await page.getByRole("button", { name: "Edit Ada Admin" }).click();
-    const modal = dialog(page, "Edit employee");
-
-    await expect(modal.getByLabel("Role")).toBeDisabled();
-    await expect(modal.getByLabel(/^Account active/)).toBeDisabled();
-    await expect(modal.getByText("You can't change your own role.")).toBeVisible();
   });
 
   test("a new password that is too short is rejected before any request", async ({ page }) => {
@@ -397,7 +391,7 @@ test.describe("states", () => {
 
     await expect(page.getByText("Couldn't load employees")).toBeVisible();
     await page.getByRole("button", { name: "Try again" }).click();
-    await expect(people(page)).toHaveCount(8);
+    await expect(people(page)).toHaveCount(7);
   });
 
   test("shows the empty state with an add action", async ({ page }) => {

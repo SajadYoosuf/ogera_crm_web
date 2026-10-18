@@ -22,7 +22,7 @@ export default function VerifiedBadge({ contact }: { contact: Contact }) {
       onFocus={(event) => show(event.currentTarget)} onBlur={hide}
       onKeyDown={(event) => { if (event.key === "Escape") hide(); }}
       aria-label={verified ? "Verified. All details are complete." : `Unverified. Still needed: ${contact.missingFields.map((field) => FIELD_LABELS[field] ?? field).join(", ")}`}
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-[3px] text-xs font-semibold focus-visible:outline-2 focus-visible:outline-[#6E4FF6] ${tone}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-[3px] text-xs font-semibold focus-visible:outline-2 focus-visible:outline-[#0E4D3A] ${tone}`}
     >
       <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {verified ? "Verified" : "Unverified"}

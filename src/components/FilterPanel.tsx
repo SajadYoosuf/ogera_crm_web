@@ -26,7 +26,7 @@ export function FilterBar({ groups, onChange, onClear, compact = false }: {
         />
       ))}
       {activeCount > 0 && (
-        <button type="button" onClick={onClear} className={`${compact ? "h-11 px-2" : "min-h-11 px-3"} text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors`}>
+        <button type="button" onClick={onClear} className={`${compact ? "h-11 px-2" : "min-h-11 px-3"} text-sm font-bold text-[#0E4D3A] hover:text-blue-700 transition-colors`}>
           Clear filters ({activeCount})
         </button>
       )}

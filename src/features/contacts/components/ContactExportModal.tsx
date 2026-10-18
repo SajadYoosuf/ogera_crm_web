@@ -67,7 +67,7 @@ export default function ContactExportModal({ initial, extraFilterCount, leadSour
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/50 backdrop-blur-xs">
+    <div className="fixed inset-0 z-[1100] flex items-end sm:items-center justify-center sm:p-4 bg-[rgba(17,18,20,0.45)] backdrop-blur-[5px]">
       <section className="w-full sm:max-w-lg max-h-dvh overflow-y-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="export-title">
         <div className="p-5 sm:p-6">
           <h2 id="export-title" className="text-lg font-extrabold text-[#0a192f] tracking-tight">Export contacts</h2>
@@ -92,7 +92,7 @@ export default function ContactExportModal({ initial, extraFilterCount, leadSour
               <legend className="crm-field-label">Format</legend>
               <div className="mt-1.5 grid grid-cols-3 gap-2">
                 {FORMATS.map((item) => (
-                  <label key={item.value} className={`cursor-pointer rounded-xl border px-3 py-2.5 text-center transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-blue-600 ${format === item.value ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-700 hover:bg-gray-50"}`}>
+                  <label key={item.value} className={`cursor-pointer rounded-xl border px-3 py-2.5 text-center transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-blue-600 ${format === item.value ? "border-[#0E4D3A] bg-blue-50 text-blue-700" : "border-gray-200 text-gray-700 hover:bg-gray-50"}`}>
                     <input type="radio" name="export-format" value={item.value} checked={format === item.value} onChange={() => setFormat(item.value)} className="sr-only" />
                     <span className="block text-sm font-bold">{item.label}</span>
                     <span className="block text-[11px] text-gray-500 leading-tight">{item.hint}</span>
@@ -114,7 +114,7 @@ export default function ContactExportModal({ initial, extraFilterCount, leadSour
           <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
             <button type="button" onClick={onClose} disabled={isDownloading} className="inline-flex items-center justify-center min-h-11 px-4 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors">Cancel</button>
             <button type="button" onClick={() => void download()} disabled={isDownloading || tooMany || count === 0}
-              className="inline-flex items-center justify-center min-h-11 px-5 rounded-xl bg-gradient-to-br from-[#1d7ac4] to-[#1462a0] text-white text-sm font-bold shadow-md shadow-blue-600/25 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+              className="inline-flex items-center justify-center min-h-11 px-5 rounded-xl bg-gradient-to-br from-[#0E4D3A] to-[#0B3E2F] text-white text-sm font-bold shadow-md shadow-[#0E4D3A]/25 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
               {isDownloading ? "Preparing file…" : `Download ${FORMATS.find((item) => item.value === format)?.label}`}
             </button>
           </div>

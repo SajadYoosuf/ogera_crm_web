@@ -4,10 +4,12 @@ import Link from "next/link";
 import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { istToday } from "@/components/DatePicker";
 import { ApiError } from "@/lib/api/auth";
-import { listAllEmployees } from "@/lib/api/employees";
+import { isMonitoringRole, listAllEmployees } from "@/lib/api/employees";
+import { usePopoverFit } from "@/hooks/usePopoverFit";
+import FilterSelect from "@/components/FilterSelect";
 import { listLeadSources, type ApiContact } from "@/features/contacts/api/contacts";
 import { changeStage, listLeads, type LeadKind } from "@/lib/api/leads";
-import { THIS_MONTH, periodRange, stepAnchor, titleOf, type Period, type PeriodMode } from "./PeriodFilter";
+import { TODAY_ONLY, periodRange, stepAnchor, titleOf, type Period, type PeriodMode } from "./PeriodFilter";
 import { AVATAR_COLORS, FIELD_LABELS, STAGE_DESCRIPTIONS, formatCardDate, initials, stageColors, whatsappLink } from "./stages";
 import { useStageTypes } from "./useStages";
 import LeadPanel from "./LeadPanel";
@@ -21,6 +23,7 @@ function BoardDropdown({ label, value, onChange, options, icon }: {
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const listStyle = usePopoverFit(open, ref, 160);
   useEffect(() => {
     if (!open) return;
     const h = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
@@ -30,20 +33,20 @@ function BoardDropdown({ label, value, onChange, options, icon }: {
     return () => { document.removeEventListener("mousedown", h); document.removeEventListener("keydown", k); };
   }, [open]);
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative min-w-0">
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((p) => !p)}
-        className={`h-[38px] px-3 flex items-center gap-1.5 border rounded-[8px] bg-white text-[#3A3E4A] text-[13.5px] font-medium whitespace-nowrap cursor-pointer transition-colors hover:bg-[#F7F8F9] ${open ? "border-[#0E4D3A]" : "border-[#DEE1E5]"}`}
+        className={`h-[38px] w-full min-w-0 sm:w-auto px-3 flex items-center gap-1.5 border rounded-[8px] bg-white text-[#3A3E4A] text-[13.5px] font-medium whitespace-nowrap cursor-pointer transition-colors hover:bg-[#F7F8F9] ${open ? "border-[#0E4D3A]" : "border-[#DEE1E5]"}`}
       >
         <span className="text-[#6B7080]">{icon}</span>
-        <span>{label} · {value || "All"}</span>
+        <span className="truncate">{label} · {value || "All"}</span>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`transition-transform ${open ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" /></svg>
       </button>
       {open && (
-        <ul role="listbox" aria-label={label} className="absolute left-0 z-[1100] mt-1.5 min-w-[160px] overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
+        <ul style={listStyle} role="listbox" aria-label={label} className="absolute top-full z-[1100] mt-1.5 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
           <li role="option" aria-selected={!value}>
             <button type="button" onClick={() => { onChange(""); setOpen(false); }}
               className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${!value ? "bg-blue-50 font-bold text-blue-700" : "font-medium text-gray-700 hover:bg-gray-50"}`}>
@@ -94,9 +97,9 @@ export default function FollowupBoard() {
   const [source, setSource] = useState("");
   const [allSources, setAllSources] = useState<string[] | null>(null);
   const [today] = useState(istToday);
-  const defaultPeriod = useCallback(() => THIS_MONTH(istToday()), []);
+  const defaultPeriod = useCallback(() => TODAY_ONLY(istToday()), []);
   const [periods, setPeriods] = useState<Record<LeadKind, Period>>(() => ({
-    consumer: THIS_MONTH(istToday()), partner: THIS_MONTH(istToday()), dealer: THIS_MONTH(istToday()),
+    consumer: defaultPeriod(), partner: defaultPeriod(), dealer: defaultPeriod(),
   }));
   const period = periods[kind];
   const setPeriod = useCallback((next: Period) => setPeriods((cur) => ({ ...cur, [kind]: next })), [kind]);
@@ -156,22 +159,17 @@ export default function FollowupBoard() {
     const anchor = period.mode === "custom" ? today : period.anchor;
     setPeriod({ mode, anchor, ...periodRange(mode, anchor, period) });
   };
-  const goToday = () => {
-    const m = period.mode === "custom" ? "day" : period.mode;
-    setPeriod({ mode: m, anchor: today, ...periodRange(m, today, period) });
-  };
-  const { to: periodTo, from: periodFrom } = periodRange(period.mode, period.anchor, period);
-  const isAtToday = periodTo >= today && periodFrom <= today;
+  const { to: periodTo } = periodRange(period.mode, period.anchor, period);
 
   const assignees = useMemo(
-    () => [...new Set(staff ? staff.filter((m) => m.role !== "admin").map((m) => m.name) : leads.map((l) => l.assigned_to?.name).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b)),
+    () => [...new Set(staff ? staff.filter((m) => !isMonitoringRole(m.role)).map((m) => m.name) : leads.map((l) => l.assigned_to?.name).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b)),
     [leads, staff],
   );
   const sources = useMemo(
     () => [...new Set(allSources ?? leads.map((l) => l.lead_source?.name).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b)),
     [leads, allSources],
   );
-  const owners = useMemo(() => staff?.filter((m) => m.role !== "admin" && m.role !== "manager").sort((a, b) => a.name.localeCompare(b.name)) ?? null, [staff]);
+  const owners = useMemo(() => staff?.filter((m) => !isMonitoringRole(m.role)).sort((a, b) => a.name.localeCompare(b.name)) ?? null, [staff]);
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -183,17 +181,15 @@ export default function FollowupBoard() {
   }, [leads, search, assignee, source]);
 
   const byStage = useMemo(() => {
-    const newLeadId = stages.find((s) => s.slug === "new_lead")?.id;
     const groups = new Map<number, ApiContact[]>(stages.map((s) => [s.id, []]));
     for (const lead of visible) {
       const stageId = lead.lead_stage?.stage_id;
-      const col = stageId !== undefined && groups.has(stageId) ? stageId : (newLeadId ?? stages[0]?.id);
-      if (col !== undefined) groups.get(col)?.push(lead);
+      if (stageId !== undefined && groups.has(stageId)) groups.get(stageId)?.push(lead);
     }
     return groups;
   }, [visible, stages]);
 
-  const hasFilters = Boolean(search.trim() || assignee || source || period.mode !== "month" || period.anchor !== today);
+  const hasFilters = Boolean(search.trim() || assignee || source || period.mode !== "day" || period.anchor !== today);
 
   const panelLead = panel ? leads.find((l) => l.id === panel.id) ?? null : null;
 
@@ -227,12 +223,12 @@ export default function FollowupBoard() {
   const boardLoading = isLoading || stagesLoading;
 
   return (
-    <div className="flex flex-col" style={{ minHeight: "100dvh" }}>
+    <div className="flex flex-col bg-[#F4FBF7]" style={{ minHeight: "100dvh" }}>
       {/* ── Page header ── */}
-      <header className="shrink-0 h-[72px] bg-white border-b border-[#E5E7EA] flex items-center justify-between gap-4 px-7 pt-16 lg:pt-0">
-        <h1 className="text-[26px] font-bold tracking-tight text-[#1A1C21]">Lead Pipeline</h1>
-        <Link href="/contacts?add=1&returnTo=/dashboard/followups">
-          <button type="button" className="h-10 px-4 flex items-center gap-2 rounded-[10px] bg-[#0E7A4F] text-white text-sm font-semibold hover:bg-[#0B6640] transition-colors">
+      <header className="shrink-0 h-[72px] bg-white border-b border-[#E5E7EA] flex items-center justify-between gap-3 pl-16 pr-4 sm:pr-7 lg:pl-7">
+        <h1 className="min-w-0 truncate text-xl sm:text-[26px] font-bold tracking-tight text-[#1A1C21]">Lead Pipeline</h1>
+        <Link href="/contacts?add=1&returnTo=/dashboard/followups" className="shrink-0">
+          <button type="button" className="h-10 px-3.5 sm:px-4 flex items-center gap-2 rounded-[10px] bg-[#0E7A4F] text-white text-sm font-semibold hover:bg-[#0B6640] transition-colors">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             Add Lead
           </button>
@@ -242,11 +238,11 @@ export default function FollowupBoard() {
       {/* ── Content area ── */}
       <div className="flex-1 flex flex-col gap-3.5 p-5 lg:p-7 min-w-0">
         {/* ── Filter toolbar ── */}
-        <div className="bg-white border border-[#E5E7EA] rounded-2xl px-3.5 py-3 flex items-center justify-between gap-3.5 flex-wrap">
-          <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="bg-white border border-[#E5E7EA] rounded-2xl px-3.5 py-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-3.5">
+          <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
 
             {/* Contact type tabs */}
-            <div role="tablist" aria-label="Contact type" className="flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-[9px]">
+            <div role="tablist" aria-label="Contact type" className="grid grid-cols-3 p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-[9px] sm:inline-flex">
               {(["consumer", "partner", "dealer"] as const).map((type) => {
                 const on = kind === type;
                 const colors = TYPE_COLORS[type];
@@ -258,7 +254,7 @@ export default function FollowupBoard() {
                     aria-selected={on}
                     onClick={() => selectKind(type)}
                     style={on ? { background: colors.activeBg, color: colors.activeFg } : undefined}
-                    className={`h-[34px] px-4 rounded-[7px] text-sm font-bold border-none transition-colors ${on ? "shadow-sm" : "text-[#5F6473] font-medium bg-transparent hover:bg-white/60"}`}
+                    className={`h-[34px] min-w-0 truncate px-2 sm:px-4 rounded-[7px] text-sm font-bold border-none transition-colors ${on ? "shadow-sm" : "text-[#5F6473] font-medium bg-transparent hover:bg-white/60"}`}
                   >
                     {type.charAt(0).toUpperCase() + type.slice(1)}
                   </button>
@@ -267,7 +263,7 @@ export default function FollowupBoard() {
             </div>
 
             {/* Search */}
-            <label className="relative flex items-center">
+            <label className="relative flex w-full items-center sm:w-auto">
               <span className="sr-only">Search leads</span>
               <svg className="absolute left-3 w-4 h-4 text-[#8A8F9C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
               <input
@@ -275,13 +271,21 @@ export default function FollowupBoard() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by name, phone or district"
-                className="h-[38px] w-[230px] pl-9 pr-3 border border-[#DEE1E5] rounded-[8px] text-[13.5px] text-[#1A1C21] bg-white placeholder:text-[#8A8F9C] focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] focus:ring-offset-0"
+                className="h-[38px] w-full sm:w-[230px] pl-9 pr-3 border border-[#DEE1E5] rounded-[8px] text-[13.5px] text-[#1A1C21] bg-white placeholder:text-[#8A8F9C] focus:outline-none focus:ring-2 focus:ring-[#BFE6D2] focus:ring-offset-0"
               />
             </label>
 
             {/* Date range tabs */}
-            <div className="relative">
-              <div role="tablist" aria-label="Created period" className="flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-[9px]">
+            <div className="relative w-full sm:w-auto">
+              {/* Phones: one dropdown instead of the tab row, which doesn't fit */}
+              <FilterSelect
+                label="Period"
+                value={period.mode}
+                onChange={(next) => pickPeriodMode(next as PeriodMode)}
+                options={PERIOD_TABS}
+                className="w-full sm:hidden"
+              />
+              <div role="tablist" aria-label="Created period" className="hidden sm:flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-[9px]">
                 {PERIOD_TABS.map(({ value, label }) => {
                   const on = period.mode === value;
                   return (
@@ -316,10 +320,6 @@ export default function FollowupBoard() {
                 </button>
               </div>
             )}
-            {/* Today button — standalone next to the nav group */}
-            {(period.mode === "day" || period.mode === "week" || period.mode === "month") && (
-              <button type="button" onClick={goToday} disabled={isAtToday} className="h-8 px-3 border border-[#DEE1E5] rounded-[7px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors">Today</button>
-            )}
             {/* Last month label */}
             {period.mode === "last_month" && (
               <span className="text-[13.5px] font-semibold text-[#1A1C21] whitespace-nowrap">{titleOf("last_month", period.anchor)}</span>
@@ -336,7 +336,7 @@ export default function FollowupBoard() {
 
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-1.5">
             {/* Lead owner */}
             <BoardDropdown
               label="Lead owner"

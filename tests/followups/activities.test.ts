@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SCHEDULABLE_TYPES, formatClock, formatDay, formatWhen, isoDate, typeLabel } from "@/components/followups/activities";
+import { formatClock, formatDay, formatWhen, isoDate, typeLabel } from "@/components/followups/activities";
 
 describe("isoDate", () => {
   it("returns today as YYYY-MM-DD and moves by whole days", () => {
@@ -30,13 +30,8 @@ describe("formatters", () => {
 });
 
 describe("activity types", () => {
-  it("does not let an internal note be scheduled", () => {
-    expect(SCHEDULABLE_TYPES.map((type) => type.value)).not.toContain("internal_note");
-    expect(SCHEDULABLE_TYPES).toHaveLength(5);
-  });
-
-  it("labels known types and passes unknown ones through", () => {
-    expect(typeLabel("whatsapp")).toBe("WhatsApp message");
-    expect(typeLabel("other")).toBe("other");
+  it("shows the raw slug, humanised, until the API list has loaded", () => {
+    expect(typeLabel("whatsapp")).toBe("Whatsapp");
+    expect(typeLabel("field_visit")).toBe("Field visit");
   });
 });

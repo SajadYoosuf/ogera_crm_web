@@ -22,7 +22,7 @@ const selectClass = "crm-select";
 const labelClass = "crm-field-label";
 
 const typeStyles: Record<ProfessionalType, string> = {
-  Engineer: "bg-blue-50 text-blue-600",
+  Engineer: "bg-blue-50 text-[#0E4D3A]",
   Plumber: "bg-cyan-50 text-cyan-600",
   Contractor: "bg-amber-50 text-amber-600",
   "Interior Designer": "bg-violet-50 text-violet-600",
@@ -169,28 +169,28 @@ export default function ProfessionalsPage() {
         <button
           type="button"
           onClick={() => { setFormError(""); setEditor({ values: blankProfessional(type) }); }}
-          className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-md shadow-blue-600/20 hover:bg-blue-700 active:scale-[.98] transition-all"
+          className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0E4D3A] text-white text-sm font-semibold shadow-md shadow-[#0E4D3A]/20 hover:bg-[#0B3E2F] active:scale-[.98] transition-all"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
           Add professional
         </button>
       </header>
 
-      <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <form onSubmit={submitSearch} className="flex items-center h-10 w-full sm:max-w-sm rounded-xl border border-gray-200 bg-gray-50 overflow-hidden focus-within:border-blue-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-600/15 transition-colors">
+      <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3">
+        <form onSubmit={submitSearch} className="flex items-center h-10 w-full sm:max-w-sm rounded-xl border border-gray-200 bg-gray-50 overflow-hidden focus-within:border-[#0E4D3A] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0E4D3A]/15 transition-colors">
           <label className="sr-only" htmlFor="professional-search">Search professionals</label>
           <svg className="w-4 h-4 ml-3 mr-2 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="10.75" cy="10.75" r="6.25" /><path d="m16 16 4.25 4.25" /></svg>
           <input id="professional-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, phone, or place" className="flex-1 min-w-0 h-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400" />
-          <button type="submit" className="h-full px-4 text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors">Search</button>
+          <button type="submit" className="h-full px-4 text-xs font-bold text-[#0E4D3A] hover:bg-blue-50 transition-colors">Search</button>
         </form>
 
-        <div className="flex gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200" role="group" aria-label="Professional type">
+        <div className="grid w-full grid-cols-3 gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 sm:flex" role="group" aria-label="Professional type">
           {PROFESSIONAL_TYPES.map((item) => (
             <button
               key={item}
               type="button"
               onClick={() => setType(item)}
-              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${type === item ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
+              className={`min-w-0 flex-1 truncate px-2 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${type === item ? "bg-white text-[#0E4D3A] shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
             >
               {item}s
             </button>
@@ -221,7 +221,7 @@ export default function ProfessionalsPage() {
           <h2 className="mt-4 text-base font-bold text-[#0a192f]">{submittedSearch ? "No matches found" : `No ${type.toLowerCase()}s yet`}</h2>
           <p className="mt-2 max-w-sm text-sm text-gray-500 leading-relaxed">{submittedSearch ? `We could not find anyone matching "${submittedSearch}".` : `Add your first ${type.toLowerCase()} to start building the network.`}</p>
           {!submittedSearch && (
-            <button type="button" onClick={() => { setFormError(""); setEditor({ values: blankProfessional(type) }); }} className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">Add your first {type.toLowerCase()}</button>
+            <button type="button" onClick={() => { setFormError(""); setEditor({ values: blankProfessional(type) }); }} className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0E4D3A] text-white text-sm font-semibold hover:bg-[#0B3E2F] transition-colors">Add your first {type.toLowerCase()}</button>
           )}
         </div>
       ) : (
@@ -231,7 +231,7 @@ export default function ProfessionalsPage() {
               <span className={`w-11 h-11 shrink-0 rounded-full flex items-center justify-center ${typeStyles[professional.type]}`}><TypeIcon type={professional.type} /></span>
               <div className="min-w-0 flex-1">
                 <h3 className="font-medium text-gray-900 truncate">{professional.name || "Unnamed professional"}</h3>
-                <a href={`tel:${professional.phone}`} className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                <a href={`tel:${professional.phone}`} className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-[#0E4D3A]">
                   <svg className="w-3.5 h-3.5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z" /></svg>
                   {professional.phone}
                 </a>
@@ -241,7 +241,7 @@ export default function ProfessionalsPage() {
                 </p>
               </div>
               <div className="flex shrink-0 gap-1">
-                <button type="button" onClick={() => { setFormError(""); setEditor({ professional, values: toForm(professional) }); }} className="p-1.5 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors" aria-label={`Edit ${professional.name || professional.phone}`}>
+                <button type="button" onClick={() => { setFormError(""); setEditor({ professional, values: toForm(professional) }); }} className="p-1.5 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-[#0E4D3A] transition-colors" aria-label={`Edit ${professional.name || professional.phone}`}>
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                 </button>
                 <button type="button" onClick={() => { setFormError(""); setDeleteTarget(professional); }} className="p-1.5 rounded-lg text-gray-600 hover:bg-rose-50 hover:text-rose-600 transition-colors" aria-label={`Delete ${professional.name || professional.phone}`}>
@@ -254,7 +254,7 @@ export default function ProfessionalsPage() {
       )}
 
       {editor && (
-        <div className="fixed inset-0 z-50 bg-white overflow-y-auto sm:grid sm:place-items-center sm:p-4 sm:bg-slate-900/50 sm:backdrop-blur-xs">
+        <div className="fixed inset-0 z-[1100] bg-white overflow-y-auto sm:grid sm:place-items-center sm:p-4 sm:bg-[rgba(17,18,20,0.45)] sm:backdrop-blur-[5px]">
           <section className="flex min-h-dvh w-full flex-col bg-gray-50 sm:min-h-0 sm:max-h-[88vh] sm:max-w-lg sm:overflow-hidden sm:rounded-2xl sm:shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="professional-form-title">
             <header className="flex items-start justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5 border-b border-gray-100 bg-white shrink-0">
               <div>
@@ -300,7 +300,7 @@ export default function ProfessionalsPage() {
                         { enableHighAccuracy: true, timeout: 10000 },
                       );
                     }}
-                    className="min-h-11 px-3 shrink-0 rounded-lg border border-gray-200 bg-white text-xs font-bold text-blue-600 hover:bg-blue-50 disabled:opacity-50 transition-colors"
+                    className="min-h-11 px-3 shrink-0 rounded-lg border border-gray-200 bg-white text-xs font-bold text-[#0E4D3A] hover:bg-blue-50 disabled:opacity-50 transition-colors"
                   >
                     {isLocating ? "Locating…" : "Use GPS"}
                   </button>
@@ -311,7 +311,7 @@ export default function ProfessionalsPage() {
 
               <footer className="grid grid-cols-2 gap-3 px-4 py-4 border-t border-gray-100 bg-white shrink-0 sm:flex sm:justify-end sm:px-6 sm:rounded-b-2xl">
                 <button type="button" disabled={isSaving} onClick={() => setEditor(null)} className="min-h-11 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors">Cancel</button>
-                <button type="submit" disabled={isSaving} className="min-h-11 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 transition-colors">{isSaving ? "Saving…" : editor.professional ? "Save changes" : "Add professional"}</button>
+                <button type="submit" disabled={isSaving} className="min-h-11 px-4 py-2.5 rounded-xl bg-[#0E4D3A] text-white text-sm font-semibold hover:bg-[#0B3E2F] disabled:opacity-60 transition-colors">{isSaving ? "Saving…" : editor.professional ? "Save changes" : "Add professional"}</button>
               </footer>
             </form>
           </section>
@@ -319,7 +319,7 @@ export default function ProfessionalsPage() {
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4 bg-slate-900/50 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[1100] grid place-items-center overflow-y-auto p-4 bg-[rgba(17,18,20,0.45)] backdrop-blur-[5px]">
           <section className="w-full max-w-md bg-white rounded-2xl shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="delete-professional-title">
             <div className="px-6 pt-6">
               <h2 id="delete-professional-title" className="text-lg font-bold text-[#0a192f]">Delete professional?</h2>

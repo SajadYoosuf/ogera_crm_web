@@ -13,6 +13,7 @@ import ContactsMoreMenu from "@/features/contacts/components/ContactsMoreMenu";
 import ContactsFilterMenu from "@/features/contacts/components/ContactsFilterMenu";
 import ContactsSortMenu from "@/features/contacts/components/ContactsSortMenu";
 import { canManageEmployees, isMonitoringRole } from "@/lib/api/employees";
+import { canExportContacts } from "@/lib/permissions";
 import { useContactLookups } from "@/features/contacts/hooks/useContactLookups";
 import { useContactsList } from "@/features/contacts/hooks/useContactsList";
 import { useContactEditor } from "@/features/contacts/hooks/useContactEditor";
@@ -106,11 +107,11 @@ export default function ContactsView() {
   const emptyTypeLabel = filters.type ? (KIND_LABELS[filters.type] ?? filters.type) : "";
 
   return (
-    <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-20 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b border-[#E7E7EA] bg-white pl-16 pr-3 sm:gap-4 sm:px-7 lg:pl-7">
+    <div className="flex min-h-full flex-col bg-[#F4FBF7]">
+      <header className="sticky top-0 z-20 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b border-[#E7E7EA] bg-white pl-16 pr-3 sm:gap-4 sm:pr-7 lg:pl-7">
         <h1 className="truncate text-[22px] font-bold tracking-[-0.01em] text-[#1A1C21] sm:text-[26px]">Contacts</h1>
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
-          <ContactsMoreMenu canImport={canManageEmployees(viewerRole)} onImport={() => setIoDialog("import")} onExport={() => setIoDialog("export")} />
+          <ContactsMoreMenu canImport={canManageEmployees(viewerRole)} canExport={canExportContacts(viewerRole)} onImport={() => setIoDialog("import")} onExport={() => setIoDialog("export")} />
           <button type="button" aria-label="Add Contact" onClick={() => openEditor(undefined, filters.type || undefined)} className={`inline-flex h-10 items-center gap-2 rounded-[8px] px-3 text-sm font-semibold sm:px-4 ${ACCENT_BUTTON}`}>
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             <span className="hidden sm:inline" aria-hidden="true">Add Contact</span>

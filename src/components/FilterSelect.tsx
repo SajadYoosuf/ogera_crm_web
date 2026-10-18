@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { usePopoverFit } from "@/hooks/usePopoverFit";
 
 export type FilterOption = { value: string; label: string; count?: number; dot?: string };
 
@@ -19,6 +20,7 @@ export default function FilterSelect({ label, value, onChange, options, icon, cl
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const listStyle = usePopoverFit(open, rootRef, 240);
   const current = options.find((option) => option.value === value) ?? (clearable ? undefined : options[0]);
 
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function FilterSelect({ label, value, onChange, options, icon, cl
       </button>
 
       {open && (
-        <ul role="listbox" aria-label={label} className="absolute right-0 z-30 mt-2 max-h-[min(30rem,calc(100vh-14rem))] w-full min-w-60 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
+        <ul style={listStyle} role="listbox" aria-label={label} className="absolute top-full z-[1100] mt-2 max-h-[min(30rem,calc(100vh-14rem))] overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
           {options.map((option) => {
             const selected = option.value === value;
             return (

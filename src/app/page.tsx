@@ -2,16 +2,17 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { DM_Sans, Noto_Sans_Malayalam, Sora } from "next/font/google";
+import Link from "next/link";
 import { FormEvent, useLayoutEffect, useRef, useState } from "react";
 import { useLogin } from "@/hooks/useLogin";
+import { dmSans, notoMalayalam, sora } from "@/lib/auth-fonts";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
-const sora = Sora({ subsets: ["latin"], weight: ["400", "600", "700", "800"], variable: "--font-sora", display: "swap" });
-const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-dm-sans", display: "swap" });
-const notoMalayalam = Noto_Sans_Malayalam({ subsets: ["malayalam", "latin"], weight: ["500", "600", "700"], variable: "--font-malayalam", display: "swap" });
 
 type Language = "en" | "ml";
+
+/** Support WhatsApp number (+91 7994436444), opened from the "Chat with us" link. */
+const WHATSAPP_URL = "https://wa.me/917994436444";
 
 const COPY = {
   en: {
@@ -245,8 +246,8 @@ export default function Home() {
             </button>
 
             <div className="login-links">
-              <p>{t.forgotPrefix} <a href="#">{t.resetLink}</a></p>
-              <p>{t.helpPrefix} <a href="#">{t.whatsappLink}</a></p>
+              <p>{t.forgotPrefix} <Link href="/forgot-password">{t.resetLink}</Link></p>
+              <p>{t.helpPrefix} <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">{t.whatsappLink}</a></p>
             </div>
           </form>
         </div>

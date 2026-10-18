@@ -128,7 +128,7 @@ export default function PhoneField({ value, onChange, required = true, label = "
   const result = checkNational(country, national);
   const showStatus = touched || national.length > 0;
   const state: "idle" | "error" | "valid" = !showStatus ? "idle" : national.length === 0 ? (touched && required ? "error" : "idle") : result.valid ? "valid" : national.length >= limits.min || touched ? "error" : "idle";
-  const border = state === "error" ? "border-rose-400 focus-within:border-rose-500 focus-within:ring-rose-500/15" : state === "valid" ? "border-emerald-400 focus-within:border-emerald-500 focus-within:ring-emerald-500/15" : "border-gray-200 hover:border-gray-300 focus-within:border-blue-600 focus-within:ring-blue-600/15";
+  const border = state === "error" ? "border-rose-400 focus-within:border-rose-500 focus-within:ring-rose-500/15" : state === "valid" ? "border-emerald-400 focus-within:border-emerald-500 focus-within:ring-emerald-500/15" : "border-gray-200 hover:border-gray-300 focus-within:border-[#0E4D3A] focus-within:ring-[#0E4D3A]/15";
 
   return (
     <div ref={rootRef} className="relative flex flex-col gap-1.5">
@@ -186,7 +186,7 @@ export default function PhoneField({ value, onChange, required = true, label = "
                   <button type="button" onClick={() => pickCountry(item.code)} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${selected ? "bg-blue-50 font-bold text-blue-700" : "font-medium text-gray-700 hover:bg-gray-50"}`}>
                     <span className="h-4 w-6 shrink-0 overflow-hidden rounded-[3px] shadow-[0_0_0_1px_rgba(15,23,42,0.12)] [&>svg]:h-full [&>svg]:w-full">{ItemFlag && <ItemFlag title={item.name} />}</span>
                     <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                    <span className={`shrink-0 text-xs tabular-nums ${selected ? "text-blue-600" : "text-gray-400"}`}>{item.dial}</span>
+                    <span className={`shrink-0 text-xs tabular-nums ${selected ? "text-[#0E4D3A]" : "text-gray-400"}`}>{item.dial}</span>
                   </button>
                 </li>
               );

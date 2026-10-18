@@ -128,8 +128,8 @@ export default function DatePicker({ value, onChange, max, min }: Props) {
         <button type="button" onClick={() => onChange(prev)} disabled={disabled(prev)} aria-label="Previous day" className="grid h-10 w-10 place-items-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">
           <Chevron dir="left" />
         </button>
-        <button type="button" onClick={toggle} aria-haspopup="dialog" aria-expanded={open} className="flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/15">
-          <svg className="h-4 w-4 shrink-0 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <button type="button" onClick={toggle} aria-haspopup="dialog" aria-expanded={open} className="flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 focus:border-[#0E4D3A] focus:outline-none focus:ring-2 focus:ring-[#0E4D3A]/15">
+          <svg className="h-4 w-4 shrink-0 text-[#0E4D3A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
             <path d="M8 3v4M16 3v4M3.5 10h17" />
           </svg>
@@ -169,7 +169,7 @@ export default function DatePicker({ value, onChange, max, min }: Props) {
                     onClick={() => pick(key)}
                     className={
                       "mx-auto grid h-9 w-9 place-items-center rounded-full text-sm transition " +
-                      (selected ? "bg-blue-600 font-semibold text-white shadow-sm" : off ? "cursor-not-allowed text-gray-300" : "text-gray-800 hover:bg-blue-50") +
+                      (selected ? "bg-[#0E4D3A] font-semibold text-white shadow-sm" : off ? "cursor-not-allowed text-gray-300" : "text-gray-800 hover:bg-blue-50") +
                       (key === today && !selected ? " ring-1 ring-inset ring-blue-300 font-semibold text-blue-700" : "")
                     }
                   >
@@ -180,7 +180,7 @@ export default function DatePicker({ value, onChange, max, min }: Props) {
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-3">
               {presets.map((preset) => (
-                <button key={preset.label} type="button" onClick={() => pick(preset.key)} className={"rounded-full px-3 py-1 text-xs font-semibold transition " + (preset.key === value ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200")}>
+                <button key={preset.label} type="button" onClick={() => pick(preset.key)} className={"rounded-full px-3 py-1 text-xs font-semibold transition " + (preset.key === value ? "bg-[#0E4D3A] text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200")}>
                   {preset.label}
                 </button>
               ))}

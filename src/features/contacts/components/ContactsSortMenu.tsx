@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ContactSort } from "@/features/contacts/api/contacts";
+import { usePopoverFit } from "@/hooks/usePopoverFit";
 
 export const SORT_OPTIONS: { value: ContactSort; label: string }[] = [
   { value: "newest", label: "Newest first" },
@@ -14,6 +15,7 @@ export const SORT_OPTIONS: { value: ContactSort; label: string }[] = [
 export default function ContactsSortMenu({ value, onChange }: { value: ContactSort; onChange: (value: ContactSort) => void }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuStyle = usePopoverFit(open, rootRef, 176);
 
   useEffect(() => {
     if (!open) return;
@@ -37,7 +39,7 @@ export default function ContactsSortMenu({ value, onChange }: { value: ContactSo
         Sort by
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-30 mt-2 w-44 rounded-[10px] border border-[#E1E1E6] bg-white p-1.5 shadow-lg">
+        <div style={menuStyle} role="menu" className="absolute top-full z-30 mt-2 w-44 rounded-[10px] border border-[#E1E1E6] bg-white p-1.5 shadow-lg">
           {SORT_OPTIONS.map((option) => (
             <button
               key={option.value}

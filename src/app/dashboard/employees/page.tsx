@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/auth";
 import {
   assignableRoles, canManageEmployees, canModifyEmployee, createEmployee, deleteEmployee, getEmployee,
-  listAllEmployees, logEvent, updateEmployee, EMPLOYEE_ROLES, type Employee, type EmployeeRole, type EmployeeUpdate,
+  listAllEmployees, logEvent, updateEmployee, EMPLOYEE_ROLES, isMonitoringRole, teamLeadOptions,
+  type Employee, type EmployeeRole, type EmployeeUpdate,
 } from "@/lib/api/employees";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { dmSans } from "@/lib/auth-fonts";
@@ -17,7 +18,7 @@ type LoadState =
   | { status: "ready"; employees: Employee[]; syncedAt: Date };
 
 type Viewer = { id: number; role: string };
-type FormValues = { name: string; email: string; phone: string; role: EmployeeRole; is_active: boolean; password: string };
+type FormValues = { name: string; email: string; phone: string; role: EmployeeRole; team_lead_id: string; is_active: boolean; password: string };
 
 const AVATAR_TONES = ["bg-[#E7F5EE] text-[#0E4D3A]", "bg-[#E0F2FE] text-[#0B6AA8]", "bg-[#DCFCE7] text-[#167A44]", "bg-[#FEF3C7] text-[#9A6200]", "bg-[#FCE7F3] text-[#A8326E]"];
 const ROLE_STYLES: Record<string, string> = {
@@ -194,14 +195,26 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
   const [values, setValues] = useState<FormValues>({
     name: employee?.name ?? "", email: employee?.email ?? "", phone: toIndianLocal(employee?.phone),
     role: (employee?.role as EmployeeRole) ?? "sales_executive",
+    team_lead_id: employee?.team_lead_id ? String(employee.team_lead_id) : "",
     is_active: employee?.is_active ?? true, password: "",
   });
+  const [teamLeads, setTeamLeads] = useState<Employee[]>([]);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
   const set = <K extends keyof FormValues>(key: K, value: FormValues[K]) => setValues((current) => ({ ...current, [key]: value }));
+
+  // Only a team member needs a team lead, so the picker is shown for non-monitoring, non-team-lead roles.
+  const needsTeamLead = values.role !== "team_lead" && !isMonitoringRole(values.role);
+  useEffect(() => {
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    if (!accessToken || !needsTeamLead) return;
+    listAllEmployees(accessToken)
+      .then(({ employees }) => setTeamLeads(teamLeadOptions(employees)))
+      .catch(() => setTeamLeads([]));
+  }, [needsTeamLead]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -215,6 +228,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
       setError("Password must be at least 8 characters and include a letter and a digit."); return;
     }
     setIsSaving(true); setError("");
+    const teamLead = needsTeamLead && values.team_lead_id ? Number(values.team_lead_id) : null;
     try {
       if (employee) {
         const patch: EmployeeUpdate = {};
@@ -222,6 +236,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
         if (values.email.trim().toLowerCase() !== employee.email) patch.email = values.email.trim();
         if (values.phone !== toIndianLocal(employee.phone)) patch.phone = values.phone ? `+91${values.phone}` : null;
         if (values.role !== employee.role) patch.role = values.role;
+        if (teamLead !== (employee.team_lead_id ?? null)) patch.team_lead_id = teamLead;
         if (values.is_active !== employee.is_active) patch.is_active = values.is_active;
         if (values.password) patch.password = values.password;
         if (Object.keys(patch).length > 0) await updateEmployee(accessToken, employee.id, patch);
@@ -231,6 +246,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
           name: values.name.trim(), email: values.email.trim(), role: values.role,
           password: values.password,
           ...(values.phone ? { phone: `+91${values.phone}` } : {}),
+          ...(teamLead ? { team_lead_id: teamLead } : {}),
         });
         onSaved(`${values.name.trim()} was added to the team.`);
       }
@@ -284,6 +300,15 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
               </select>
               {isSelf && <span className="text-[11px] font-normal text-gray-400">You can&apos;t change your own role.</span>}
             </label>
+            {needsTeamLead && (
+              <label className="crm-field-label sm:col-span-2">Team lead
+                <select value={values.team_lead_id} onChange={(e) => set("team_lead_id", e.target.value)} className="crm-select">
+                  <option value="">No team</option>
+                  {teamLeads.map((lead) => <option key={lead.id} value={String(lead.id)}>{lead.name}</option>)}
+                </select>
+                <span className="text-[11px] font-normal text-gray-400">The team lead sees this person&apos;s contacts and tasks.</span>
+              </label>
+            )}
             <div className="crm-field-label">
               <label htmlFor="employee-password">{isEdit ? "New password" : "Password"}</label>
               <div className="flex items-center rounded-lg border border-gray-200 bg-white shadow-xs transition-colors hover:border-gray-300 focus-within:border-[#0E4D3A] focus-within:ring-2 focus-within:ring-[#0E4D3A]/15">
@@ -457,7 +482,7 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div className={`${dmSans.className} flex min-h-full flex-col`}>
+    <div className={`${dmSans.className} flex min-h-full flex-col bg-[#F4FBF7]`}>
       <header className="sticky top-0 z-20 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b border-[#E7E7EA] bg-white pl-16 pr-3 sm:gap-4 sm:px-7 lg:pl-7">
         <h1 className="truncate text-[22px] font-bold tracking-[-0.01em] text-[#1A1C21] sm:text-[26px]">Employees</h1>
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
