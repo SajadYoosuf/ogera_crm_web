@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-18 — `e377589` (branch `phase1-redesign`)
+
+**feat: design system, design tokens and responsive audit**
+
+Author: sajad yoosuf
+Previous commit on this side: `2d48eca` docs: update changelog for the commits from 946afa4 to 9cfef38
+
+### Summary
+Adds the design system README and tokens.json, the Playwright responsive audit, and the responsive-preflight and frontend-design skills.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| Added | `README_DESIGN_SYSTEM.md` | +50 / -0 |
+| Added | `e2e/responsive.spec.ts` | +199 / -0 |
+| Added | `tokens.json` | +112 / -0 |
+
+### Notes
+Responsive audit run before commit: 180 passed, 2 failed. The failures are the Add employee dialog at 280px (Galaxy Fold) and 320px (small phone): the dialog does not fit. Not yet fixed.
+
 ## 2026-10-18 — `863c40c` (branch `phase1-redesign`)
 
 **feat: pipeline, contacts, team and enum-driven web updates**
