@@ -1,10 +1,11 @@
-import { request } from "./auth";
+import { ApiError, request } from "./auth";
 
+/** Mirrors the Products section of the backend API. Admins and managers edit; everyone signed in reads. */
 export type OptionKind = "brand" | "category" | "material";
 export type ProductOption = { id: number; kind: OptionKind; name: string; slug: string };
 export type OptionRef = { id: number; name: string };
 
-/** Numbers come back from FastAPI as strings (decimals) or numbers; the form keeps them as strings. */
+/** Decimals come back from FastAPI as strings; the form keeps them as strings too. */
 export type Product = {
   id: number;
   name: string;
@@ -42,11 +43,14 @@ export type Product = {
   thickness_mm: string | null;
   weight_kg: string | null;
   main_image_url: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ProductListItem = Pick<
   Product,
-  "id" | "name" | "slug" | "brand" | "category" | "capacity_display" | "mrp" | "sale_price" | "is_popular" | "is_active" | "main_image_url"
+  | "id" | "name" | "slug" | "tagline" | "brand" | "category" | "capacity_display" | "orientation"
+  | "mrp" | "sale_price" | "special_price_active" | "is_popular" | "is_active" | "main_image_url"
 >;
 
 export type ProductList = { items: ProductListItem[]; total: number; skip: number; limit: number };
@@ -56,40 +60,63 @@ type DecimalKey =
   | "inlet_in" | "outlet_in" | "drain_in" | "thickness_mm" | "weight_kg";
 
 /** What the form sends: decimals go out as numbers, blanks as null. */
-export type ProductInput = Omit<Product, "id" | "brand" | "category" | "material" | "discount_percent" | "you_save" | DecimalKey>
+export type ProductInput = Omit<Product, "id" | "brand" | "category" | "material" | "discount_percent" | "you_save" | "created_at" | "updated_at" | DecimalKey>
   & Record<DecimalKey, number | null>;
 
-export type ProductQuery = { q?: string; brandId?: number; categoryId?: number; skip?: number; limit?: number };
+export type ProductQuery = {
+  q?: string;
+  isActive?: boolean;
+  brandId?: number;
+  categoryId?: number;
+  materialId?: number;
+  skip?: number;
+  limit?: number;
+};
 
 const authHeaders = (token: string) => ({ Authorization: `Bearer ${token}` });
 const jsonHeaders = (token: string) => ({ ...authHeaders(token), "Content-Type": "application/json" });
 
+/** Maps the backend's 401/403 into the wording the other screens use. */
+async function authed<T>(path: string, init: RequestInit): Promise<T> {
+  try {
+    return await request<T>(path, init);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) throw new ApiError("invalid_credentials", "Your session has expired. Please sign in again.", 401);
+    if (error instanceof ApiError && error.status === 403) throw new ApiError("forbidden", "You don't have permission to do that.", 403);
+    throw error;
+  }
+}
+
+/** Only admins and managers may add, edit or archive products (the backend enforces it too). */
+export const canEditProducts = (role: string | undefined) => role === "admin" || role === "manager";
+
 export function listProducts(token: string, query: ProductQuery = {}) {
   const params = new URLSearchParams();
   if (query.q?.trim()) params.set("q", query.q.trim());
+  if (query.isActive !== undefined) params.set("is_active", String(query.isActive));
   if (query.brandId !== undefined) params.set("brand_id", String(query.brandId));
   if (query.categoryId !== undefined) params.set("category_id", String(query.categoryId));
+  if (query.materialId !== undefined) params.set("material_id", String(query.materialId));
   params.set("skip", String(query.skip ?? 0));
-  params.set("limit", String(query.limit ?? 20));
-  return request<ProductList>(`/products?${params}`, { headers: authHeaders(token) });
+  params.set("limit", String(query.limit ?? 8));
+  return authed<ProductList>(`/products?${params}`, { headers: authHeaders(token) });
 }
 
 export const getProduct = (token: string, id: number) =>
-  request<Product>(`/products/${id}`, { headers: authHeaders(token) });
+  authed<Product>(`/products/${id}`, { headers: authHeaders(token) });
 
 export const createProduct = (token: string, input: ProductInput) =>
-  request<Product>("/products", { method: "POST", headers: jsonHeaders(token), body: JSON.stringify(input) });
+  authed<Product>("/products", { method: "POST", headers: jsonHeaders(token), body: JSON.stringify(input) });
 
 export const updateProduct = (token: string, id: number, input: Partial<ProductInput>) =>
-  request<Product>(`/products/${id}`, { method: "PATCH", headers: jsonHeaders(token), body: JSON.stringify(input) });
+  authed<Product>(`/products/${id}`, { method: "PATCH", headers: jsonHeaders(token), body: JSON.stringify(input) });
 
-export const deleteProduct = (token: string, id: number) =>
-  request<void>(`/products/${id}`, { method: "DELETE", headers: authHeaders(token) });
+/** Archive (`is_active: false`) and restore (`is_active: true`) both go through PATCH. */
+export const setProductActive = (token: string, id: number, isActive: boolean) =>
+  updateProduct(token, id, { is_active: isActive });
 
 export const listProductOptions = (token: string, kind: OptionKind) =>
-  request<ProductOption[]>(`/products/options?kind=${kind}`, { headers: authHeaders(token) });
+  authed<ProductOption[]>(`/products/options?kind=${kind}`, { headers: authHeaders(token) });
 
 export const createProductOption = (token: string, kind: OptionKind, name: string) =>
-  request<ProductOption>("/products/options", {
-    method: "POST", headers: jsonHeaders(token), body: JSON.stringify({ kind, name }),
-  });
+  authed<ProductOption>("/products/options", { method: "POST", headers: jsonHeaders(token), body: JSON.stringify({ kind, name }) });
