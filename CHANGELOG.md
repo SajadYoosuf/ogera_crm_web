@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-18 — `38b0d3d` (branch `phase1-redesign`)
+
+**feat(web): Settings page and sidebar entry**
+
+Previous commit on this side: `26c4ea7` docs: update changelog for 649b40f
+
+### Summary
+Adds the Settings page with its tabs and a Settings item in the sidebar footer. Everyone signed in sees My account. Admin and manager also see General, Lists & Options, Roles & Permissions and Team.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| New | `src/app/dashboard/settings/page.tsx` | see commit |
+| Modified | `src/components/DashboardSidebar.tsx` | see commit |
+
+### Notes
+The backend settings endpoints this page calls are not committed yet.
+
+---
+
 ## 2026-10-18 — `649b40f` (branch `phase1-redesign`)
 
 **feat(web): Team settings tab**
