@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-18 — `5d7f4fc` (branch `phase1-redesign`)
+
+**fix: production URLs instead of localhost defaults**
+
+Author: sajad yoosuf
+Previous commit on this side: `1a09ad3` fix: remove Settings enum test that imports an uncommitted component
+
+### Summary
+API_BASE_URL falls back to https://ogera-crm.onrender.com when NEXT_PUBLIC_API_BASE_URL is not set at build time.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| Modified | `src/lib/api/auth.ts` | +2 / -2 |
+
+### Notes
+Local .env.local still sets NEXT_PUBLIC_API_BASE_URL for development. The Vercel build must have the variable set or uses this fallback.
+
 ## 2026-10-18 — `c0ab4a4` (branch `phase1-redesign`)
 
 **fix: Add employee dialog fits phone screens**
