@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-18 — `0a9aa84` (branch `phase1-redesign`)
+
+**fix: clear stored localhost:8000 backend addresses on load**
+
+Author: sajad yoosuf
+Previous commit on this side: `81a5625` docs: update changelog for 5d7f4fc
+
+### Summary
+On each page load the web app removes any localStorage or sessionStorage entry whose value points at localhost:8000 or 127.0.0.1:8000, so a stale local-dev address cannot keep sending requests to the old backend. Storage errors are ignored.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| Modified | `src/lib/api/auth.ts` | +20 / -0 |
+
+### Notes
+Restart `next dev` after changing `.env.local` so the new NEXT_PUBLIC_API_BASE_URL is picked up. Not yet type-checked: TypeScript is not installed in this checkout.
+
 ## 2026-10-18 — `5d7f4fc` (branch `phase1-redesign`)
 
 **fix: production URLs instead of localhost defaults**
