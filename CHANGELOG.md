@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-18 — `a6f2ed0` (branch `phase1-redesign`)
+
+**feat(web): Roles & Permissions settings tab**
+
+Previous commit on this side: `e575207` docs: update changelog for 1b8cca7
+
+### Summary
+Grid of each role's access to each action. Clicking an editable cell opens a menu of the six levels. Full and No access can be chosen and turn the action on or off. The other four are dimmed as "set by the app", because record visibility is fixed by rule 7. Admin can add, rename and switch off roles.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| New | `src/components/settings/RolesTab.tsx` | see commit |
+| New | `tests/components/settings-tabs.test.tsx` | see commit |
+
+---
+
 ## 2026-10-18 — `1b8cca7` (branch `phase1-redesign`)
 
 **feat(web): Lists & Options settings tab**
