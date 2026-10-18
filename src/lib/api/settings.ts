@@ -21,14 +21,17 @@ export type EnumValue = {
   locked: boolean;
   /** Records using this option (admin list only). */
   usage_count: number | null;
+  /** Lead stages only: the contact type whose pipeline the stage belongs to. */
+  group?: string | null;
 };
 
 export type Company = { company_name: string; company_logo_url: string | null };
 
 export type PermissionLevel = "full" | "view" | "team" | "own" | "customers" | "none";
+export type PermissionCell = { level: PermissionLevel; note: string | null; editable: boolean };
 export type PermissionMatrix = {
   roles: { slug: string; name: string; is_system: boolean; is_active: boolean }[];
-  features: { key: string; label: string; description: string; levels: Record<string, { level: PermissionLevel; note: string | null }> }[];
+  features: { key: string; label: string; description: string; action: string | null; levels: Record<string, PermissionCell> }[];
 };
 
 export type RoleSummary = { id: number; slug: string; name: string; description: string | null; is_system: boolean; is_active: boolean; employee_count: number };
@@ -59,7 +62,9 @@ async function call<T>(accessToken: string, method: string, path: string, body?:
 export const listEnum = (token: string, category: EnumCategory) => call<EnumValue[]>(token, "GET", `/settings/enums/${category}`);
 /** GET /settings/enums — every category with inactive values and usage counts (admin). */
 export const listAllEnums = (token: string) => call<Record<EnumCategory, EnumValue[]>>(token, "GET", "/settings/enums");
-export const createEnum = (token: string, category: EnumCategory, label: string) => call<EnumValue>(token, "POST", `/settings/enums/${category}`, { label });
+/** Lead stages also take `group`: the pipeline (consumer, partner or dealer) the stage joins. */
+export const createEnum = (token: string, category: EnumCategory, label: string, group?: string) =>
+  call<EnumValue>(token, "POST", `/settings/enums/${category}`, group ? { label, group } : { label });
 export const updateEnum = (token: string, category: EnumCategory, id: number, patch: { label?: string; is_active?: boolean }) =>
   call<EnumValue>(token, "PATCH", `/settings/enums/${category}/${id}`, patch);
 export const deleteEnum = (token: string, category: EnumCategory, id: number) => call<EnumValue>(token, "DELETE", `/settings/enums/${category}/${id}`);
@@ -88,6 +93,19 @@ export const logoSrc = (url: string | null) => (!url ? null : url.startsWith("/"
 // ---- Roles ----
 
 export const getPermissionMatrix = (token: string) => call<PermissionMatrix>(token, "GET", "/settings/roles");
+/** Switches one action on or off for a role. Returns the whole matrix so the grid redraws in one step. */
+export const setRolePermission = (token: string, slug: string, action: string, allowed: boolean) =>
+  call<PermissionMatrix>(token, "PUT", `/settings/roles/${slug}/permissions/${action}`, { allowed });
+
+// ---- My account ----
+
+export type MyProfile = { id: number; name: string; email: string; role: string };
+
+/** PATCH /auth/me — a new email needs `current_password`. */
+export const updateMe = (token: string, patch: { name?: string; email?: string; current_password?: string }) =>
+  call<MyProfile>(token, "PATCH", "/auth/me", patch);
+export const changePassword = (token: string, body: { current_password: string; new_password: string }) =>
+  call<{ message: string }>(token, "POST", "/auth/change-password", body);
 export const listRoles = (token: string) => call<{ items: RoleSummary[]; total: number }>(token, "GET", "/roles");
 export const createRole = (token: string, body: { name: string; description?: string }) => call<RoleSummary>(token, "POST", "/roles", body);
 export const updateRole = (token: string, id: number, body: { name?: string; description?: string; is_active?: boolean }) => call<RoleSummary>(token, "PUT", `/roles/${id}`, body);
