@@ -258,7 +258,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 z-[1100] bg-white overflow-y-auto sm:grid sm:place-items-center sm:p-4 sm:bg-[rgba(17,18,20,0.45)] sm:backdrop-blur-[5px]">
-      <section className="flex min-h-dvh w-full flex-col bg-gray-50 sm:min-h-0 sm:max-h-[90vh] sm:max-w-2xl sm:overflow-hidden sm:rounded-2xl sm:shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="employee-form-title">
+      <section className="flex h-dvh w-full flex-col bg-gray-50 sm:h-auto sm:min-h-0 sm:max-h-[90vh] sm:max-w-2xl sm:overflow-hidden sm:rounded-2xl sm:shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="employee-form-title">
         <header className="flex items-start justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5 border-b border-gray-100 bg-white shrink-0">
           <div>
             <h2 id="employee-form-title" className="text-lg font-extrabold text-[#0a192f] tracking-tight">{isEdit ? "Edit employee" : "Add employee"}</h2>
