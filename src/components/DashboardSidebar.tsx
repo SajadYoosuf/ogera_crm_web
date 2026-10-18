@@ -36,19 +36,12 @@ const menuItems: MenuItem[] = [
     ),
   },
   {
-    id: "field-map",
-    label: "Field Map",
-    href: "/dashboard/map",
-    category: "MAIN",
-    icon: (
-      <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" />
-    ),
-  },
-  {
     id: "followups",
     label: "Lead Pipeline",
     href: "/dashboard/followups",
     category: "MAIN",
+    // Support works after-sales from Contacts and Tasks; it has no pipeline access (see the permission matrix).
+    roles: ["admin", "manager", "team_lead", "sales_executive", "tele_caller", "field_executive"],
     icon: (
       <path d="M4 4h5v16H4zM15 4h5v10h-5z" />
     ),
@@ -69,6 +62,15 @@ const menuItems: MenuItem[] = [
     category: "MAIN",
     icon: (
       <path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" />
+    ),
+  },
+  {
+    id: "products",
+    label: "Products",
+    href: "/dashboard/products",
+    category: "MAIN",
+    icon: (
+      <path d="M7 3h10v4a2 2 0 0 1-1 1.7V20a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V8.7A2 2 0 0 1 7 7z" />
     ),
   },
   {
@@ -205,10 +207,12 @@ export default function DashboardSidebar() {
         className={`fixed top-0 left-0 h-screen w-[248px] ${collapsed ? "lg:w-[72px]" : "lg:w-[248px]"} bg-white/55 text-[#4B5060] backdrop-blur-2xl backdrop-saturate-150 z-[1001] flex flex-col border-r border-white/70 shadow-[0_8px_32px_rgba(31,38,135,0.10)] lg:shadow-[6px_0_32px_rgba(31,38,135,0.06)] transition-[transform,width] duration-300 lg:translate-x-0 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* Brand row: Ogera logo with the CRM label, centred. The mobile close button sits in the corner. */}
-        <div className={`relative flex shrink-0 items-center justify-center px-4 pb-2.5 pt-5 ${collapsed ? "lg:px-2" : ""}`}>
-          <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-5 ${collapsed ? "lg:hidden" : ""}`}>
-            <Image src="/images/ogera-login-logo.png" alt="Ogera" width={110} height={100} priority className="h-11 w-auto" />
-            <span className="rounded-md border border-[#BFE5D2] bg-[#E7F5EE] px-1.5 py-0.5 text-[10px] font-extrabold tracking-[0.12em] text-[#0E4D3A]">CRM</span>
+        <div className={`relative flex shrink-0 items-center px-4 pb-2.5 pt-5 ${collapsed ? "lg:px-2" : ""}`}>
+          <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-2.5 px-1.5 py-0.5 ${collapsed ? "lg:hidden" : ""}`}>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[#0E4D3A]">
+              <Image src="/images/ogera-login-logo.png" alt="Ogera logo" width={22} height={17} className="block h-[17px] w-[22px] object-contain" />
+            </span>
+            <span className="text-base font-bold tracking-[-0.01em] text-[#1A1C21]" style={{ fontFamily: "'Sora', 'DM Sans', sans-serif" }}>Ogera CRM</span>
           </Link>
           <button onClick={() => setIsMobileMenuOpen(false)} className="absolute right-3 top-3.5 lg:hidden p-2 text-slate-500 rounded-lg hover:bg-white/60 hover:text-slate-800 transition-all active:scale-95" aria-label="Close menu">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
