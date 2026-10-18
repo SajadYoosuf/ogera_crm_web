@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-18 — `649b40f` (branch `phase1-redesign`)
+
+**feat(web): Team settings tab**
+
+Previous commit on this side: `6a9bf07` docs: update changelog for a6f2ed0
+
+### Summary
+Lists staff with their role and team lead. The view switch shows All or Team leads. The "No team lead" tab and the Invite button are removed. Each person's team lead is still picked from a dropdown, which keeps a "No team lead" option to unlink them.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| New | `src/components/settings/TeamTab.tsx` | see commit |
+| New | `tests/components/team-tab.test.tsx` | see commit |
+
+---
+
 ## 2026-10-18 — `a6f2ed0` (branch `phase1-redesign`)
 
 **feat(web): Roles & Permissions settings tab**
