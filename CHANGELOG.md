@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-18 — `4c8a999` (branch `phase1-redesign`)
+
+**feat(web): My account and General settings tabs**
+
+Previous commit on this side: `a0824a6` feat(web): settings API client and shared settings UI
+
+### Summary
+My account lets every signed-in user change their name, email and password. General lets admin and manager edit the company name and logo.
+
+### Files
+| Status | File | Lines |
+| --- | --- | --- |
+| New | `src/components/settings/AccountTab.tsx` | see commit |
+| New | `src/components/settings/GeneralTab.tsx` | see commit |
+
+---
+
 ## 2026-10-18 — `a0824a6` (branch `phase1-redesign`)
 
 **feat(web): settings API client and shared settings UI**
