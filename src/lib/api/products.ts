@@ -10,11 +10,7 @@ export type Product = {
   id: number;
   name: string;
   slug: string;
-  brand: OptionRef | null;
-  category: OptionRef | null;
   material: OptionRef | null;
-  brand_id: number | null;
-  category_id: number | null;
   material_id: number | null;
   tagline: string | null;
   short_description: string | null;
@@ -28,8 +24,6 @@ export type Product = {
   features: string[];
   mrp: string | null;
   sale_price: string | null;
-  currency: string;
-  special_price_active: boolean;
   tax_included: boolean;
   discount_percent: string;
   you_save: string;
@@ -42,15 +36,14 @@ export type Product = {
   drain_in: string | null;
   thickness_mm: string | null;
   weight_kg: string | null;
-  main_image_url: string | null;
   created_at: string;
   updated_at: string;
 };
 
 export type ProductListItem = Pick<
   Product,
-  | "id" | "name" | "slug" | "tagline" | "brand" | "category" | "capacity_display" | "orientation"
-  | "mrp" | "sale_price" | "special_price_active" | "is_popular" | "is_active" | "main_image_url"
+  | "id" | "name" | "slug" | "tagline" | "material" | "capacity_display" | "orientation"
+  | "mrp" | "sale_price" | "is_popular" | "is_active"
 >;
 
 export type ProductList = { items: ProductListItem[]; total: number; skip: number; limit: number };
@@ -66,8 +59,6 @@ export type ProductInput = Omit<Product, "id" | "brand" | "category" | "material
 export type ProductQuery = {
   q?: string;
   isActive?: boolean;
-  brandId?: number;
-  categoryId?: number;
   materialId?: number;
   skip?: number;
   limit?: number;
@@ -91,8 +82,6 @@ export function listProducts(token: string, query: ProductQuery = {}) {
   const params = new URLSearchParams();
   if (query.q?.trim()) params.set("q", query.q.trim());
   if (query.isActive !== undefined) params.set("is_active", String(query.isActive));
-  if (query.brandId !== undefined) params.set("brand_id", String(query.brandId));
-  if (query.categoryId !== undefined) params.set("category_id", String(query.categoryId));
   if (query.materialId !== undefined) params.set("material_id", String(query.materialId));
   params.set("skip", String(query.skip ?? 0));
   params.set("limit", String(query.limit ?? 8));

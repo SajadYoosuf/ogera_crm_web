@@ -6,7 +6,6 @@ import { ApiError } from "@/lib/api/auth";
 import {
   listProductOptions,
   listProducts,
-  type OptionKind,
   type ProductListItem,
   type ProductOption,
 } from "@/lib/api/products";
@@ -43,10 +42,8 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [submittedSearch, setSubmittedSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [brandId, setBrandId] = useState<number | null>(null);
   const [materialId, setMaterialId] = useState<number | null>(null);
-  const [options, setOptions] = useState<Record<OptionKind, ProductOption[]>>({ brand: [], category: [], material: [] });
+  const [options, setOptions] = useState<ProductOption[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -68,18 +65,14 @@ export default function ProductsPage() {
   useEffect(() => {
     const timer = window.setTimeout(() => setPage(1), 0);
     return () => window.clearTimeout(timer);
-  }, [status, categoryId, brandId, materialId]);
+  }, [status, materialId]);
 
   useEffect(() => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
     if (!accessToken) return;
-    Promise.all([
-      listProductOptions(accessToken, "brand"),
-      listProductOptions(accessToken, "category"),
-      listProductOptions(accessToken, "material"),
-    ])
-      .then(([brand, category, material]) => setOptions({ brand, category, material }))
-      .catch(() => setOptions({ brand: [], category: [], material: [] }));
+    listProductOptions(accessToken, "material")
+      .then(setOptions)
+      .catch(() => setOptions([]));
   }, [reloadKey]);
 
   useEffect(() => {
@@ -92,8 +85,6 @@ export default function ProductsPage() {
       listProducts(accessToken, {
         q: submittedSearch || undefined,
         isActive: status === "all" ? undefined : status === "active",
-        categoryId: categoryId ?? undefined,
-        brandId: brandId ?? undefined,
         materialId: materialId ?? undefined,
         skip: (page - 1) * PAGE_SIZE,
         limit: PAGE_SIZE,
@@ -112,7 +103,7 @@ export default function ProductsPage() {
         .finally(() => { if (!cancelled) setIsLoading(false); });
     }, 0);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [page, submittedSearch, status, categoryId, brandId, materialId, reloadKey]);
+  }, [page, submittedSearch, status, materialId, reloadKey]);
 
   // Close the filter menu on a click outside it or on Escape.
   useEffect(() => {
@@ -127,13 +118,11 @@ export default function ProductsPage() {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE, total);
-  const filterCount = (status !== "all" ? 1 : 0) + [categoryId, brandId, materialId].filter((id) => id !== null).length;
+  const filterCount = (status !== "all" ? 1 : 0) + (materialId !== null ? 1 : 0);
   const filtersActive = filterCount > 0 || submittedSearch !== "";
 
   const clearFilters = () => {
     setStatus("all");
-    setCategoryId(null);
-    setBrandId(null);
     setMaterialId(null);
   };
 
@@ -144,9 +133,7 @@ export default function ProductsPage() {
   };
 
   const filterGroups: { title: string; value: number | null; onPick: (id: number | null) => void; items: ProductOption[] }[] = [
-    { title: "Category", value: categoryId, onPick: setCategoryId, items: options.category },
-    { title: "Brand", value: brandId, onPick: setBrandId, items: options.brand },
-    { title: "Material", value: materialId, onPick: setMaterialId, items: options.material },
+    { title: "Material", value: materialId, onPick: setMaterialId, items: options },
   ];
 
   return (
@@ -226,8 +213,7 @@ export default function ProductsPage() {
               <thead>
                 <tr className="bg-[#F7F7F9] text-left text-[13px] text-[#4B5060]">
                   <th scope="col" className="px-4 py-3 font-medium">Product</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Category</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Brand</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Material</th>
                   <th scope="col" className="px-3 py-3 font-medium">Price</th>
                   <th scope="col" className="px-3 py-3 font-medium">Orientation</th>
                   <th scope="col" className="px-3 py-3 font-medium">Status</th>
@@ -236,7 +222,6 @@ export default function ProductsPage() {
               </thead>
               <tbody>
                 {rows.map((product) => {
-                  const onSale = product.special_price_active && product.sale_price !== null;
                   return (
                     <tr key={product.id} onClick={() => setEditing(product.id)} className="cursor-pointer border-t border-[#EFEFF2] hover:bg-[#FAFAFB]">
                       <td className="h-[60px] px-4">
@@ -250,10 +235,9 @@ export default function ProductsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="whitespace-nowrap px-3 text-[#3A3E4A]">{product.category?.name ?? "—"}</td>
-                      <td className="whitespace-nowrap px-3 text-[#3A3E4A]">{product.brand?.name ?? "—"}</td>
+                      <td className="whitespace-nowrap px-3 text-[#3A3E4A]">{product.material?.name ?? "—"}</td>
                       <td className="whitespace-nowrap px-3">
-                        {onSale ? (
+                        {product.sale_price !== null && product.mrp !== null ? (
                           <>
                             <span className="font-bold text-[#1A1C21]">{rupees(product.sale_price)}</span>
                             <span className="ml-1.5 text-xs text-[#9AA0AC] line-through">{rupees(product.mrp)}</span>
