@@ -117,7 +117,7 @@ export default function ContactsView() {
       </header>
 
       <div className="min-w-0 space-y-4 p-4 sm:px-7 sm:py-6">
-        <section aria-label="Contact list" className="flex flex-col overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-white">
+        <section aria-label="Contact list" className="flex flex-col rounded-[14px] border border-[#E7E7EA] bg-white">
           {/* Toolbar: type tabs, search and filters */}
           <div className="flex flex-col gap-3 border-b border-[#EFEFF2] p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
@@ -183,6 +183,8 @@ export default function ContactsView() {
             </div>
           )}
 
+          {/* overflow-hidden is here (not on the section) so the filter dropdown above can escape the card boundary */}
+          <div className="overflow-hidden rounded-b-[14px]">
           {error ? (
             <div role="status" className="flex flex-col items-center px-6 py-14 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-500">
@@ -333,6 +335,7 @@ export default function ContactsView() {
               </div>
             </nav>
           )}
+          </div>
         </section>
       </div>
 
