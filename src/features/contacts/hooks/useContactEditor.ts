@@ -51,6 +51,7 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
           values: {
             ...current.values,
             partnerType: detail.partner_profile?.profession_type ?? current.values.partnerType,
+            workArea: detail.partner_profile?.work_area ?? "",
             district: detail.district, address: detail.address ?? "",
             houseStage: detail.consumer_profile?.house_stage ?? "",
             tankType: detail.consumer_profile?.current_tank_type ?? "",
@@ -124,7 +125,7 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
       lead_source_id: source?.id ?? null,
       // Send the owner only when it was chosen (create) or changed (edit); otherwise the backend keeps or auto-picks it.
       ...(values.assignedTo && values.assignedTo !== String(editor.contact?.assignedToId ?? "") ? { assigned_to: Number(values.assignedTo) } : {}),
-      ...(values.contactType === "partner" ? { partner_profile: { profession_type: values.partnerType } } : {}),
+      ...(values.contactType === "partner" ? { partner_profile: { profession_type: values.partnerType, ...(values.workArea.trim() ? { work_area: values.workArea.trim() } : { work_area: null }) } } : {}),
       ...(values.contactType === "consumer" && hasConsumerFields ? {
         consumer_profile: {
           house_stage: houseStage || null,

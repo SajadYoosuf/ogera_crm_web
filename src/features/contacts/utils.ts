@@ -62,7 +62,8 @@ export const displayLocation = (contact: Contact) => contact.address || contact.
 export const toForm = (contact: Contact): ContactForm => ({
   name: contact.name, phone: contact.phone, contactType: contact.kind, source: contact.source ?? "",
   address: contact.address ?? "", district: contact.district ?? "", houseStage: "", tankType: "", tankCapacity: "", tankAge: "",
-  partnerType: contact.profession ?? "", referredByContactId: null,
+  partnerType: contact.profession ?? "", workArea: "",
+  referredByContactId: null,
   assignedTo: contact.assignedToId === undefined ? "" : String(contact.assignedToId),
   dealerOwnerName: "", dealerEmail: "",
   interestedProducts: [],  // filled from detail load in useContactEditor

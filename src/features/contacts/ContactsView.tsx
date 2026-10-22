@@ -444,15 +444,27 @@ export default function ContactsView() {
                 {/* Phone */}
                 <PhoneField key={editor.contact?.id ?? "new"} value={editor.values.phone} onChange={(value) => updateForm("phone", value)} />
 
-                {/* Partner-specific: profession */}
+                {/* Partner-specific: profession + work area */}
                 {editor.values.contactType === "partner" && (
-                  <SelectField
-                    label="Partner type"
-                    value={editor.values.partnerType}
-                    onChange={(value) => updateForm("partnerType", value)}
-                    placeholder="Select partner type"
-                    options={[...(editor.values.partnerType && !partnerTypes.some((opt) => opt.value === editor.values.partnerType) ? [{ value: editor.values.partnerType, label: professionLabel(editor.values.partnerType) }] : []), ...partnerTypes]}
-                  />
+                  <>
+                    <SelectField
+                      label="Partner type"
+                      value={editor.values.partnerType}
+                      onChange={(value) => updateForm("partnerType", value)}
+                      placeholder="Select partner type"
+                      options={[...(editor.values.partnerType && !partnerTypes.some((opt) => opt.value === editor.values.partnerType) ? [{ value: editor.values.partnerType, label: professionLabel(editor.values.partnerType) }] : []), ...partnerTypes]}
+                    />
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="ac-work-area" className="text-[13px] font-semibold text-[#3A3F46]">Work area</label>
+                      <input
+                        id="ac-work-area" type="text" autoComplete="off" maxLength={120}
+                        value={editor.values.workArea}
+                        onChange={(e) => updateForm("workArea", e.target.value)}
+                        placeholder="Town or area they mainly work in"
+                        className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
+                      />
+                    </div>
+                  </>
                 )}
 
                 {/* Dealer-specific: owner name + email */}

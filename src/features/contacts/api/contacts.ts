@@ -106,7 +106,7 @@ export type ApiContactDetail = {
   referred_by?: { id: number; name: string; phone?: string | null } | null;
   lead_source_id: number | null;
   consumer_profile?: { house_stage: string | null; current_tank_type: string | null; current_tank_capacity: number | null; current_tank_age: number | null } | null;
-  partner_profile?: { profession_type: string } | null;
+  partner_profile?: { profession_type: string; work_area?: string | null } | null;
   dealer_profile?: { owner_name: string; email?: string | null } | null;
   /** Products this contact has expressed interest in. */
   interested_products?: { id: number; name: string }[] | null;
@@ -124,7 +124,7 @@ export type ContactInput = {
   latitude?: number;
   longitude?: number;
   consumer_profile?: { house_stage: string | null; current_tank_type?: string | null; current_tank_capacity?: number | null; current_tank_age?: number | null };
-  partner_profile?: { profession_type: string };
+  partner_profile?: { profession_type: string; work_area?: string | null };
   dealer_profile?: { owner_name: string; email?: string | null };
   /** Replace the full list of interested products. Omit to keep unchanged, [] to clear. */
   interested_product_ids?: number[];
