@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-10-22 — `fce4d1f` (branch `phase1-redesign`)
+
+**feat: house stage and tank type lists move to Settings**
+
+Author: sajad yoosuf
+Previous commit on this side: `99ee473` docs: update changelog for 38b0d3d (2026-10-18)
+
+### Summary
+House stages and tank types appear in Settings > Lists & Options, and the contact form's house stage dropdown reads that list and sends the stored value. Before this, the form sent labels the backend rejected (422). Notes: [docs/changes/2026-10-22-house-stage-tank-type-settings.md](docs/changes/2026-10-22-house-stage-tank-type-settings.md).
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/lib/api/settings.ts` | `house_stage` and `tank_type` added to `ENUM_CATEGORIES` |
+| Modified | `src/components/settings/EnumsTab.tsx` | A hint for each new list |
+| Modified | `src/features/contacts/hooks/useContactLookups.ts` | Loads house stages with `useEnumOptions`, with a default list until they load |
+| Modified | `src/features/contacts/utils.ts` | `DEFAULT_HOUSE_STAGES` fallback |
+| Modified | `src/features/contacts/ContactsView.tsx` | House stage dropdown from Settings; a hidden value stays selectable on its record; the "Construction phase" dropdown removed (never saved) |
+| Added | `docs/changes/2026-10-22-house-stage-tank-type-settings.md` | Change notes |
+
+### Notes
+- Type-check and lint: no new errors. No tank type field on the web form yet.
+- The same commit touched backend and mobile.
+
 ## 2026-10-18 — `38b0d3d` (branch `phase1-redesign`)
 
 **feat(web): Settings page and sidebar entry**
