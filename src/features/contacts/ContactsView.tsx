@@ -613,7 +613,8 @@ export default function ContactsView() {
                   }}
                 />
 
-                {/* Products interested — searchable multi-select from the products catalogue */}
+                {/* Products interested — consumer only; partners and dealers don't track product interest */}
+                {editor.values.contactType === "consumer" && (
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[13px] font-semibold text-[#3A3F46]">Products interested</label>
                   <div className="relative">
@@ -676,6 +677,7 @@ export default function ContactsView() {
                     </div>
                   )}
                 </div>
+                )}
 
                 {formError && (
                   <div role="alert" className="flex items-start gap-3 rounded-[10px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
