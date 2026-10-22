@@ -45,7 +45,7 @@ function pageItems(page: number, totalPages: number): (number | "…")[] {
 
 /** Contacts screen: layout and derived options. State and API calls live in the contacts hooks. */
 export default function ContactsView() {
-  const { leadSources, partnerTypes, districtNames, employees, viewerRole, canAssign } = useContactLookups();
+  const { leadSources, partnerTypes, districtNames, houseStages, houseStageLabel, employees, viewerRole, canAssign } = useContactLookups();
   const {
     contacts, total, totalPages, typeCounts, page, setPage, search, setSearch, submittedSearch, filters, hasFilters, sort,
     isLoading, error, loadContacts, changeFilter, changeType, changeSort, clearFilters, clearSearchAndFilters,
@@ -487,25 +487,19 @@ export default function ContactsView() {
                   />
                 </div>
 
-                {/* Consumer-specific: house stage */}
+                {/* Consumer-specific: house stage, from Settings > Lists & Options. A value that was hidden later stays selectable on its own record. */}
                 {editor.values.contactType === "consumer" && (
-                  <>
-                    <SelectField
-                      label="House stage"
-                      value={editor.values.houseStage.startsWith("Under Construction") ? "Under Construction" : editor.values.houseStage}
-                      onChange={(value) => updateForm("houseStage", value === "Under Construction" ? "Under Construction - Structure" : value)}
-                      placeholder="Not recorded"
-                      options={[{ value: "", label: "Not recorded" }, { value: "Under Construction", label: "Under construction" }, { value: "Ready", label: "Ready" }, { value: "Renovation", label: "Renovation" }]}
-                    />
-                    {editor.values.houseStage.startsWith("Under Construction") && (
-                      <SelectField
-                        label="Construction phase"
-                        value={editor.values.houseStage.includes(" - ") ? editor.values.houseStage.split(" - ")[1] : "Structure"}
-                        onChange={(value) => updateForm("houseStage", `Under Construction - ${value}`)}
-                        options={[{ value: "Structure", label: "Structure" }, { value: "Plastering", label: "Plastering" }, { value: "Finishing", label: "Finishing" }]}
-                      />
-                    )}
-                  </>
+                  <SelectField
+                    label="House stage"
+                    value={editor.values.houseStage}
+                    onChange={(value) => updateForm("houseStage", value)}
+                    placeholder="Not recorded"
+                    options={[
+                      { value: "", label: "Not recorded" },
+                      ...(editor.values.houseStage && !houseStages.some((opt) => opt.value === editor.values.houseStage) ? [{ value: editor.values.houseStage, label: houseStageLabel(editor.values.houseStage) }] : []),
+                      ...houseStages,
+                    ]}
+                  />
                 )}
 
                 {/* Assigned to */}

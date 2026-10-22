@@ -9,6 +9,12 @@ export const professionLabel = (value: string) => value.split("_").map((word) =>
 // Fallback until GET /contacts/profession-types answers; the backend enum is the source of truth.
 export const DEFAULT_PARTNER_TYPES: ProfessionOption[] = ["plumber", "engineer", "interior_designer", "architect", "contractor", "electrician"]
   .map((value) => ({ value, label: professionLabel(value) }));
+// House stages come from Settings > Lists & Options; this list shows until they load (the backend's defaults).
+export const DEFAULT_HOUSE_STAGES = [
+  { value: "ready", label: "Ready" },
+  { value: "under_construction", label: "Under construction" },
+  { value: "renovation", label: "Renovation" },
+];
 export type ContactSource = string;
 
 export interface Contact {

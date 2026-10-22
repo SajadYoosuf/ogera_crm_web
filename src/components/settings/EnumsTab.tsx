@@ -12,6 +12,8 @@ const HINTS: Partial<Record<EnumCategory, string>> = {
   lead_stage: "The pipeline is fixed: rename, reorder or hide stages. Hidden stages stay visible while leads are still in them.",
   activity_type: "Options marked with a lock are used by the app itself, so they can be renamed but not turned off.",
   professional_type: "Partner types are offered when adding a partner. A hidden type stays on partners who already have it. Other is always available for imports.",
+  house_stage: "House stage is asked for consumers, and a consumer stays unverified until it is filled. A hidden stage stays on consumers who already have it.",
+  tank_type: "The tank a consumer has today. A hidden type stays on consumers who already have it.",
 };
 
 const STAGE_TYPES = [

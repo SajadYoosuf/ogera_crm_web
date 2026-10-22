@@ -8,6 +8,8 @@ export const ENUM_CATEGORIES = [
   { key: "loss_reason", label: "Loss reasons", noun: "loss reason" },
   { key: "professional_type", label: "Partner types", noun: "partner type" },
   { key: "district", label: "Districts", noun: "district" },
+  { key: "house_stage", label: "House stages", noun: "house stage" },
+  { key: "tank_type", label: "Tank types", noun: "tank type" },
 ] as const;
 export type EnumCategory = (typeof ENUM_CATEGORIES)[number]["key"];
 
