@@ -53,7 +53,8 @@ export type ApiErrorKind =
   | "timeout"
   | "cancelled" // the user cancelled an upload
   | "invalid_credentials" // 401
-  | "inactive_account" // 403 on login
+  | "inactive_account" // 403 on login — account deactivated
+  | "web_not_allowed" // 403 on login — role may only use the mobile app
   | "forbidden" // 403 on a protected route (role not allowed)
   | "validation" // 422
   | "server" // 5xx
@@ -103,8 +104,13 @@ export function errorFromResponse(status: number, body: unknown): ApiError {
   if (incomplete) return new ApiError("unknown", incomplete.message, status, incomplete.missing);
   const detail = extractDetail(body);
   if (status === 401) return new ApiError("invalid_credentials", "Incorrect email or password.", status);
-  // 403 on login: the account is inactive, or a sales executive tried the website (the server says which).
-  if (status === 403) return new ApiError("inactive_account", detail ?? "This account is inactive. Contact your administrator.", status);
+  // 403 on login: the account is inactive, or a non-admin/manager tried the website (the server says which).
+  if (status === 403) {
+    if (detail && detail.toLowerCase().includes("mobile app")) {
+      return new ApiError("web_not_allowed", detail, status);
+    }
+    return new ApiError("inactive_account", detail ?? "This account is inactive. Contact your administrator.", status);
+  }
   if (status === 422) return new ApiError("validation", detail ?? "Please check the email and password you entered.", status);
   // 503 is used for "the server cannot do this right now" (for example, email is not configured), so its message is shown.
   if (status === 503 && detail) return new ApiError("server", detail, status);

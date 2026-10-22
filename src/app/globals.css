@@ -426,6 +426,57 @@ button, input, select, textarea { font: inherit; }
   text-underline-offset: 3px;
 }
 
+/* No-web-access panel — shown when a non-admin/manager tries to sign in on the website */
+.login-no-access {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 36px 28px 32px;
+  text-align: center;
+}
+.login-no-access-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #eff6fc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--blue);
+  flex-shrink: 0;
+}
+.login-no-access-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.3;
+}
+.login-no-access-body {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 300px;
+}
+.login-no-access-back {
+  margin-top: 4px;
+  padding: 10px 24px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: border-color 0.15s, background 0.15s;
+}
+.login-no-access-back:hover {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
 /* Forgot password (shares the login layout) */
 .login-back {
   align-self: flex-start;

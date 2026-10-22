@@ -106,7 +106,8 @@ export default function Home() {
   const t = COPY[language];
   const isSubmitting = state.status === "loading" || state.status === "success";
   const apiError = state.status === "error" ? state.error : null;
-  const message = validationMessage || apiError?.message || "";
+  const isWebBlocked = apiError?.kind === "web_not_allowed";
+  const message = validationMessage || (isWebBlocked ? "" : apiError?.message) || "";
 
   function clearErrors() {
     setValidationMessage("");
@@ -181,7 +182,29 @@ export default function Home() {
             </div>
           </div>
 
-          <form className="login-form" onSubmit={handleSubmit} noValidate>
+          {isWebBlocked && (
+            <div className="login-no-access" role="alert" aria-live="assertive">
+              <div className="login-no-access-icon" aria-hidden="true">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="5" y="2" width="14" height="20" rx="2" />
+                  <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none" />
+                </svg>
+              </div>
+              <h2 className="login-no-access-title">
+                {language === "ml" ? "ഈ ഉപകരണത്തിൽ ആക്സസ് ഇല്ല" : "Web access not permitted"}
+              </h2>
+              <p className="login-no-access-body">
+                {language === "ml"
+                  ? "ഈ റോളിൽ വെബ് ആപ്പ് ഉപയോഗിക്കാൻ അനുമതിയില്ല. ദയവായി Ogera മൊബൈൽ ആപ്പ് ഉപയോഗിക്കുക."
+                  : "Your account does not have permission to access the web app. Please use the Ogera mobile app to sign in."}
+              </p>
+              <button type="button" className="login-no-access-back" onClick={() => reset()}>
+                {language === "ml" ? "മടങ്ങുക" : "Back to sign in"}
+              </button>
+            </div>
+          )}
+
+          <form className="login-form" onSubmit={handleSubmit} noValidate style={isWebBlocked ? { display: "none" } : undefined}>
             <h2 id="login-title" className="login-form-title">{t.title}</h2>
 
             <div className="login-field">
