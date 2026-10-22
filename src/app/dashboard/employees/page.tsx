@@ -735,7 +735,7 @@ export default function EmployeesPage() {
           <section onClick={(event) => event.stopPropagation()} className="flex min-h-dvh w-full flex-col bg-gray-50 sm:min-h-0 sm:max-h-[90vh] sm:max-w-lg sm:overflow-hidden sm:rounded-2xl sm:shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="employee-title">
             <header className="relative overflow-hidden bg-gradient-to-br from-[#071428] via-[#0c2148] to-[#1a4a8a] px-5 pt-5 pb-6 text-white shrink-0">
               <div className="pointer-events-none absolute -bottom-20 -right-10 w-56 h-56 rounded-full bg-[#1d7ac4]/30 blur-3xl" />
-              <button type="button" onClick={() => setSelected(null)} aria-label="Close" className="absolute top-4 right-4 p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"><Icon className="w-5 h-5">{icons.close}</Icon></button>
+              <button type="button" onClick={() => setSelected(null)} aria-label="Close" className="absolute top-4 right-4 z-10 p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"><Icon className="w-5 h-5">{icons.close}</Icon></button>
               <div className="relative flex items-center gap-4 pr-10">
                 <Avatar employee={selected} size="lg" />
                 <div className="min-w-0">
