@@ -60,7 +60,7 @@ export default function ContactsView() {
     const options = employees.filter((employee) => employee.is_active).map((employee) => ({ value: String(employee.id), label: `${employee.name} · ${employee.role.replaceAll("_", " ")}` }));
     const currentId = editor?.contact?.assignedToId;
     if (currentId !== undefined && !options.some((option) => option.value === String(currentId))) options.unshift({ value: String(currentId), label: editor?.contact?.assignedTo ?? `Employee #${currentId}` });
-    return editor?.contact ? options : [{ value: "", label: "Assign automatically" }, ...options];
+    return options;
   }, [employees, editor?.contact]);
 
   const employeeFilterOptions = useMemo(() => employees.map((employee) => ({ value: String(employee.id), label: employee.name })), [employees]);
@@ -536,16 +536,16 @@ export default function ContactsView() {
                   </>
                 )}
 
-                {/* Assigned to */}
-                {canAssign && assigneeOptions.length > 0 ? (
+                {/* Assigned to — shown on Edit only; new contacts start unassigned and the manager assigns them */}
+                {editor.contact && canAssign && assigneeOptions.length > 0 ? (
                   <SelectField
                     label="Assigned to"
                     value={editor.values.assignedTo}
                     onChange={(value) => updateForm("assignedTo", value)}
-                    placeholder="Auto-assign"
-                    options={assigneeOptions}
+                    placeholder="Unassigned"
+                    options={assigneeOptions.filter((opt) => opt.value !== "")}
                   />
-                ) : editor.contact?.assignedTo ? (
+                ) : editor.contact && editor.contact.assignedTo ? (
                   <div className="flex flex-col gap-1.5">
                     <span className="text-xs font-semibold text-gray-700">Assigned to</span>
                     <div className="flex h-11 items-center gap-2.5 rounded-lg border border-gray-200 bg-[#FAFAFA] px-3">

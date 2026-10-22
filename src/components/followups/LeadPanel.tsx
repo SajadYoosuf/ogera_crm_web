@@ -201,7 +201,7 @@ export default function LeadPanel({ lead, kind = "consumer", stages, userId, own
   }
 
   const ownerOptions = useMemo(() => [
-    ...(lead.assigned_to && !owners?.some((o) => o.id === lead.assigned_to.id) ? [{ id: lead.assigned_to.id, name: lead.assigned_to.name }] : []),
+    ...(lead.assigned_to && !owners?.some((o) => o.id === lead.assigned_to!.id) ? [{ id: lead.assigned_to!.id, name: lead.assigned_to!.name }] : []),
     ...(owners ?? []),
   ].map((o) => ({ value: String(o.id), label: o.name })), [lead.assigned_to, owners]);
 

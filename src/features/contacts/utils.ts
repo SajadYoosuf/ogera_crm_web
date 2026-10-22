@@ -45,7 +45,10 @@ export const blankContact: ContactForm = {
 export const fromApi = (contact: ApiContact): Contact => ({
   id: contact.id, name: contact.name, phone: contact.phone, kind: contact.contact_type, profession: contact.profession_type || undefined,
   source: contact.lead_source?.name, address: contact.address || undefined, district: contact.district,
-  stage: contact.lead_stage?.stage_slug, assignedTo: contact.assigned_to?.name, assignedToId: contact.assigned_to?.id, createdAt: contact.created_at,
+  stage: contact.lead_stage?.stage_slug,
+  assignedTo: contact.assigned_to?.name ?? undefined,
+  assignedToId: contact.assigned_to?.id ?? undefined,
+  createdAt: contact.created_at,
   isVerified: contact.is_verified, missingFields: contact.missing_fields ?? [],
 });
 export const FIELD_LABELS: Record<string, string> = {

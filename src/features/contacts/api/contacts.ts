@@ -17,7 +17,7 @@ export type ApiContact = {
   profession_type: string | null;
   lead_stage: { stage_id: number; stage_slug: string; stage_name: string; changed_at: string } | null;
   lead_source: NameRef | null;
-  assigned_to: NameRef;
+  assigned_to: NameRef | null;
   created_by: NameRef | null;
   created_at: string;
   /** Computed by the backend: false while any required detail is pending. */
