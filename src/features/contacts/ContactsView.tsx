@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import PhoneField from "@/components/PhoneField";
 import SearchPicker from "@/components/SearchPicker";
 import type { FilterGroup } from "@/components/FilterPanel";
@@ -43,7 +43,7 @@ function pageItems(page: number, totalPages: number): (number | "…")[] {
 
 /** Contacts screen: layout and derived options. State and API calls live in the contacts hooks. */
 export default function ContactsView() {
-  const { leadSources, partnerTypes, districtNames, houseStages, houseStageLabel, tankTypes, tankTypeLabel, employees, canAssign } = useContactLookups();
+  const { leadSources, partnerTypes, districtNames, houseStages, houseStageLabel, tankTypes, tankTypeLabel, employees, canAssign, products } = useContactLookups();
   const {
     contacts, total, totalPages, typeCounts, page, setPage, search, setSearch, submittedSearch, filters, hasFilters, sort,
     isLoading, error, loadContacts, changeFilter, changeType, changeSort, clearFilters, clearSearchAndFilters,
@@ -53,6 +53,12 @@ export default function ContactsView() {
     deleteTarget, setDeleteTarget, deleteContact, isSaving, formError, setFormError, selectedReferral, setSelectedReferral,
   } = useContactEditor({ leadSources, onSaved: loadContacts });
   const [ioDialog, setIoDialog] = useState<"import" | "export" | null>(null);
+  const [productSearch, setProductSearch] = useState("");
+  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
+  const productInputRef = useRef<HTMLInputElement>(null);
+  // Reset the product search input whenever the editor opens or closes
+  const editorId = editor?.contact?.id ?? (editor ? "new" : null);
+  useEffect(() => { setProductSearch(""); setProductDropdownOpen(false); }, [editorId]);
   const submitSearch = (event: FormEvent<HTMLFormElement>) => event.preventDefault();
   const goToPage = (next: number) => { setPage(next); };
 
@@ -95,6 +101,29 @@ export default function ContactsView() {
     const names = leadSources.filter((item) => editor?.contact || item.slug !== "offline").map((item) => item.name);
     return sourceValue && !names.includes(sourceValue) ? [sourceValue, ...names] : names;
   }, [leadSources, sourceValue, editor?.contact]);
+
+  // Filtered product list for the interested-products picker dropdown.
+  // Shows up to 20 results matching the search term, or the first 20 active products when blank.
+  const filteredPickerProducts = useMemo(() => {
+    const q = productSearch.toLowerCase().trim();
+    const selectedIds = new Set(editor?.values.interestedProducts.map((p) => p.id) ?? []);
+    // Keep already-selected products visible so you can deselect them even if they're archived
+    const candidatePool = q
+      ? products.filter((p) => p.name.toLowerCase().includes(q))
+      : products;
+    // Prepend already-selected items that aren't in the filtered pool (e.g. archived products)
+    const selected = (editor?.values.interestedProducts ?? []).filter((p) => !candidatePool.some((c) => c.id === p.id));
+    return [...selected.map((p) => ({ id: p.id, name: p.name, is_active: false })), ...candidatePool].slice(0, 20);
+  }, [products, productSearch, editor?.values.interestedProducts]);
+
+  const toggleProduct = (id: number, name: string) => {
+    if (!editor) return;
+    const current = editor.values.interestedProducts;
+    const updated = current.some((p) => p.id === id)
+      ? current.filter((p) => p.id !== id)
+      : [...current, { id, name }];
+    updateForm("interestedProducts", updated);
+  };
 
   const tableColumns = ["Contact", "Contact Type", "Contact Number", "Location", "Source", "Stage", ...(canAssign ? ["Assigned to"] : []), "Status"];
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -571,6 +600,70 @@ export default function ContactsView() {
                     updateForm("referredByContactId", item ? item.id : null);
                   }}
                 />
+
+                {/* Products interested — searchable multi-select from the products catalogue */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-[#3A3F46]">Products interested</label>
+                  <div className="relative">
+                    <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8F9C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.25" /><path d="m16 16 4.25 4.25" /></svg>
+                    <input
+                      ref={productInputRef}
+                      type="text"
+                      value={productSearch}
+                      onChange={(e) => { setProductSearch(e.target.value); setProductDropdownOpen(true); }}
+                      onFocus={() => setProductDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setProductDropdownOpen(false), 150)}
+                      placeholder={products.length === 0 ? "Loading products…" : "Search products to add…"}
+                      autoComplete="off"
+                      className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white pl-9 pr-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
+                    />
+                    {productDropdownOpen && filteredPickerProducts.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-[8px] border border-[#DEE1E5] bg-white shadow-lg">
+                        {filteredPickerProducts.map((product) => {
+                          const selected = editor?.values.interestedProducts.some((p) => p.id === product.id) ?? false;
+                          return (
+                            <button
+                              key={product.id}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()} // prevent input blur before click fires
+                              onClick={() => { toggleProduct(product.id, product.name); setProductSearch(""); }}
+                              className={`flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-[#F7FBF9] ${selected ? "text-[#0E4D3A]" : "text-[#1A1C21]"}`}
+                            >
+                              <span className="truncate">{product.name}</span>
+                              {selected && (
+                                <svg className="h-4 w-4 shrink-0 text-[#0E4D3A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M5 12l5 5L19 7" /></svg>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {productDropdownOpen && filteredPickerProducts.length === 0 && productSearch.trim() && (
+                      <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-[8px] border border-[#DEE1E5] bg-white px-3 py-3 text-[13px] text-[#8A8F9C] shadow-lg">
+                        No products match "{productSearch}"
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Selected product chips */}
+                  {(editor?.values.interestedProducts.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {editor!.values.interestedProducts.map((product) => (
+                        <span key={product.id} className="inline-flex items-center gap-1 rounded-full bg-[#E7F5EE] pl-3 pr-1.5 py-1 text-[12px] font-semibold text-[#0E4D3A]">
+                          {product.name}
+                          <button
+                            type="button"
+                            onClick={() => toggleProduct(product.id, product.name)}
+                            aria-label={`Remove ${product.name}`}
+                            className="flex h-4 w-4 items-center justify-center rounded-full text-[#2F8F6A] transition-colors hover:bg-[#C8EDD9] hover:text-[#0E4D3A]"
+                          >
+                            <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {formError && (
                   <div role="alert" className="flex items-start gap-3 rounded-[10px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

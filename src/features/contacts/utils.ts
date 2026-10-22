@@ -32,15 +32,18 @@ export interface Contact {
 export interface ContactForm {
   name: string; phone: string; contactType: ApiContactType; source: ContactSource;
   address: string; district: string; houseStage: string; tankType: string; tankCapacity: string; tankAge: string;
-  partnerType: string; referredByContactId: number | null; assignedTo: string;
+  partnerType: string; workArea: string; referredByContactId: number | null; assignedTo: string;
   dealerOwnerName: string; dealerEmail: string;
+  /** Products this contact is interested in, as {id, name} objects for display. */
+  interestedProducts: { id: number; name: string }[];
 }
 
 export const blankContact: ContactForm = {
   name: "", phone: "", contactType: "consumer", source: "",
   address: "", district: "", houseStage: "", tankType: "", tankCapacity: "", tankAge: "",
-  partnerType: "", referredByContactId: null, assignedTo: "",
+  partnerType: "", workArea: "", referredByContactId: null, assignedTo: "",
   dealerOwnerName: "", dealerEmail: "",
+  interestedProducts: [],
 };
 export const fromApi = (contact: ApiContact): Contact => ({
   id: contact.id, name: contact.name, phone: contact.phone, kind: contact.contact_type, profession: contact.profession_type || undefined,
@@ -62,6 +65,7 @@ export const toForm = (contact: Contact): ContactForm => ({
   partnerType: contact.profession ?? "", referredByContactId: null,
   assignedTo: contact.assignedToId === undefined ? "" : String(contact.assignedToId),
   dealerOwnerName: "", dealerEmail: "",
+  interestedProducts: [],  // filled from detail load in useContactEditor
 });
 
 export const KERALA_DISTRICTS = [

@@ -59,6 +59,7 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
             referredByContactId: detail.referred_by_id,
             dealerOwnerName: detail.dealer_profile?.owner_name ?? "",
             dealerEmail: detail.dealer_profile?.email ?? "",
+            interestedProducts: detail.interested_products?.map((p) => ({ id: p.id, name: p.name })) ?? [],
           },
         } : current);
       })
@@ -133,6 +134,7 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
         },
       } : {}),
       ...(values.contactType === "dealer" ? { dealer_profile: { owner_name: values.dealerOwnerName.trim(), ...(values.dealerEmail.trim() ? { email: values.dealerEmail.trim() } : {}) } } : {}),
+      interested_product_ids: values.interestedProducts.map((p) => p.id),
     };
     setIsSaving(true); setFormError("");
     try {

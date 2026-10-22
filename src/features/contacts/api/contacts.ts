@@ -108,6 +108,8 @@ export type ApiContactDetail = {
   consumer_profile?: { house_stage: string | null; current_tank_type: string | null; current_tank_capacity: number | null; current_tank_age: number | null } | null;
   partner_profile?: { profession_type: string } | null;
   dealer_profile?: { owner_name: string; email?: string | null } | null;
+  /** Products this contact has expressed interest in. */
+  interested_products?: { id: number; name: string }[] | null;
 };
 
 export type ContactInput = {
@@ -124,6 +126,8 @@ export type ContactInput = {
   consumer_profile?: { house_stage: string | null; current_tank_type?: string | null; current_tank_capacity?: number | null; current_tank_age?: number | null };
   partner_profile?: { profession_type: string };
   dealer_profile?: { owner_name: string; email?: string | null };
+  /** Replace the full list of interested products. Omit to keep unchanged, [] to clear. */
+  interested_product_ids?: number[];
 };
 
 /** Calls a protected /contacts route with request/response logging and session-aware errors. */
