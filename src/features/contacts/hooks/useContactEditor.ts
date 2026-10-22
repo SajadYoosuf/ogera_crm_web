@@ -6,7 +6,7 @@ import { type PickerItem } from "@/components/SearchPicker";
 import { validatePhone } from "@/components/PhoneField";
 import { ApiError } from "@/lib/api/auth";
 import { createContact, deleteContact as deleteContactApi, getContact, listContacts, updateContact, type LeadSource } from "@/features/contacts/api/contacts";
-import { blankContact, toForm, type Contact, type ContactForm } from "@/features/contacts/utils";
+import { blankContact, toForm, KIND_LABELS, type Contact, type ContactForm } from "@/features/contacts/utils";
 
 type Editor = { contact?: Contact; values: ContactForm; loading?: boolean } | null;
 
@@ -48,6 +48,9 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
             partnerType: detail.partner_profile?.profession_type ?? current.values.partnerType,
             district: detail.district, address: detail.address ?? "",
             houseStage: detail.consumer_profile?.house_stage ?? "",
+            tankType: detail.consumer_profile?.current_tank_type ?? "",
+            tankCapacity: detail.consumer_profile?.current_tank_capacity != null ? String(detail.consumer_profile.current_tank_capacity) : "",
+            tankAge: detail.consumer_profile?.current_tank_age != null ? String(detail.consumer_profile.current_tank_age) : "",
             referredByContactId: detail.referred_by_id,
             dealerOwnerName: detail.dealer_profile?.owner_name ?? "",
             dealerEmail: detail.dealer_profile?.email ?? "",
@@ -80,7 +83,11 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
     const result = await listContacts(accessToken, { limit: 10, search: query });
     return result.items
       .filter((item) => item.id !== editor?.contact?.id)
-      .map((item) => ({ id: item.id, primary: item.name || "Unnamed contact", secondary: item.phone }));
+      .map((item) => ({
+        id: item.id,
+        primary: item.name || "Unnamed contact",
+        secondary: `${item.phone} · ${KIND_LABELS[item.contact_type] ?? item.contact_type}`,
+      }));
   }, [editor?.contact?.id]);
 
   async function saveContact(event: FormEvent<HTMLFormElement>) {
@@ -97,6 +104,10 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
 
     const source = leadSources.find((item) => item.name === sourceValue);
     const houseStage = values.houseStage.trim();
+    const tankType = values.tankType.trim();
+    const tankCapacity = values.tankCapacity.trim() ? parseInt(values.tankCapacity.trim(), 10) : null;
+    const tankAge = values.tankAge.trim() ? parseInt(values.tankAge.trim(), 10) : null;
+    const hasConsumerFields = houseStage || tankType || tankCapacity != null || tankAge != null || editor.contact;
     const body = {
       contact_type: values.contactType,
       name: values.name.trim(),
@@ -108,7 +119,14 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
       // Send the owner only when it was chosen (create) or changed (edit); otherwise the backend keeps or auto-picks it.
       ...(values.assignedTo && values.assignedTo !== String(editor.contact?.assignedToId ?? "") ? { assigned_to: Number(values.assignedTo) } : {}),
       ...(values.contactType === "partner" ? { partner_profile: { profession_type: values.partnerType } } : {}),
-      ...(values.contactType === "consumer" && (houseStage || editor.contact) ? { consumer_profile: { house_stage: houseStage || null } } : {}),
+      ...(values.contactType === "consumer" && hasConsumerFields ? {
+        consumer_profile: {
+          house_stage: houseStage || null,
+          current_tank_type: tankType || null,
+          current_tank_capacity: tankCapacity,
+          current_tank_age: tankAge,
+        },
+      } : {}),
       ...(values.contactType === "dealer" ? { dealer_profile: { owner_name: values.dealerOwnerName.trim(), ...(values.dealerEmail.trim() ? { email: values.dealerEmail.trim() } : {}) } } : {}),
     };
     setIsSaving(true); setFormError("");

@@ -15,6 +15,13 @@ export const DEFAULT_HOUSE_STAGES = [
   { value: "under_construction", label: "Under construction" },
   { value: "renovation", label: "Renovation" },
 ];
+// Tank types from Settings > Lists & Options; these are the backend's seed defaults.
+export const DEFAULT_TANK_TYPES = [
+  { value: "plastic", label: "Plastic" },
+  { value: "concrete", label: "Concrete" },
+  { value: "steel", label: "Steel" },
+  { value: "other", label: "Other" },
+];
 export type ContactSource = string;
 
 export interface Contact {
@@ -24,13 +31,15 @@ export interface Contact {
 }
 export interface ContactForm {
   name: string; phone: string; contactType: ApiContactType; source: ContactSource;
-  address: string; district: string; houseStage: string; partnerType: string; referredByContactId: number | null; assignedTo: string;
+  address: string; district: string; houseStage: string; tankType: string; tankCapacity: string; tankAge: string;
+  partnerType: string; referredByContactId: number | null; assignedTo: string;
   dealerOwnerName: string; dealerEmail: string;
 }
 
 export const blankContact: ContactForm = {
   name: "", phone: "", contactType: "consumer", source: "",
-  address: "", district: "", houseStage: "", partnerType: "", referredByContactId: null, assignedTo: "",
+  address: "", district: "", houseStage: "", tankType: "", tankCapacity: "", tankAge: "",
+  partnerType: "", referredByContactId: null, assignedTo: "",
   dealerOwnerName: "", dealerEmail: "",
 };
 export const fromApi = (contact: ApiContact): Contact => ({
@@ -46,7 +55,8 @@ export const FIELD_LABELS: Record<string, string> = {
 export const displayLocation = (contact: Contact) => contact.address || contact.district || "Location not added";
 export const toForm = (contact: Contact): ContactForm => ({
   name: contact.name, phone: contact.phone, contactType: contact.kind, source: contact.source ?? "",
-  address: contact.address ?? "", district: contact.district ?? "", houseStage: "", partnerType: contact.profession ?? "", referredByContactId: null,
+  address: contact.address ?? "", district: contact.district ?? "", houseStage: "", tankType: "", tankCapacity: "", tankAge: "",
+  partnerType: contact.profession ?? "", referredByContactId: null,
   assignedTo: contact.assignedToId === undefined ? "" : String(contact.assignedToId),
   dealerOwnerName: "", dealerEmail: "",
 });

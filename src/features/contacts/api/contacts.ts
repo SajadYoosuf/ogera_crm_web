@@ -105,7 +105,7 @@ export type ApiContactDetail = {
   referred_by_id: number | null;
   referred_by?: { id: number; name: string; phone?: string | null } | null;
   lead_source_id: number | null;
-  consumer_profile?: { house_stage: string | null } | null;
+  consumer_profile?: { house_stage: string | null; current_tank_type: string | null; current_tank_capacity: number | null; current_tank_age: number | null } | null;
   partner_profile?: { profession_type: string } | null;
   dealer_profile?: { owner_name: string; email?: string | null } | null;
 };
@@ -121,7 +121,7 @@ export type ContactInput = {
   assigned_to?: number;
   latitude?: number;
   longitude?: number;
-  consumer_profile?: { house_stage: string | null };
+  consumer_profile?: { house_stage: string | null; current_tank_type?: string | null; current_tank_capacity?: number | null; current_tank_age?: number | null };
   partner_profile?: { profession_type: string };
   dealer_profile?: { owner_name: string; email?: string | null };
 };

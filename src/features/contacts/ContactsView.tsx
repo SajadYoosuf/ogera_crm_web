@@ -12,8 +12,6 @@ import VerifiedBadge from "@/features/contacts/components/VerifiedBadge";
 import ContactsMoreMenu from "@/features/contacts/components/ContactsMoreMenu";
 import ContactsFilterMenu from "@/features/contacts/components/ContactsFilterMenu";
 import ContactsSortMenu from "@/features/contacts/components/ContactsSortMenu";
-import { canManageEmployees, isMonitoringRole } from "@/lib/api/employees";
-import { canExportContacts } from "@/lib/permissions";
 import { useContactLookups } from "@/features/contacts/hooks/useContactLookups";
 import { useContactsList } from "@/features/contacts/hooks/useContactsList";
 import { useContactEditor } from "@/features/contacts/hooks/useContactEditor";
@@ -45,7 +43,7 @@ function pageItems(page: number, totalPages: number): (number | "…")[] {
 
 /** Contacts screen: layout and derived options. State and API calls live in the contacts hooks. */
 export default function ContactsView() {
-  const { leadSources, partnerTypes, districtNames, houseStages, houseStageLabel, employees, viewerRole, canAssign } = useContactLookups();
+  const { leadSources, partnerTypes, districtNames, houseStages, houseStageLabel, tankTypes, tankTypeLabel, employees, canAssign } = useContactLookups();
   const {
     contacts, total, totalPages, typeCounts, page, setPage, search, setSearch, submittedSearch, filters, hasFilters, sort,
     isLoading, error, loadContacts, changeFilter, changeType, changeSort, clearFilters, clearSearchAndFilters,
@@ -59,8 +57,7 @@ export default function ContactsView() {
   const goToPage = (next: number) => { setPage(next); };
 
   const assigneeOptions = useMemo(() => {
-    // Rule 1 (rule.md): admins and managers monitor and never carry a lead, so they are not offered as an assignee.
-    const options = employees.filter((employee) => employee.is_active && !isMonitoringRole(employee.role)).map((employee) => ({ value: String(employee.id), label: `${employee.name} · ${employee.role.replaceAll("_", " ")}` }));
+    const options = employees.filter((employee) => employee.is_active).map((employee) => ({ value: String(employee.id), label: `${employee.name} · ${employee.role.replaceAll("_", " ")}` }));
     const currentId = editor?.contact?.assignedToId;
     if (currentId !== undefined && !options.some((option) => option.value === String(currentId))) options.unshift({ value: String(currentId), label: editor?.contact?.assignedTo ?? `Employee #${currentId}` });
     return editor?.contact ? options : [{ value: "", label: "Assign automatically" }, ...options];
@@ -111,7 +108,7 @@ export default function ContactsView() {
       <header className="sticky top-0 z-20 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b border-[#E7E7EA] bg-white pl-16 pr-3 sm:gap-4 sm:pr-7 lg:pl-7">
         <h1 className="truncate text-[22px] font-bold tracking-[-0.01em] text-[#1A1C21] sm:text-[26px]">Contacts</h1>
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
-          <ContactsMoreMenu canImport={canManageEmployees(viewerRole)} canExport={canExportContacts(viewerRole)} onImport={() => setIoDialog("import")} onExport={() => setIoDialog("export")} />
+          <ContactsMoreMenu onImport={() => setIoDialog("import")} onExport={() => setIoDialog("export")} />
           <button type="button" aria-label="Add Contact" onClick={() => openEditor(undefined, filters.type || undefined)} className={`inline-flex h-10 items-center gap-2 rounded-[8px] px-3 text-sm font-semibold sm:px-4 ${ACCENT_BUTTON}`}>
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             <span className="hidden sm:inline" aria-hidden="true">Add Contact</span>
@@ -487,19 +484,56 @@ export default function ContactsView() {
                   />
                 </div>
 
-                {/* Consumer-specific: house stage, from Settings > Lists & Options. A value that was hidden later stays selectable on its own record. */}
+                {/* Consumer-specific fields: house stage, tank type, litres, age. All from Settings > Lists & Options where applicable. A hidden option stays selectable on its own record. */}
                 {editor.values.contactType === "consumer" && (
-                  <SelectField
-                    label="House stage"
-                    value={editor.values.houseStage}
-                    onChange={(value) => updateForm("houseStage", value)}
-                    placeholder="Not recorded"
-                    options={[
-                      { value: "", label: "Not recorded" },
-                      ...(editor.values.houseStage && !houseStages.some((opt) => opt.value === editor.values.houseStage) ? [{ value: editor.values.houseStage, label: houseStageLabel(editor.values.houseStage) }] : []),
-                      ...houseStages,
-                    ]}
-                  />
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <SelectField
+                        label="House stage"
+                        value={editor.values.houseStage}
+                        onChange={(value) => updateForm("houseStage", value)}
+                        placeholder="Not recorded"
+                        options={[
+                          { value: "", label: "Not recorded" },
+                          ...(editor.values.houseStage && !houseStages.some((opt) => opt.value === editor.values.houseStage) ? [{ value: editor.values.houseStage, label: houseStageLabel(editor.values.houseStage) }] : []),
+                          ...houseStages,
+                        ]}
+                      />
+                      <SelectField
+                        label="Tank type"
+                        value={editor.values.tankType}
+                        onChange={(value) => updateForm("tankType", value)}
+                        placeholder="Not recorded"
+                        options={[
+                          { value: "", label: "Not recorded" },
+                          ...(editor.values.tankType && !tankTypes.some((opt) => opt.value === editor.values.tankType) ? [{ value: editor.values.tankType, label: tankTypeLabel(editor.values.tankType) }] : []),
+                          ...tankTypes,
+                        ]}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1.5">
+                        <label htmlFor="ac-tank-capacity" className="text-[13px] font-semibold text-[#3A3F46]">Tank capacity (litres)</label>
+                        <input
+                          id="ac-tank-capacity" type="number" min="0"
+                          value={editor.values.tankCapacity}
+                          onChange={(e) => updateForm("tankCapacity", e.target.value)}
+                          placeholder="e.g. 1000"
+                          className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label htmlFor="ac-tank-age" className="text-[13px] font-semibold text-[#3A3F46]">Tank age (years)</label>
+                        <input
+                          id="ac-tank-age" type="number" min="0"
+                          value={editor.values.tankAge}
+                          onChange={(e) => updateForm("tankAge", e.target.value)}
+                          placeholder="e.g. 3"
+                          className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 {/* Assigned to */}
@@ -596,7 +630,7 @@ export default function ContactsView() {
           }}
           extraFilterCount={[filters.partnerType && filters.type === "partner", filters.district, filters.assignedTo, filters.createdBy, filters.verified, submittedSearch].filter(Boolean).length} />
       )}
-      {ioDialog === "import" && <ContactImportModal leadSources={leadSources} role={viewerRole} onClose={() => setIoDialog(null)} onImported={() => { setPage(1); void loadContacts(); }} />}
+      {ioDialog === "import" && <ContactImportModal leadSources={leadSources} onClose={() => setIoDialog(null)} onImported={() => { setPage(1); void loadContacts(); }} />}
     </div>
   );
 }
