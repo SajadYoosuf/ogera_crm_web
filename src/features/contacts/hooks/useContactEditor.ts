@@ -61,6 +61,7 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
             dealerOwnerName: detail.dealer_profile?.owner_name ?? "",
             dealerEmail: detail.dealer_profile?.email ?? "",
             interestedProducts: detail.interested_products?.map((p) => ({ id: p.id, name: p.name })) ?? [],
+            note: detail.notes ?? "",
           },
         } : current);
       })
@@ -136,6 +137,8 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
       } : {}),
       ...(values.contactType === "dealer" ? { dealer_profile: { owner_name: values.dealerOwnerName.trim(), ...(values.dealerEmail.trim() ? { email: values.dealerEmail.trim() } : {}) } } : {}),
       interested_product_ids: values.interestedProducts.map((p) => p.id),
+      // Send null to clear the note, or the trimmed string when set. Omitting would leave it unchanged on PUT.
+      notes: values.note.trim() || null,
     };
     setIsSaving(true); setFormError("");
     try {

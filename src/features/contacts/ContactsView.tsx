@@ -679,6 +679,20 @@ export default function ContactsView() {
                 </div>
                 )}
 
+                {/* Note — optional, all contact types */}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ac-note" className="text-[13px] font-semibold text-[#3A3F46]">
+                    Note <span className="font-normal text-[#9BA3B2]">(optional)</span>
+                  </label>
+                  <textarea
+                    id="ac-note" rows={3}
+                    value={editor.values.note}
+                    onChange={(e) => updateForm("note", e.target.value)}
+                    placeholder="Any important detail about this contact…"
+                    className="w-full resize-none rounded-[8px] border border-[#DEE1E5] bg-white px-3 py-2.5 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
+                  />
+                </div>
+
                 {formError && (
                   <div role="alert" className="flex items-start gap-3 rounded-[10px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                     <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">

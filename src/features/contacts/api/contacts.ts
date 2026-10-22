@@ -110,6 +110,8 @@ export type ApiContactDetail = {
   dealer_profile?: { owner_name: string; email?: string | null } | null;
   /** Products this contact has expressed interest in. */
   interested_products?: { id: number; name: string }[] | null;
+  /** Free-text note. Null when none has been entered. */
+  notes?: string | null;
 };
 
 export type ContactInput = {
@@ -128,6 +130,8 @@ export type ContactInput = {
   dealer_profile?: { owner_name: string; email?: string | null };
   /** Replace the full list of interested products. Omit to keep unchanged, [] to clear. */
   interested_product_ids?: number[];
+  /** Free-text note. Omit to keep unchanged, null to clear, string to set. */
+  notes?: string | null;
 };
 
 /** Calls a protected /contacts route with request/response logging and session-aware errors. */

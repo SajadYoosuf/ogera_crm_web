@@ -36,6 +36,8 @@ export interface ContactForm {
   dealerOwnerName: string; dealerEmail: string;
   /** Products this contact is interested in, as {id, name} objects for display. */
   interestedProducts: { id: number; name: string }[];
+  /** Optional free-text note about this contact. */
+  note: string;
 }
 
 export const blankContact: ContactForm = {
@@ -44,6 +46,7 @@ export const blankContact: ContactForm = {
   partnerType: "", workArea: "", referredByContactId: null, assignedTo: "",
   dealerOwnerName: "", dealerEmail: "",
   interestedProducts: [],
+  note: "",
 };
 export const fromApi = (contact: ApiContact): Contact => ({
   id: contact.id, name: contact.name, phone: contact.phone, kind: contact.contact_type, profession: contact.profession_type || undefined,
@@ -67,6 +70,7 @@ export const toForm = (contact: Contact): ContactForm => ({
   assignedTo: contact.assignedToId === undefined ? "" : String(contact.assignedToId),
   dealerOwnerName: "", dealerEmail: "",
   interestedProducts: [],  // filled from detail load in useContactEditor
+  note: "",  // filled from detail load in useContactEditor
 });
 
 export const KERALA_DISTRICTS = [
