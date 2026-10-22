@@ -32,7 +32,12 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
   const openEditor = (contact?: Contact, initialType?: string) => {
     setFormError("");
     setSelectedReferral(null);
-    const newValues = initialType ? { ...blankContact, contactType: initialType as typeof blankContact.contactType } : blankContact;
+    const showroomSource = leadSources.find((item) => item.slug === "showroom");
+    const newValues = {
+      ...(initialType ? { ...blankContact, contactType: initialType as typeof blankContact.contactType } : blankContact),
+      ...(showroomSource ? { source: showroomSource.name } : {}),
+      district: "Malappuram",
+    };
     setEditor(contact ? { contact, values: toForm(contact), loading: true } : { values: newValues });
     if (!contact) return;
     // List rows lack the referrer and house stage, so load the full record.
