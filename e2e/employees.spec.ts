@@ -382,6 +382,85 @@ test.describe("edge cases", () => {
   });
 });
 
+test.describe("manager role isolation", () => {
+  test("role filter dropdown has no 'admin' option", async ({ page }) => {
+    await openEmployees(page, MANAGER);
+    await openDropdown(page, "Role");
+    const options = page.getByRole("listbox", { name: "Role" }).getByRole("option");
+    await expect(options.filter({ hasText: /^admin$/i })).toHaveCount(0);
+  });
+
+  test("role filter dropdown has no 'manager' option", async ({ page }) => {
+    await openEmployees(page, MANAGER);
+    await openDropdown(page, "Role");
+    const options = page.getByRole("listbox", { name: "Role" }).getByRole("option");
+    await expect(options.filter({ hasText: /^manager$/i })).toHaveCount(0);
+  });
+
+  test("filtering by a visible role works and shows only matching rows", async ({ page }) => {
+    // seedEmployees has Sam Sales (sales_executive, active) and Ian Inactive (sales_executive, inactive).
+    // Ada Admin and Maya Manager are hidden from manager viewers, so sales_executive filter gives 2 rows.
+    await openEmployees(page, MANAGER);
+    await openDropdown(page, "Role");
+    await page.getByRole("option", { name: /^sales executive$/i }).click();
+    await expect(people(page)).toHaveCount(2);
+  });
+
+  test("export CSV header has no Password column", async ({ page }) => {
+    await openEmployees(page, MANAGER);
+    await page.getByRole("button", { name: /^Export/ }).click();
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("menuitem", { name: "CSV" }).click(),
+    ]);
+    const { readFileSync } = await import("node:fs");
+    const text = readFileSync((await download.path()) as string, "utf8");
+    const header = text.split("\r\n")[0];
+    expect(header).toBe('"Name","Email","Phone","Role","Status","Joined"');
+    expect(header.toLowerCase()).not.toContain("password");
+  });
+
+  test("export CSV does not contain admin employee rows", async ({ page }) => {
+    await openEmployees(page, MANAGER);
+    await page.getByRole("button", { name: /^Export/ }).click();
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("menuitem", { name: "CSV" }).click(),
+    ]);
+    const { readFileSync } = await import("node:fs");
+    const text = readFileSync((await download.path()) as string, "utf8");
+    expect(text).not.toContain("Ada Admin");
+    expect(text).not.toContain("ada.admin@ogera.com");
+  });
+
+  test("export CSV does not contain manager employee rows", async ({ page }) => {
+    await openEmployees(page, MANAGER);
+    await page.getByRole("button", { name: /^Export/ }).click();
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("menuitem", { name: "CSV" }).click(),
+    ]);
+    const { readFileSync } = await import("node:fs");
+    const text = readFileSync((await download.path()) as string, "utf8");
+    expect(text).not.toContain("Maya Manager");
+    expect(text).not.toContain("maya.manager@ogera.com");
+  });
+
+  test("export Excel (.xls) does not contain admin or manager rows", async ({ page }) => {
+    await openEmployees(page, MANAGER);
+    await page.getByRole("button", { name: /^Export/ }).click();
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("menuitem", { name: "Excel (.xls)" }).click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/\.xls$/);
+    const { readFileSync } = await import("node:fs");
+    const xml = readFileSync((await download.path()) as string, "utf8");
+    expect(xml).not.toContain("Ada Admin");
+    expect(xml).not.toContain("Maya Manager");
+  });
+});
+
 test.describe("states", () => {
   test("shows an error with Try again that recovers", async ({ page }) => {
     await signInAs(page);

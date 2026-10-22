@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/auth";
 import {
@@ -93,6 +93,35 @@ function downloadCsv(rows: Employee[]) {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Generates a SpreadsheetML XML file that Excel opens natively — no library needed.
+ * Each cell is typed as String so leading-zero values like phone numbers are preserved.
+ */
+function downloadXls(rows: Employee[]) {
+  const header = ["Name", "Email", "Phone", "Role", "Status", "Joined"];
+  const body = rows.map((employee) => [
+    employee.name, employee.email, formatPhone(employee.phone) ?? "", roleLabel(employee.role),
+    employee.is_active ? "Active" : "Inactive", formatJoined(employee.created_at),
+  ]);
+  const escape = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const xlsCell = (v: string) => `<Cell><Data ss:Type="String">${escape(v)}</Data></Cell>`;
+  const xlsRow = (cells: string[]) => `<Row>${cells.map(xlsCell).join("")}</Row>`;
+  const xml = [
+    `<?xml version="1.0"?>`,
+    `<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">`,
+    `<Worksheet ss:Name="Employees"><Table>`,
+    xlsRow(header),
+    ...body.map(xlsRow),
+    `</Table></Worksheet></Workbook>`,
+  ].join("");
+  const url = URL.createObjectURL(new Blob([xml], { type: "application/vnd.ms-excel" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `employees-${new Date().toISOString().slice(0, 10)}.xls`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function Icon({ children, className = "w-4 h-4" }: { children: React.ReactNode; className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>;
 }
@@ -114,6 +143,7 @@ const icons = {
   lock: <><rect width="16" height="11" x="4" y="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></>,
   chevronLeft: <path d="M19 12H5M11 6l-6 6 6 6" />,
   chevronRight: <path d="M5 12h14M13 6l6 6-6 6" />,
+  chevronDown: <path d="M6 9l6 6 6-6" />,
 };
 
 function Avatar({ employee, size = "md" }: { employee: Employee; size?: "sm" | "md" | "lg" }) {
@@ -174,10 +204,13 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
   const router = useRouter();
   const isEdit = !!employee;
   const isSelf = employee?.id === viewer.id;
+  // Managers cannot assign the admin role when creating or editing employees.
   const roles = useMemo(() => {
-    const options: EmployeeRole[] = [...EMPLOYEE_ROLES];
+    const options: EmployeeRole[] = viewer.role === "manager"
+      ? EMPLOYEE_ROLES.filter((r) => r !== "admin")
+      : [...EMPLOYEE_ROLES];
     return employee && !options.includes(employee.role as EmployeeRole) ? [employee.role as EmployeeRole, ...options] : options;
-  }, [employee]);
+  }, [employee, viewer.role]);
   const [values, setValues] = useState<FormValues>({
     name: employee?.name ?? "", email: employee?.email ?? "", phone: toIndianLocal(employee?.phone),
     role: (employee?.role as EmployeeRole) ?? "sales_executive",
@@ -335,6 +368,8 @@ export default function EmployeesPage() {
   const [deleteError, setDeleteError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   // sessionStorage is a browser-only store, so it is read after hydration with a null server snapshot.
   const storedUser = useSyncExternalStore(() => () => {}, () => sessionStorage.getItem("ogera_user"), () => null);
@@ -378,6 +413,16 @@ export default function EmployeesPage() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  // Close the export dropdown when the user clicks anywhere outside it.
+  useEffect(() => {
+    if (!exportOpen) return;
+    function handleOutsideClick(event: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(event.target as Node)) setExportOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [exportOpen]);
+
   // Refresh the opened employee from GET /employees/{id} so the dialog is never stale.
   const selectedId = selected?.id;
   useEffect(() => {
@@ -391,16 +436,22 @@ export default function EmployeesPage() {
     return () => { cancelled = true; };
   }, [selectedId]);
 
-  const employees = useMemo(() => state.status === "ready" ? state.employees : [], [state]);
-  // Only the roles that exist on this page, in the API's order.
-  // Every role the backend defines, so any employee's role can be filtered.
-  const roleOptions = useMemo<FilterOption[]>(
-    () => [
-      { value: "", label: "All Roles" },
-      ...EMPLOYEE_ROLES.map((role) => ({ value: role, label: roleLabel(role) })),
-    ],
-    [],
-  );
+  // Admin-role accounts are never shown to any viewer (hidden server-side; filtered here for defense-in-depth).
+  // Managers additionally cannot see manager-role employees.
+  const employees = useMemo(() => {
+    const all = state.status === "ready" ? state.employees : [];
+    const noAdmins = all.filter((e) => e.role !== "admin");
+    return viewer?.role === "manager"
+      ? noAdmins.filter((e) => e.role !== "manager")
+      : noAdmins;
+  }, [state, viewer]);
+  // Managers cannot filter by admin or manager role either.
+  const roleOptions = useMemo<FilterOption[]>(() => {
+    const roles = viewer?.role === "manager"
+      ? EMPLOYEE_ROLES.filter((r) => r !== "admin" && r !== "manager")
+      : EMPLOYEE_ROLES;
+    return [{ value: "", label: "All Roles" }, ...roles.map((role) => ({ value: role, label: roleLabel(role) }))];
+  }, [viewer]);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return employees.filter((employee) =>
@@ -443,10 +494,42 @@ export default function EmployeesPage() {
       <header className="sticky top-0 z-20 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b border-[#E7E7EA] bg-white pl-16 pr-3 sm:gap-4 sm:px-7 lg:pl-7">
         <h1 className="truncate text-[22px] font-bold tracking-[-0.01em] text-[#1A1C21] sm:text-[26px]">Employees</h1>
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
-          <button type="button" onClick={() => downloadCsv(filtered)} disabled={!isReady || filtered.length === 0} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#DEE1E5] bg-white px-3.5 text-sm font-medium text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] disabled:opacity-50">
-            <Icon className="h-4 w-4 shrink-0">{icons.download}</Icon>
-            Export
-          </button>
+          <div ref={exportRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setExportOpen((open) => !open)}
+              disabled={!isReady || filtered.length === 0}
+              aria-haspopup="true"
+              aria-expanded={exportOpen}
+              className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#DEE1E5] bg-white px-3.5 text-sm font-medium text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] disabled:opacity-50"
+            >
+              <Icon className="h-4 w-4 shrink-0">{icons.download}</Icon>
+              Export
+              <Icon className="h-3.5 w-3.5 opacity-60">{icons.chevronDown}</Icon>
+            </button>
+            {exportOpen && (
+              <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-30 min-w-[160px] rounded-xl border border-[#E7E7EA] bg-white py-1.5 shadow-lg">
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => { downloadCsv(filtered); setExportOpen(false); }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-[#3A3E4A] hover:bg-[#F3F3F5]"
+                >
+                  <Icon className="h-4 w-4 shrink-0">{icons.download}</Icon>
+                  CSV
+                </button>
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => { downloadXls(filtered); setExportOpen(false); }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-[#3A3E4A] hover:bg-[#F3F3F5]"
+                >
+                  <Icon className="h-4 w-4 shrink-0">{icons.download}</Icon>
+                  Excel (.xls)
+                </button>
+              </div>
+            )}
+          </div>
           <button type="button" onClick={() => setEditor({})} className={`inline-flex h-10 items-center justify-center gap-2 rounded-[8px] px-2.5 text-sm font-semibold sm:px-4 ${ACCENT_BUTTON}`} title="Add Employee" aria-label="Add Employee">
             <Icon className="h-4 w-4 shrink-0">{icons.plus}</Icon>
             <span className="hidden sm:inline">Add Employee</span>
@@ -503,7 +586,12 @@ export default function EmployeesPage() {
                 <button type="button" onClick={() => void load("Try again button")} className={primaryButton}>Try again</button>
               </Notice>
             ) : (
-              <Notice tone="rose" icon={icons.alert} title="Couldn't load employees" body={state.error.message}>
+              <Notice
+                tone="rose"
+                icon={icons.alert}
+                title="Couldn't load employees"
+                body={`${state.error.message}${state.error instanceof ApiError && state.error.status ? `  ·  HTTP ${state.error.status}` : ""}`}
+              >
                 <button type="button" onClick={() => void load("Try again button")} className={primaryButton}>Try again</button>
               </Notice>
             )

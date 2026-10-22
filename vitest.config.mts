@@ -13,6 +13,8 @@ export default defineConfig({
       "@": path.resolve(root, "src"),
       // `server-only` throws outside a Next.js server build.
       "server-only": path.resolve(root, "tests/stubs/server-only.ts"),
+      // `next/font/google` requires the Next.js compiler pipeline.
+      "next/font/google": path.resolve(root, "tests/stubs/next-font-google.ts"),
     },
   },
   test: {
