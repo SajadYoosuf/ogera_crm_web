@@ -71,14 +71,14 @@ function mapError(error: unknown): unknown {
   return error;
 }
 
-function call<T>(accessToken: string, method: string, path: string, body?: unknown): Promise<T> {
+function call<T>(accessToken: string, method: string, path: string, body?: unknown, timeoutMs?: number): Promise<T> {
   return logged(method, path, body, async () => {
     try {
       return await request<T>(path, {
         method,
         headers: { Authorization: `Bearer ${accessToken}`, ...(body ? { "Content-Type": "application/json" } : {}) },
         ...(body ? { body: JSON.stringify(body) } : {}),
-      });
+      }, timeoutMs);
     } catch (error) {
       throw mapError(error);
     }
@@ -113,8 +113,8 @@ export const getEmployee = (accessToken: string, id: number) => call<Employee>(a
 /** POST /employees */
 export const createEmployee = (accessToken: string, input: EmployeeCreate) => call<Employee>(accessToken, "POST", "/employees", input);
 
-/** PUT /employees/{id} */
-export const updateEmployee = (accessToken: string, id: number, input: EmployeeUpdate) => call<Employee>(accessToken, "PUT", `/employees/${id}`, input);
+/** PUT /employees/{id} — longer timeout because the backend sends a notification email synchronously. */
+export const updateEmployee = (accessToken: string, id: number, input: EmployeeUpdate) => call<Employee>(accessToken, "PUT", `/employees/${id}`, input, 25_000);
 
 /** DELETE /employees/{id} — soft delete, 204. */
 export const deleteEmployee = (accessToken: string, id: number) => call<void>(accessToken, "DELETE", `/employees/${id}`);

@@ -112,13 +112,13 @@ export function errorFromResponse(status: number, body: unknown): ApiError {
   return new ApiError("unknown", detail ?? "Something went wrong. Please try again.", status);
 }
 
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     throw new ApiError("offline", "You're offline. Check your internet connection and try again.");
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   let response: Response;
   try {
