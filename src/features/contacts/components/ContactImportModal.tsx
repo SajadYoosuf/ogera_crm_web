@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/auth";
 import type { ApiContactType, LeadSource } from "@/features/contacts/api/contacts";
-import { canManageEmployees, listAllEmployees, type Employee } from "@/lib/api/employees";
+import { listAllEmployees, type Employee } from "@/lib/api/employees";
 import { analyzeImport, commitImport, downloadImportTemplate, problemRowsCsv, type ImportOptions, type ImportReport, type ImportResult, type UploadProgress } from "@/features/contacts/api/contactsIo";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -33,7 +33,7 @@ const toOptions = (rules: Rules): ImportOptions => ({
 });
 
 /** Import dialog: choose a file, match its columns and review problem rows, then import. Nothing is written until the last import step. */
-export default function ContactImportModal({ leadSources, role, onClose, onImported }: { leadSources: LeadSource[]; role: string | undefined; onClose: () => void; onImported: () => void }) {
+export default function ContactImportModal({ leadSources, onClose, onImported }: { leadSources: LeadSource[]; onClose: () => void; onImported: () => void }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
@@ -49,9 +49,9 @@ export default function ContactImportModal({ leadSources, role, onClose, onImpor
 
   useEffect(() => {
     const accessToken = token();
-    if (!canManageEmployees(role) || !accessToken) return;
+    if (!accessToken) return;
     listAllEmployees(accessToken).then((list) => setEmployees(list.employees.filter((employee) => employee.is_active))).catch(() => setEmployees([]));
-  }, [role]);
+  }, []);
 
   const latestCheck = useRef(0);
   const checkController = useRef<AbortController | null>(null);

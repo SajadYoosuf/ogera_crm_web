@@ -13,7 +13,6 @@ interface MenuItem {
   href: string;
   icon: React.ReactNode;
   category: "MAIN" | "ADMIN" | "FOOTER";
-  roles?: string[];
 }
 
 const menuItems: MenuItem[] = [
@@ -40,8 +39,6 @@ const menuItems: MenuItem[] = [
     label: "Lead Pipeline",
     href: "/dashboard/followups",
     category: "MAIN",
-    // Support works after-sales from Contacts and Tasks; it has no pipeline access (see the permission matrix).
-    roles: ["admin", "manager", "team_lead", "sales_executive", "tele_caller", "field_executive"],
     icon: (
       <path d="M4 4h5v16H4zM15 4h5v10h-5z" />
     ),
@@ -78,13 +75,11 @@ const menuItems: MenuItem[] = [
     label: "Employees",
     href: "/dashboard/employees",
     category: "ADMIN",
-    roles: ["admin", "manager"],
     icon: (
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
     ),
   },
   {
-    // No roles: every signed-in user has an account page. Admin and manager see the team-wide tabs too.
     id: "settings",
     label: "Settings",
     href: "/dashboard/settings",
@@ -154,10 +149,7 @@ export default function DashboardSidebar() {
     try { return JSON.parse(storedUser) as SessionUser; } catch { return null; }
   }, [storedUser]);
 
-  const visibleMenuItems = useMemo(
-    () => menuItems.filter((item) => !item.roles || (user ? item.roles.includes(user.role) : false)),
-    [user],
-  );
+  const visibleMenuItems = menuItems;
 
   function logout() {
     sessionStorage.clear();

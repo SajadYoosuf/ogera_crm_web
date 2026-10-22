@@ -23,9 +23,6 @@ export type SaleInput = {
   purchased_product?: string | null;
 };
 
-/** Only admins and managers may add, edit or delete sales (the backend enforces it too). */
-export const canEditSales = (role: string | undefined) => role === "admin" || role === "manager";
-
 async function authed<T>(method: string, path: string, accessToken: string, body?: unknown): Promise<T> {
   try {
     return await request<T>(path, {

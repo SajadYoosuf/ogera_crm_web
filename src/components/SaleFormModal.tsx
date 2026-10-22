@@ -23,15 +23,13 @@ const labelClass = "grid gap-1.5 text-[13px] font-medium text-[#4B5060]";
 type Props = {
   /** null = add a new sale. */
   sale: Sale | null;
-  /** Admins and managers can change sales; everyone else sees the details read-only. */
-  canEdit: boolean;
   productNames: string[];
   onClose: () => void;
   /** Called after a save or delete so the list reloads. */
   onChanged: () => void;
 };
 
-export default function SaleFormModal({ sale, canEdit, productNames, onClose, onChanged }: Props) {
+export default function SaleFormModal({ sale, productNames, onClose, onChanged }: Props) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(sale));
   const [isSaving, setIsSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -49,7 +47,6 @@ export default function SaleFormModal({ sale, canEdit, productNames, onClose, on
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!canEdit) return;
     if (!draft.name.trim()) { setError("Enter the buyer name."); return; }
     const accessToken = sessionStorage.getItem("ogera_access_token");
     if (!accessToken) { setError(sessionError); return; }
@@ -81,7 +78,7 @@ export default function SaleFormModal({ sale, canEdit, productNames, onClose, on
     }
   };
 
-  const title = sale && !canEdit ? "Sale details" : sale ? "Edit sale" : "Add New Sale";
+  const title = sale ? "Edit sale" : "Add New Sale";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#1A1C21]/40 sm:items-center sm:p-4">
@@ -96,57 +93,55 @@ export default function SaleFormModal({ sale, canEdit, productNames, onClose, on
 
         <div className="mt-5 grid gap-4">
           <label className={labelClass}>Buyer name
-            <input className={fieldClass} value={draft.name} onChange={(e) => set("name")(e.target.value)} maxLength={150} disabled={!canEdit} autoFocus={canEdit} />
+            <input className={fieldClass} value={draft.name} onChange={(e) => set("name")(e.target.value)} maxLength={150} autoFocus />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className={labelClass}>Phone
-              <input className={fieldClass} type="tel" inputMode="tel" value={draft.phone} onChange={(e) => set("phone")(e.target.value)} disabled={!canEdit} />
+              <input className={fieldClass} type="tel" inputMode="tel" value={draft.phone} onChange={(e) => set("phone")(e.target.value)} />
             </label>
             <label className={labelClass}>Alternate phone
-              <input className={fieldClass} type="tel" inputMode="tel" value={draft.alt_phone} onChange={(e) => set("alt_phone")(e.target.value)} disabled={!canEdit} />
+              <input className={fieldClass} type="tel" inputMode="tel" value={draft.alt_phone} onChange={(e) => set("alt_phone")(e.target.value)} />
             </label>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className={labelClass}>Purchase date
-              <input className={fieldClass} type="date" value={draft.purchase_date} onChange={(e) => set("purchase_date")(e.target.value)} disabled={!canEdit} />
+              <input className={fieldClass} type="date" value={draft.purchase_date} onChange={(e) => set("purchase_date")(e.target.value)} />
             </label>
             <label className={labelClass}>Product purchased
-              <input className={fieldClass} list="sale-products" value={draft.purchased_product} onChange={(e) => set("purchased_product")(e.target.value)} maxLength={150} disabled={!canEdit} />
+              <input className={fieldClass} list="sale-products" value={draft.purchased_product} onChange={(e) => set("purchased_product")(e.target.value)} maxLength={150} />
               <datalist id="sale-products">
                 {productNames.map((name) => <option key={name} value={name} />)}
               </datalist>
             </label>
           </div>
           <label className={labelClass}>Address
-            <textarea className="w-full px-3 py-2 rounded-[8px] border border-[#DEE1E5] bg-white text-sm text-[#1A1C21] outline-none focus:border-[#0E4D3A] disabled:bg-[#F7F8F9] disabled:text-[#4B5060]" rows={3} value={draft.address} onChange={(e) => set("address")(e.target.value)} disabled={!canEdit} />
+            <textarea className="w-full px-3 py-2 rounded-[8px] border border-[#DEE1E5] bg-white text-sm text-[#1A1C21] outline-none focus:border-[#0E4D3A] disabled:bg-[#F7F8F9] disabled:text-[#4B5060]" rows={3} value={draft.address} onChange={(e) => set("address")(e.target.value)} />
           </label>
         </div>
 
         {error && <p role="alert" className="mt-4 rounded-[8px] border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{error}</p>}
 
-        {canEdit && (
-          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              {sale && (confirmingDelete ? (
-                <button type="button" onClick={remove} disabled={isSaving} className="h-10 px-4 rounded-[8px] bg-rose-600 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50">
-                  Confirm delete
-                </button>
-              ) : (
-                <button type="button" onClick={() => setConfirmingDelete(true)} disabled={isSaving} className="h-10 px-4 rounded-[8px] text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50">
-                  Delete
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-col-reverse gap-3 sm:flex-row">
-              <button type="button" onClick={onClose} disabled={isSaving} className="h-10 px-4 rounded-[8px] border border-[#DEE1E5] bg-white text-sm font-medium text-[#3A3E4A] hover:bg-[#F7F8F9] disabled:opacity-50">
-                Cancel
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            {sale && (confirmingDelete ? (
+              <button type="button" onClick={remove} disabled={isSaving} className="h-10 px-4 rounded-[8px] bg-rose-600 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50">
+                Confirm delete
               </button>
-              <button type="submit" disabled={isSaving} className="h-10 px-5 rounded-[8px] bg-[#0E4D3A] text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
-                {isSaving ? "Saving…" : sale ? "Save changes" : "Add sale"}
+            ) : (
+              <button type="button" onClick={() => setConfirmingDelete(true)} disabled={isSaving} className="h-10 px-4 rounded-[8px] text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50">
+                Delete
               </button>
-            </div>
+            ))}
           </div>
-        )}
+          <div className="flex flex-col-reverse gap-3 sm:flex-row">
+            <button type="button" onClick={onClose} disabled={isSaving} className="h-10 px-4 rounded-[8px] border border-[#DEE1E5] bg-white text-sm font-medium text-[#3A3E4A] hover:bg-[#F7F8F9] disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={isSaving} className="h-10 px-5 rounded-[8px] bg-[#0E4D3A] text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+              {isSaving ? "Saving…" : sale ? "Save changes" : "Add sale"}
+            </button>
+          </div>
+        </div>
       </form>
     </div>
   );

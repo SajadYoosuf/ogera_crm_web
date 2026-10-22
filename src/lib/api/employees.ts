@@ -3,14 +3,8 @@ import { ApiError, request, type Employee } from "./auth";
 export type { Employee };
 
 /** Mirrors the Employees section of the parent API.md. */
-export const EMPLOYEE_ROLES = ["admin", "manager", "team_lead", "sales_executive", "tele_caller", "field_executive", "support"] as const;
+export const EMPLOYEE_ROLES = ["admin", "manager", "sales_executive"] as const;
 export type EmployeeRole = (typeof EMPLOYEE_ROLES)[number];
-
-/** Admin and manager monitor the team; they are never offered as someone to carry out leads or tasks (see rule.md). */
-export const isMonitoringRole = (role: string) => role === "admin" || role === "manager";
-export const isPrivilegedRole = (role: string) => role === "admin" || role === "manager";
-/** Every /employees route is limited to these roles. */
-export const canManageEmployees = (role: string | undefined) => !!role && isPrivilegedRole(role);
 
 export type EmployeeList = { items: Employee[]; total: number; skip: number; limit: number };
 
@@ -20,20 +14,14 @@ export type EmployeeCreate = {
   phone?: string;
   role?: EmployeeRole;
   is_field_staff?: boolean;
-  team_lead_id?: number | null;
   password: string;
 };
 
-/** Partial update. `phone: null` clears it; the other fields cannot be null. `team_lead_id: null` removes the team link. */
-export type EmployeeUpdate = Partial<Omit<EmployeeCreate, "phone" | "team_lead_id">> & {
+/** Partial update. `phone: null` clears it; the other fields cannot be null. */
+export type EmployeeUpdate = Partial<Omit<EmployeeCreate, "phone">> & {
   phone?: string | null;
-  team_lead_id?: number | null;
   is_active?: boolean;
 };
-
-/** Team leads an admin or manager can link an employee to. Only active team_lead accounts are offered. */
-export const teamLeadOptions = (employees: Employee[]) =>
-  employees.filter((e) => e.role === "team_lead" && e.is_active && !e.deleted_at);
 
 const PAGE_SIZE = 100; // API maximum
 const MAX_PAGES = 10; // safety cap: 1,000 employees
@@ -130,11 +118,3 @@ export const updateEmployee = (accessToken: string, id: number, input: EmployeeU
 
 /** DELETE /employees/{id} — soft delete, 204. */
 export const deleteEmployee = (accessToken: string, id: number) => call<void>(accessToken, "DELETE", `/employees/${id}`);
-
-/** Roles the viewer may assign (only admins can grant admin/manager). */
-export const assignableRoles = (viewerRole: string): EmployeeRole[] =>
-  viewerRole === "admin" ? [...EMPLOYEE_ROLES] : EMPLOYEE_ROLES.filter((role) => !isPrivilegedRole(role));
-
-/** Only admins may modify another admin/manager; anyone may edit themselves. */
-export const canModifyEmployee = (viewer: { id: number; role: string }, target: Employee) =>
-  viewer.role === "admin" || target.id === viewer.id || !isPrivilegedRole(target.role);

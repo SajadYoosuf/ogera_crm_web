@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 // Must stay in step with the `professionals.type` enum and the API's own list.
 const PROFESSIONAL_TYPES = ["Engineer", "Plumber", "Contractor", "Interior Designer", "Electrician", "Other"] as const;
@@ -63,20 +63,6 @@ export default function ProfessionalsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [formError, setFormError] = useState("");
-  // sessionStorage is a browser-only store, so it is read after hydration with a null server snapshot.
-  const storedUser = useSyncExternalStore(
-    () => () => {},
-    () => sessionStorage.getItem("ogera_user"),
-    () => null,
-  );
-  const isHydrated = useSyncExternalStore(() => () => {}, () => true, () => false);
-  const canManage = useMemo(() => {
-    if (!storedUser) return false;
-    try {
-      const role = (JSON.parse(storedUser) as { role?: string }).role;
-      return role === "admin" || role === "sales_head";
-    } catch { return false; }
-  }, [storedUser]);
 
   const loadProfessionals = useCallback(async () => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
@@ -94,10 +80,9 @@ export default function ProfessionalsPage() {
   }, [type, submittedSearch]);
 
   useEffect(() => {
-    if (!canManage) return;
     const timer = window.setTimeout(() => { void loadProfessionals(); }, 0);
     return () => window.clearTimeout(timer);
-  }, [canManage, loadProfessionals]);
+  }, [loadProfessionals]);
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSubmittedSearch(search.trim()); };
   const updateForm = (field: keyof ProfessionalForm, value: string) => setEditor((current) => current ? { ...current, values: { ...current.values, [field]: value } } : current);
@@ -143,20 +128,6 @@ export default function ProfessionalsPage() {
       setDeleteTarget(null); await loadProfessionals();
     } catch { setFormError("Professional could not be deleted. Please check your connection and try again."); }
     finally { setIsSaving(false); }
-  }
-
-  if (isHydrated && !canManage) {
-    return (
-      <div className="space-y-6 p-5 pt-20 lg:p-6 lg:pt-6">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm py-16 px-6 flex flex-col items-center text-center">
-          <span className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="11" x="4" y="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
-          </span>
-          <h2 className="mt-4 text-base font-bold text-[#0a192f]">Restricted area</h2>
-          <p className="mt-2 max-w-sm text-sm text-gray-500 leading-relaxed">The professionals network is available to admins and sales heads only.</p>
-        </div>
-      </div>
-    );
   }
 
   return (

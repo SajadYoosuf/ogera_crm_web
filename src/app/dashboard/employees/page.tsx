@@ -4,8 +4,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useState, useSyncExternalSt
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/auth";
 import {
-  assignableRoles, canManageEmployees, canModifyEmployee, createEmployee, deleteEmployee, getEmployee,
-  listAllEmployees, logEvent, updateEmployee, EMPLOYEE_ROLES, isMonitoringRole, teamLeadOptions,
+  createEmployee, deleteEmployee, getEmployee,
+  listAllEmployees, logEvent, updateEmployee, EMPLOYEE_ROLES,
   type Employee, type EmployeeRole, type EmployeeUpdate,
 } from "@/lib/api/employees";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -18,17 +18,13 @@ type LoadState =
   | { status: "ready"; employees: Employee[]; syncedAt: Date };
 
 type Viewer = { id: number; role: string };
-type FormValues = { name: string; email: string; phone: string; role: EmployeeRole; team_lead_id: string; is_active: boolean; password: string };
+type FormValues = { name: string; email: string; phone: string; role: EmployeeRole; is_active: boolean; password: string };
 
 const AVATAR_TONES = ["bg-[#E7F5EE] text-[#0E4D3A]", "bg-[#E0F2FE] text-[#0B6AA8]", "bg-[#DCFCE7] text-[#167A44]", "bg-[#FEF3C7] text-[#9A6200]", "bg-[#FCE7F3] text-[#A8326E]"];
 const ROLE_STYLES: Record<string, string> = {
   admin: "bg-[#1A1C21] text-white",
   manager: "bg-[#F1EDFF] text-[#5B3FD6]",
-  team_lead: "bg-[#E0F2FE] text-[#0B6AA8]",
   sales_executive: "bg-[#EEF4FF] text-[#1D5BBF]",
-  tele_caller: "bg-[#FEF3C7] text-[#9A6200]",
-  field_executive: "bg-[#FFF7E6] text-[#9A5B00]",
-  support: "bg-[#FCE7F3] text-[#A8326E]",
 };
 const DEFAULT_ROLE_STYLE = "bg-[#F0F0F3] text-[#3A3E4A]";
 
@@ -155,17 +151,6 @@ function Notice({ tone, icon, title, body, children }: { tone: "rose" | "amber" 
 }
 
 /** Whole-page card, used only for the restricted view. */
-function StateCard({ tone, icon, title, body }: { tone: "amber"; icon: React.ReactNode; title: string; body: string }) {
-  const toneClass = { amber: "bg-amber-50 text-amber-600" }[tone];
-  return (
-    <div role="status" className="bg-white rounded-2xl border border-gray-200 shadow-sm py-16 px-6 flex flex-col items-center text-center">
-      <span className={`w-14 h-14 rounded-2xl flex items-center justify-center ${toneClass}`}><Icon className="w-7 h-7">{icon}</Icon></span>
-      <h2 className="mt-5 text-lg font-extrabold text-[#0a192f] tracking-tight">{title}</h2>
-      <p className="mt-2 max-w-sm text-sm text-gray-500 leading-relaxed">{body}</p>
-    </div>
-  );
-}
-
 function SkeletonRows() {
   return (
     <div aria-busy="true" aria-label="Loading employees" className="animate-pulse divide-y divide-[#EFEFF2]">
@@ -189,32 +174,20 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
   const isEdit = !!employee;
   const isSelf = employee?.id === viewer.id;
   const roles = useMemo(() => {
-    const options = assignableRoles(viewer.role);
+    const options: EmployeeRole[] = [...EMPLOYEE_ROLES];
     return employee && !options.includes(employee.role as EmployeeRole) ? [employee.role as EmployeeRole, ...options] : options;
-  }, [viewer.role, employee]);
+  }, [employee]);
   const [values, setValues] = useState<FormValues>({
     name: employee?.name ?? "", email: employee?.email ?? "", phone: toIndianLocal(employee?.phone),
     role: (employee?.role as EmployeeRole) ?? "sales_executive",
-    team_lead_id: employee?.team_lead_id ? String(employee.team_lead_id) : "",
     is_active: employee?.is_active ?? true, password: "",
   });
-  const [teamLeads, setTeamLeads] = useState<Employee[]>([]);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
   const set = <K extends keyof FormValues>(key: K, value: FormValues[K]) => setValues((current) => ({ ...current, [key]: value }));
-
-  // Only a team member needs a team lead, so the picker is shown for non-monitoring, non-team-lead roles.
-  const needsTeamLead = values.role !== "team_lead" && !isMonitoringRole(values.role);
-  useEffect(() => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken || !needsTeamLead) return;
-    listAllEmployees(accessToken)
-      .then(({ employees }) => setTeamLeads(teamLeadOptions(employees)))
-      .catch(() => setTeamLeads([]));
-  }, [needsTeamLead]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -228,7 +201,6 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
       setError("Password must be at least 8 characters and include a letter and a digit."); return;
     }
     setIsSaving(true); setError("");
-    const teamLead = needsTeamLead && values.team_lead_id ? Number(values.team_lead_id) : null;
     try {
       if (employee) {
         const patch: EmployeeUpdate = {};
@@ -236,7 +208,6 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
         if (values.email.trim().toLowerCase() !== employee.email) patch.email = values.email.trim();
         if (values.phone !== toIndianLocal(employee.phone)) patch.phone = values.phone ? `+91${values.phone}` : null;
         if (values.role !== employee.role) patch.role = values.role;
-        if (teamLead !== (employee.team_lead_id ?? null)) patch.team_lead_id = teamLead;
         if (values.is_active !== employee.is_active) patch.is_active = values.is_active;
         if (values.password) patch.password = values.password;
         if (Object.keys(patch).length > 0) await updateEmployee(accessToken, employee.id, patch);
@@ -246,7 +217,6 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
           name: values.name.trim(), email: values.email.trim(), role: values.role,
           password: values.password,
           ...(values.phone ? { phone: `+91${values.phone}` } : {}),
-          ...(teamLead ? { team_lead_id: teamLead } : {}),
         });
         onSaved(`${values.name.trim()} was added to the team.`);
       }
@@ -300,15 +270,6 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
               </select>
               {isSelf && <span className="text-[11px] font-normal text-gray-400">You can&apos;t change your own role.</span>}
             </label>
-            {needsTeamLead && (
-              <label className="crm-field-label sm:col-span-2">Team lead
-                <select value={values.team_lead_id} onChange={(e) => set("team_lead_id", e.target.value)} className="crm-select">
-                  <option value="">No team</option>
-                  {teamLeads.map((lead) => <option key={lead.id} value={String(lead.id)}>{lead.name}</option>)}
-                </select>
-                <span className="text-[11px] font-normal text-gray-400">The team lead sees this person&apos;s contacts and tasks.</span>
-              </label>
-            )}
             <div className="crm-field-label">
               <label htmlFor="employee-password">{isEdit ? "New password" : "Password"}</label>
               <div className="flex items-center rounded-lg border border-gray-200 bg-white shadow-xs transition-colors hover:border-gray-300 focus-within:border-[#0E4D3A] focus-within:ring-2 focus-within:ring-[#0E4D3A]/15">
@@ -376,7 +337,6 @@ export default function EmployeesPage() {
 
   // sessionStorage is a browser-only store, so it is read after hydration with a null server snapshot.
   const storedUser = useSyncExternalStore(() => () => {}, () => sessionStorage.getItem("ogera_user"), () => null);
-  const isHydrated = useSyncExternalStore(() => () => {}, () => true, () => false);
   const viewer = useMemo<Viewer | null>(() => {
     if (!storedUser) return null;
     try {
@@ -384,7 +344,6 @@ export default function EmployeesPage() {
       return typeof parsed.id === "number" && parsed.role ? { id: parsed.id, role: parsed.role } : null;
     } catch { return null; }
   }, [storedUser]);
-  const canView = canManageEmployees(viewer?.role);
 
   const load = useCallback(async (reason: string) => {
     logEvent(`load triggered: ${reason}`, { path: window.location.pathname, online: navigator.onLine });
@@ -400,10 +359,9 @@ export default function EmployeesPage() {
   }, []);
 
   useEffect(() => {
-    if (!canView) return;
     const timer = window.setTimeout(() => { void load("page opened"); }, 0);
     return () => window.clearTimeout(timer);
-  }, [canView, load]);
+  }, [load]);
 
   // Recover automatically when the connection returns after an offline/network failure.
   const failedOffline = state.status === "error" && (state.error.kind === "offline" || state.error.kind === "network");
@@ -471,14 +429,6 @@ export default function EmployeesPage() {
       if (error instanceof ApiError && error.kind === "invalid_credentials") { router.push("/"); return; }
       setDeleteError(error instanceof ApiError ? error.message : "Employee could not be deleted. Please try again.");
     } finally { setIsDeleting(false); }
-  }
-
-  if (isHydrated && !canView) {
-    return (
-      <div className="space-y-6 p-5 pt-20 lg:p-6 lg:pt-6">
-        <StateCard tone="amber" icon={icons.lock} title="Restricted area" body="The employee directory is available to admins and managers only." />
-      </div>
-    );
   }
 
   return (
@@ -577,8 +527,8 @@ export default function EmployeesPage() {
                   <tbody>
                     {pageRows.map((employee) => {
                       const isSelf = employee.id === viewer?.id;
-                      const canEdit = !!viewer && canModifyEmployee(viewer, employee);
-                      const canDelete = canEdit && !isSelf;
+                      const canEdit = true;
+                      const canDelete = !isSelf;
                       return (
                         <tr key={employee.id} onClick={() => setSelected(employee)} className="cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB]">
                           <td className="px-4 py-3.5">
@@ -615,8 +565,8 @@ export default function EmployeesPage() {
 
               <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:hidden">
                 {pageRows.map((employee) => {
-                  const canEdit = !!viewer && canModifyEmployee(viewer, employee);
-                  const canDelete = canEdit && employee.id !== viewer?.id;
+                  const canEdit = true;
+                  const canDelete = employee.id !== viewer?.id;
                   return (
                     <article key={employee.id} className="relative rounded-xl border border-[#E7E7EA] bg-white transition-colors hover:border-[#7EE2A8]">
                       <button type="button" onClick={() => setSelected(employee)} className="block w-full rounded-xl p-4 text-left focus-visible:outline-2 focus-visible:outline-[#0E4D3A]">
@@ -722,19 +672,13 @@ export default function EmployeesPage() {
                   </div>
                 ))}
               </dl>
-              {!canModifyEmployee(viewer, selected) && (
-                <p className="mt-4 px-3 py-2.5 rounded-lg border border-amber-200 bg-amber-50 text-xs text-amber-800">Only an admin can modify another admin or manager.</p>
-              )}
             </div>
 
             <footer className="grid grid-cols-2 gap-3 px-5 py-4 border-t border-gray-100 bg-white shrink-0 sm:flex sm:justify-end">
-              {canModifyEmployee(viewer, selected) && selected.id !== viewer.id && (
+              {selected.id !== viewer.id && (
                 <button type="button" onClick={() => { setDeleteError(""); setDeleteTarget(selected); }} className="min-h-11 inline-flex items-center justify-center gap-2 px-4 rounded-xl border border-rose-200 bg-white text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors"><Icon>{icons.trash}</Icon> Delete</button>
               )}
-              {canModifyEmployee(viewer, selected) && (
-                <button type="button" onClick={() => setEditor({ employee: selected })} className={primaryButton}><Icon>{icons.edit}</Icon> Edit</button>
-              )}
-              {!canModifyEmployee(viewer, selected) && <a href={`mailto:${selected.email}`} className={secondaryButton}><Icon>{icons.mail}</Icon> Email</a>}
+              <button type="button" onClick={() => setEditor({ employee: selected })} className={primaryButton}><Icon>{icons.edit}</Icon> Edit</button>
             </footer>
           </section>
         </div>

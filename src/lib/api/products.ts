@@ -87,9 +87,6 @@ async function authed<T>(path: string, init: RequestInit): Promise<T> {
   }
 }
 
-/** Only admins and managers may add, edit or archive products (the backend enforces it too). */
-export const canEditProducts = (role: string | undefined) => role === "admin" || role === "manager";
-
 export function listProducts(token: string, query: ProductQuery = {}) {
   const params = new URLSearchParams();
   if (query.q?.trim()) params.set("q", query.q.trim());

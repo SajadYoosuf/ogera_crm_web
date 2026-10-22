@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, type Employee } from "@/lib/api/auth";
 import {
-  assignableRoles, canModifyEmployee, createEmployee, deleteEmployee, listAllEmployees, updateEmployee,
+  createEmployee, deleteEmployee, EMPLOYEE_ROLES, listAllEmployees, updateEmployee,
 } from "@/lib/api/employees";
 
 const employee = (id: number, role = "sales_executive"): Employee => ({
@@ -45,12 +45,12 @@ describe("employees client", () => {
   });
 
   it("POSTs the create payload as JSON", async () => {
-    const fn = mockFetch([{ status: 201, body: employee(7, "tele_caller") }]);
-    await createEmployee("tok", { name: "Anu", email: "anu@ogera.com", role: "tele_caller", password: "Welcome123" });
+    const fn = mockFetch([{ status: 201, body: employee(7, "sales_executive") }]);
+    await createEmployee("tok", { name: "Anu", email: "anu@ogera.com", role: "sales_executive", password: "Welcome123" });
     const [url, init] = apiCalls(fn)[0];
     expect(String(url)).toMatch(/\/employees$/);
     expect(init?.method).toBe("POST");
-    expect(JSON.parse(String(init?.body))).toMatchObject({ email: "anu@ogera.com", role: "tele_caller" });
+    expect(JSON.parse(String(init?.body))).toMatchObject({ email: "anu@ogera.com", role: "sales_executive" });
   });
 
   it("treats a 204 delete as success", async () => {
@@ -75,19 +75,8 @@ describe("employees client", () => {
   });
 });
 
-describe("employee permissions", () => {
-  it("only admins may assign admin/manager", () => {
-    expect(assignableRoles("admin")).toContain("manager");
-    expect(assignableRoles("manager")).not.toContain("admin");
-    expect(assignableRoles("manager")).not.toContain("manager");
-  });
-
-  it("managers can edit staff and themselves, but not other managers or admins", () => {
-    const viewer = { id: 2, role: "manager" };
-    expect(canModifyEmployee(viewer, employee(5))).toBe(true);
-    expect(canModifyEmployee(viewer, employee(2, "manager"))).toBe(true);
-    expect(canModifyEmployee(viewer, employee(3, "manager"))).toBe(false);
-    expect(canModifyEmployee(viewer, employee(1, "admin"))).toBe(false);
-    expect(canModifyEmployee({ id: 1, role: "admin" }, employee(3, "manager"))).toBe(true);
+describe("employee roles", () => {
+  it("offers only admin, manager and sales executive", () => {
+    expect([...EMPLOYEE_ROLES]).toEqual(["admin", "manager", "sales_executive"]);
   });
 });

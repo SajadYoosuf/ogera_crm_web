@@ -3,7 +3,7 @@
 import DateRangePicker from "@/components/DateRangePicker";
 import { addDays, fromISO, startOfWeek, toISO } from "@/components/tasks/calendar";
 
-export type PeriodMode = "day" | "week" | "month" | "last_month" | "custom";
+export type PeriodMode = "day" | "week" | "month" | "last_month" | "all" | "custom";
 export type Period = { mode: PeriodMode; anchor: string; from: string; to: string };
 
 export const TODAY_ONLY = (today: string): Period => ({ mode: "day", anchor: today, from: today, to: today });

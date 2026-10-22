@@ -171,6 +171,6 @@ Error text from the backend is shown as-is. The reset screen uses it to decide w
 
 ## Known gaps
 
-- **No session check when the dashboard loads.** `dashboard/layout.tsx` renders the shell for anyone. An expired token is only noticed when a data request returns `401`. `getMe()` is ready to use for this.
+- **No session check when the dashboard loads.** `dashboard/layout.tsx` renders the shell for anyone. An expired token is only noticed when a data request returns `401`.tMe()` is ready to use for this.
 - **Dev-only Next route.** `src/app/api/dev-log/route.ts` relays console logs to the terminal in development. It is not used in production.
 - **Stale role value in the sidebar.** One `DashboardSidebar` menu item still lists `sales_head` in its allowed roles (`roles: ["admin", "sales_head"]`). Backend roles are the slugs in `EMPLOYEE_ROLES`, so that entry never matches a current employee. The login flow itself does not check roles.

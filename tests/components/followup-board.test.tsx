@@ -16,9 +16,31 @@ function serve(routes: Record<string, (url: URL) => unknown>) {
   });
 }
 
-const lead = (id: number, name: string, source: string | null, stage = "new_lead") => ({
+const CONSUMER_STAGES = [
+  { id: 1, slug: "new_lead", label: "New Lead", order_index: 0, contact_type: "consumer" },
+  { id: 2, slug: "aware", label: "Aware", order_index: 1, contact_type: "consumer" },
+  { id: 3, slug: "connected", label: "Connected", order_index: 2, contact_type: "consumer" },
+  { id: 4, slug: "interested", label: "Interested", order_index: 3, contact_type: "consumer" },
+  { id: 5, slug: "negotiating", label: "Negotiating", order_index: 4, contact_type: "consumer" },
+  { id: 6, slug: "won", label: "Won", order_index: 5, contact_type: "consumer" },
+  { id: 7, slug: "lost", label: "Lost", order_index: 6, contact_type: "consumer" },
+];
+
+const PARTNER_STAGES = [
+  { id: 11, slug: "new_lead", label: "New Lead", order_index: 0, contact_type: "partner" },
+  { id: 12, slug: "aware", label: "Aware", order_index: 1, contact_type: "partner" },
+  { id: 13, slug: "connected", label: "Connected", order_index: 2, contact_type: "partner" },
+  { id: 14, slug: "demo", label: "Demo / Introduction", order_index: 3, contact_type: "partner" },
+  { id: 15, slug: "interested", label: "Interested", order_index: 4, contact_type: "partner" },
+  { id: 16, slug: "active_referral", label: "Active Referral", order_index: 5, contact_type: "partner" },
+  { id: 17, slug: "inactive", label: "Inactive", order_index: 6, contact_type: "partner" },
+];
+
+/** Build a mock API contact. stage_id defaults to 1 (consumer "New Lead"). */
+const lead = (id: number, name: string, source: string | null, stageSlug = "new_lead", stageId = 1) => ({
   id, contact_type: "consumer", name, phone: `98000000${id}`, address: "Street", district: "Malappuram", profession_type: null,
-  lead_stage: { stage, changed_at: new Date().toISOString() }, lead_source: source ? { id: id * 10, name: source } : null,
+  lead_stage: { stage_id: stageId, stage_slug: stageSlug, stage_name: stageSlug.replace(/_/g, " "), changed_at: new Date().toISOString() },
+  lead_source: source ? { id: id * 10, name: source } : null,
   assigned_to: { id: 7, name: "Sajad" }, created_by: null, created_at: "2026-10-01T09:00:00", is_verified: true, missing_fields: [],
 });
 
@@ -34,13 +56,23 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); fetchMock.mockReset(); sessi
 
 describe("FollowupBoard", () => {
   it("shows an empty state when there are no consumer leads", async () => {
-    serve({ "/contacts": () => ok({ items: [], total: 0, skip: 0, limit: 100 }), "/employees": () => ok({ items: [], total: 0 }), "/lead-sources": () => ok(SOURCES) });
+    serve({
+      "/contacts": () => ok({ items: [], total: 0, skip: 0, limit: 100 }),
+      "/employees": () => ok({ items: [], total: 0 }),
+      "/lead-sources": () => ok(SOURCES),
+      "/pipeline/stages": () => ok(CONSUMER_STAGES),
+    });
     render(<FollowupBoard />);
     expect(await screen.findByText("No consumer leads yet")).toBeTruthy();
   });
 
   it("shows an error with a retry when the server fails", async () => {
-    serve({ "/contacts": () => fail(500, "boom"), "/employees": () => ok({ items: [], total: 0 }), "/lead-sources": () => ok(SOURCES) });
+    serve({
+      "/contacts": () => fail(500, "boom"),
+      "/employees": () => ok({ items: [], total: 0 }),
+      "/lead-sources": () => ok(SOURCES),
+      "/pipeline/stages": () => ok(CONSUMER_STAGES),
+    });
     render(<FollowupBoard />);
     expect(await screen.findByRole("button", { name: "Try again" })).toBeTruthy();
   });
@@ -50,9 +82,10 @@ describe("FollowupBoard", () => {
       "/contacts": () => ok({ items: [lead(1, "Asha", "Meta"), lead(2, "Binu", "Offline")], total: 2, skip: 0, limit: 100 }),
       "/employees": () => ok({ items: [], total: 0 }),
       "/lead-sources": () => ok(SOURCES),
+      "/pipeline/stages": () => ok(CONSUMER_STAGES),
     });
     render(<FollowupBoard />);
-    fireEvent.click(await screen.findByRole("button", { name: /^Source:/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Source/ }));
     const options = screen.getAllByRole("option").map((option) => option.textContent);
     for (const source of SOURCES) expect(options).toContain(source.name);
     expect(options).toContain("All");
@@ -60,9 +93,15 @@ describe("FollowupBoard", () => {
 
   it("switches between the consumer and partner boards, each with its own stages and its own request", async () => {
     serve({
-      "/contacts": (url) => ok({ items: url.searchParams.get("contact_type") === "partner" ? [{ ...lead(5, "Raju", "Meta", "won"), contact_type: "partner", created_at: new Date().toISOString() }] : [], total: 1, skip: 0, limit: 100 }),
+      "/contacts": (url) => ok({
+        items: url.searchParams.get("contact_type") === "partner"
+          ? [{ ...lead(5, "Raju", "Meta", "active_referral", 16), contact_type: "partner", created_at: new Date().toISOString() }]
+          : [],
+        total: 1, skip: 0, limit: 100,
+      }),
       "/employees": () => ok({ items: [], total: 0 }),
       "/lead-sources": () => ok(SOURCES),
+      "/pipeline/stages": (url) => ok(url.searchParams.get("contact_type") === "partner" ? PARTNER_STAGES : CONSUMER_STAGES),
     });
     render(<FollowupBoard />);
     await screen.findByText("No consumer leads yet");
@@ -73,15 +112,23 @@ describe("FollowupBoard", () => {
     for (const label of ["New Lead", "Connected", "Demo / Introduction", "Aware", "Interested", "Inactive"]) expect(screen.getByText(label)).toBeTruthy();
     expect(screen.queryByText("Negotiating")).toBeNull();
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("contact_type=partner"))).toBe(true);
-    // a partner saved with the consumer "Won" stage shows under Active Referral, not in a missing column
+    // A partner in the active_referral stage shows in the Active Referral column
     expect(screen.getByText("Raju")).toBeTruthy();
   });
 
-  it("opens the partner board on today like consumers, filters partners by their created date, and All brings back older ones", async () => {
+  it("opens the partner board on Day like consumers, filters partners by their created date, and All brings back older ones", async () => {
+    const oldPartner = { ...lead(8, "Old Partner", "Meta", "new_lead", 11), contact_type: "partner", created_at: "2026-07-01T09:00:00" };
     serve({
-      "/contacts": (url) => ok({ items: url.searchParams.get("contact_type") === "partner" ? [{ ...lead(8, "Old Partner", "Meta"), contact_type: "partner", created_at: "2026-07-01T09:00:00" }] : [], total: 1, skip: 0, limit: 100 }),
+      // Return Old Partner only when no date filter is applied (i.e. the "All" mode sends no created_from/created_to).
+      "/contacts": (url) => {
+        const isPartner = url.searchParams.get("contact_type") === "partner";
+        const hasDateFilter = url.searchParams.has("created_from") || url.searchParams.has("created_to");
+        const items = isPartner && !hasDateFilter ? [oldPartner] : [];
+        return ok({ items, total: items.length, skip: 0, limit: 100 });
+      },
       "/employees": () => ok({ items: [], total: 0 }),
       "/lead-sources": () => ok(SOURCES),
+      "/pipeline/stages": (url) => ok(url.searchParams.get("contact_type") === "partner" ? PARTNER_STAGES : CONSUMER_STAGES),
     });
     render(<FollowupBoard />);
     await screen.findByText("No consumer leads yet");
@@ -95,6 +142,6 @@ describe("FollowupBoard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Month" })); // this month has no partner created in it
     expect(screen.queryByText("Old Partner")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "All" }));
-    expect(screen.getByText("Old Partner")).toBeTruthy();
+    expect(await screen.findByText("Old Partner")).toBeTruthy();
   });
 });

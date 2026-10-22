@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import SaleFormModal from "@/components/SaleFormModal";
 import { ApiError } from "@/lib/api/auth";
-import { canEditSales, listSaleProducts, listSales, type Sale } from "@/lib/api/sales";
+import { listSaleProducts, listSales, type Sale } from "@/lib/api/sales";
 import { dmSans, sora } from "@/lib/auth-fonts";
 
 const PAGE_SIZE = 8;
@@ -43,11 +43,6 @@ export default function SalesPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const latestRequest = useRef(0);
 
-  const storedUser = useSyncExternalStore(() => () => {}, () => sessionStorage.getItem("ogera_user"), () => null);
-  const viewerRole = useMemo(() => {
-    try { return (JSON.parse(storedUser ?? "null") as { role?: string } | null)?.role; } catch { return undefined; }
-  }, [storedUser]);
-  const canEdit = canEditSales(viewerRole);
 
   // Search waits for a short pause in typing, then goes back to the first page.
   useEffect(() => {
@@ -129,16 +124,14 @@ export default function SalesPage() {
     <div className={`${dmSans.variable} ${sora.variable} flex min-h-full flex-col font-[family-name:var(--font-dm-sans)] text-[#1A1C21]`}>
       <header className="flex h-[72px] shrink-0 flex-wrap items-center justify-between gap-4 border-b border-[#E5E7EA] bg-white px-7">
         <h1 className="whitespace-nowrap font-[family-name:var(--font-sora)] text-xl font-bold tracking-[-0.01em] text-[#1A1C21]">Sales Register</h1>
-        {canEdit && (
-          <button
-            type="button"
-            onClick={() => setEditing("new")}
-            className="flex h-10 shrink-0 items-center gap-2 rounded-[8px] bg-[#0E4D3A] px-4 text-sm font-semibold text-white hover:opacity-90"
-          >
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-            Add New Sale
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setEditing("new")}
+          className="flex h-10 shrink-0 items-center gap-2 rounded-[8px] bg-[#0E4D3A] px-4 text-sm font-semibold text-white hover:opacity-90"
+        >
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+          Add New Sale
+        </button>
       </header>
 
       <div className="flex flex-col gap-3.5 px-7 pb-6 pt-[22px]">
@@ -272,7 +265,6 @@ export default function SalesPage() {
       {editing && (
         <SaleFormModal
           sale={editing === "new" ? null : editing}
-          canEdit={canEdit}
           productNames={productNames}
           onClose={() => setEditing(null)}
           onChanged={() => { setEditing(null); setReloadKey((k) => k + 1); }}

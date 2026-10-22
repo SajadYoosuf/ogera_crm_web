@@ -15,7 +15,7 @@ export type StageEntry = {
   changed_at: string;
 };
 
-/** Mirrors StageTypeItem in the backend (GET /contacts/stage-types). */
+/** One pipeline stage row (GET /pipeline/stages). */
 export type StageTypeItem = {
   id: number;
   slug: string;
@@ -47,7 +47,7 @@ export async function listLeads(accessToken: string, kind: LeadKind, dateFrom?: 
 
 /** Pipeline stages for one contact type in board order. */
 export const listStageTypes = (accessToken: string, contactType: LeadKind) =>
-  request<StageTypeItem[]>(`/contacts/stage-types?contact_type=${contactType}`, { headers: authHeader(accessToken) });
+  request<StageTypeItem[]>(`/pipeline/stages?contact_type=${contactType}`, { headers: authHeader(accessToken) });
 
 /** One row of GET /contacts/{id}/history (backend HistoryItem). Fields not used by an event type are null. */
 export type HistoryEvent = {

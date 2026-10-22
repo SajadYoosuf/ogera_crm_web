@@ -29,13 +29,6 @@ export type EnumValue = {
 
 export type Company = { company_name: string; company_logo_url: string | null };
 
-export type PermissionLevel = "full" | "view" | "team" | "own" | "customers" | "none";
-export type PermissionCell = { level: PermissionLevel; note: string | null; editable: boolean };
-export type PermissionMatrix = {
-  roles: { slug: string; name: string; is_system: boolean; is_active: boolean }[];
-  features: { key: string; label: string; description: string; action: string | null; levels: Record<string, PermissionCell> }[];
-};
-
 export type RoleSummary = { id: number; slug: string; name: string; description: string | null; is_system: boolean; is_active: boolean; employee_count: number };
 
 /** auth.ts maps statuses for the login form; on protected routes 401/403 mean something else. */
@@ -94,11 +87,7 @@ export const logoSrc = (url: string | null) => (!url ? null : url.startsWith("/"
 
 // ---- Roles ----
 
-export const getPermissionMatrix = (token: string) => call<PermissionMatrix>(token, "GET", "/settings/roles");
 /** Switches one action on or off for a role. Returns the whole matrix so the grid redraws in one step. */
-export const setRolePermission = (token: string, slug: string, action: string, allowed: boolean) =>
-  call<PermissionMatrix>(token, "PUT", `/settings/roles/${slug}/permissions/${action}`, { allowed });
-
 // ---- My account ----
 
 export type MyProfile = { id: number; name: string; email: string; role: string };

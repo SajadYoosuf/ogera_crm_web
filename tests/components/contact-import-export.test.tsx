@@ -110,7 +110,7 @@ describe("ContactImportModal", () => {
     vi.mocked(commitImport).mockResolvedValue({ created: 1, updated: 0, skipped: 2 });
     mockEmployeeFetch();
     const onImported = vi.fn();
-    render(<ContactImportModal leadSources={SOURCES} role="admin" onClose={vi.fn()} onImported={onImported} />);
+    render(<ContactImportModal leadSources={SOURCES} onClose={vi.fn()} onImported={onImported} />);
 
     const file = new File(["Customer Name,Mobile\nAsha,9876543210"], "leads.csv", { type: "text/csv" });
     fireEvent.change(screen.getByLabelText("Choose a file to import"), { target: { files: [file] } });
@@ -142,7 +142,7 @@ describe("ContactImportModal", () => {
       summary: { total: 1, ready: 0, warning: 0, duplicate: 0, error: 1 },
     });
     mockEmployeeFetch();
-    render(<ContactImportModal leadSources={SOURCES} role="admin" onClose={vi.fn()} onImported={vi.fn()} />);
+    render(<ContactImportModal leadSources={SOURCES} onClose={vi.fn()} onImported={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText("Choose a file to import"), { target: { files: [new File(["x"], "a.csv")] } });
 
@@ -159,7 +159,7 @@ describe("ContactImportModal", () => {
     // Must use .csv — .pdf is rejected client-side before calling the API
     vi.mocked(analyzeImport).mockRejectedValue(new ApiError("unknown" as never, "Upload a .csv or .xlsx file"));
     mockEmployeeFetch();
-    render(<ContactImportModal leadSources={SOURCES} role="admin" onClose={vi.fn()} onImported={vi.fn()} />);
+    render(<ContactImportModal leadSources={SOURCES} onClose={vi.fn()} onImported={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText("Choose a file to import"), { target: { files: [new File(["x"], "a.csv")] } });
 

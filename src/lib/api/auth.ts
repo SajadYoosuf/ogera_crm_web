@@ -35,8 +35,6 @@ export type Employee = {
   role: string;
   is_field_staff: boolean;
   phone: string | null;
-  /** The team lead this employee reports to. Null when they have no team. */
-  team_lead_id?: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -105,7 +103,8 @@ export function errorFromResponse(status: number, body: unknown): ApiError {
   if (incomplete) return new ApiError("unknown", incomplete.message, status, incomplete.missing);
   const detail = extractDetail(body);
   if (status === 401) return new ApiError("invalid_credentials", "Incorrect email or password.", status);
-  if (status === 403) return new ApiError("inactive_account", "This account is inactive. Contact your administrator.", status);
+  // 403 on login: the account is inactive, or a sales executive tried the website (the server says which).
+  if (status === 403) return new ApiError("inactive_account", detail ?? "This account is inactive. Contact your administrator.", status);
   if (status === 422) return new ApiError("validation", detail ?? "Please check the email and password you entered.", status);
   // 503 is used for "the server cannot do this right now" (for example, email is not configured), so its message is shown.
   if (status === 503 && detail) return new ApiError("server", detail, status);

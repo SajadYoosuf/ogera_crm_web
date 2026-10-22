@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isoDate } from "@/components/followups/activities";
 import { useEnumOptions } from "@/hooks/useEnumOptions";
 import { ApiError } from "@/lib/api/auth";
 import { markFollowupDone, rescheduleFollowup } from "@/lib/api/activities";
 import FollowupScheduleForm from "@/components/followups/FollowupScheduleForm";
-import { isMonitoringRole, listAllEmployees } from "@/lib/api/employees";
+import { listAllEmployees } from "@/lib/api/employees";
 import { listTasks, type TaskItem, type TaskList, type TaskStatus } from "@/lib/api/tasks";
 import DateRangePicker from "@/components/DateRangePicker";
 import { addDays, MAX_CUSTOM_DAYS, rangeFor, startOfWeek, type TaskView } from "./calendar";
@@ -19,13 +19,8 @@ type DueKey = "all" | "today" | "week" | "month" | "custom";
 const DUE_OPTIONS: { value: DueKey; label: string }[] = [{ value: "all", label: "All dates" }, { value: "today", label: "Today" }, { value: "week", label: "This week" }, { value: "month", label: "This month" }, { value: "custom", label: "Custom range" }];
 const STATUSES: { value: TaskStatus; label: string }[] = [{ value: "all", label: "All" }, { value: "todo", label: "To do" }, { value: "inprogress", label: "In Progress" }, { value: "completed", label: "Completed" }];
 const LEAD_TYPES = [{ value: "", label: "All" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }, { value: "dealer", label: "Dealer" }] as const;
-const MANAGER_ROLES = ["admin", "manager", "sales_head"];
 
 const errorText = (caught: unknown) => (caught instanceof ApiError ? caught.message : "Tasks could not be loaded. Please try again.");
-
-function roleOf(stored: string | null) {
-  try { return (JSON.parse(stored ?? "null") as { role?: string } | null)?.role ?? ""; } catch { return ""; }
-}
 
 const optionClass = (on: boolean) => `flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors ${on ? "bg-[rgba(14,122,79,0.08)] font-semibold text-[#0E4D3A]" : "text-[#3A3E4A] hover:bg-[#F3F3F5]"}`;
 const groupLabel = "px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.02em] text-[#9AA0AC]";
@@ -52,9 +47,6 @@ export default function TasksBoard() {
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const wide = useWide();
-  // sessionStorage is a browser-only store, so it is read after hydration with a null server snapshot.
-  const storedUser = useSyncExternalStore(() => () => {}, () => sessionStorage.getItem("ogera_user"), () => null);
-  const isManager = MANAGER_ROLES.includes(roleOf(storedUser));
   const latest = useRef(0);
 
   const { from, to } = useMemo(() => (view === "custom" && custom ? custom : rangeFor(view, date)), [view, date, custom]);
@@ -92,11 +84,11 @@ export default function TasksBoard() {
 
   useEffect(() => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!isManager || !accessToken) return;
+    if (!accessToken) return;
     listAllEmployees(accessToken)
-      .then(({ employees }) => setStaff(employees.filter((employee) => employee.is_active && !isMonitoringRole(employee.role)).map(({ id, name }) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))))
+      .then(({ employees }) => setStaff(employees.filter((employee) => employee.is_active).map(({ id, name }) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))))
       .catch(() => setStaff([])); // the employee filter just stays empty
-  }, [isManager]);
+  }, []);
 
   useEffect(() => {
     if (!notice) return;
@@ -257,18 +249,16 @@ export default function TasksBoard() {
                         <button key={item.value} type="button" onClick={() => setType(item.value)} className={optionClass(type === item.value)}>{item.label}</button>
                       ))}
                     </div>
-                    {isManager && (
-                      <>
-                        <div className="h-px w-full shrink-0 bg-[#EFEFF2] sm:h-auto sm:w-px" />
-                        <div className="flex max-h-56 w-full flex-col gap-0.5 sm:w-40 overflow-y-auto">
-                          <span className={groupLabel}>Employee</span>
-                          <button type="button" onClick={() => setAssignee("")} className={optionClass(assignee === "")}>All</button>
-                          {staff.map((member) => (
-                            <button key={member.id} type="button" onClick={() => setAssignee(String(member.id))} className={optionClass(assignee === String(member.id))}>{member.name}</button>
-                          ))}
-                        </div>
-                      </>
-                    )}
+                    <>
+                      <div className="h-px w-full shrink-0 bg-[#EFEFF2] sm:h-auto sm:w-px" />
+                      <div className="flex max-h-56 w-full flex-col gap-0.5 sm:w-40 overflow-y-auto">
+                        <span className={groupLabel}>Employee</span>
+                        <button type="button" onClick={() => setAssignee("")} className={optionClass(assignee === "")}>All</button>
+                        {staff.map((member) => (
+                          <button key={member.id} type="button" onClick={() => setAssignee(String(member.id))} className={optionClass(assignee === String(member.id))}>{member.name}</button>
+                        ))}
+                      </div>
+                    </>
                     {hasFilters && (
                       <>
                         <div className="h-px w-full shrink-0 bg-[#EFEFF2] sm:h-auto sm:w-px" />
@@ -322,7 +312,7 @@ export default function TasksBoard() {
                 <TaskTable tasks={items} empty={items.length === 0 ? emptyState : undefined} onStartMarkDone={startMarkDone} onStartReschedule={startReschedule} />
               ) : items.length === 0 ? emptyState : (
                 <ul className="space-y-3 p-4">
-                  {items.map((task) => <li key={task.id}><TaskCard task={task} showAssignee={isManager || Boolean(assignee)} onStartMarkDone={startMarkDone} onStartReschedule={startReschedule} /></li>)}
+                  {items.map((task) => <li key={task.id}><TaskCard task={task} showAssignee onStartMarkDone={startMarkDone} onStartReschedule={startReschedule} /></li>)}
                 </ul>
               )}
             </div>
@@ -341,7 +331,7 @@ export default function TasksBoard() {
       )}
       {dialog?.step === "schedule" && dialog.task.contact_id !== null && (
         <FollowupScheduleForm contactId={dialog.task.contact_id} contactName={dialog.task.contact_name}
-          staff={isManager && staff.length > 0 ? staff : dialog.task.assigned_to === null ? [] : [{ id: dialog.task.assigned_to, name: dialog.task.assigned_to_name ?? "Assignee" }]}
+          staff={staff.length > 0 ? staff : dialog.task.assigned_to === null ? [] : [{ id: dialog.task.assigned_to, name: dialog.task.assigned_to_name ?? "Assignee" }]}
           defaultAssignee={dialog.task.assigned_to} onCancel={() => setDialog(null)}
           onSaved={async () => { const { task } = dialog; setDialog(null); setNotice(`Follow-up scheduled for ${task.contact_name}.`); await load(true); }} />
       )}

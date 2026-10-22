@@ -3,10 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { usePopoverFit } from "@/hooks/usePopoverFit";
 
-/** Secondary actions for the contacts list: import (admins and managers) and export (admin, manager, team lead). */
-export default function ContactsMoreMenu({ canImport, canExport, onImport, onExport }: {
-  canImport: boolean; canExport: boolean; onImport: () => void; onExport: () => void;
-}) {
+/** Secondary actions for the contacts list: import and export. */
+export default function ContactsMoreMenu({ onImport, onExport }: { onImport: () => void; onExport: () => void }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -39,16 +37,12 @@ export default function ContactsMoreMenu({ canImport, canExport, onImport, onExp
 
       {open && (
         <div style={menuStyle} role="menu" className="absolute top-full z-30 mt-2 w-52 rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg">
-          {canImport && (
-            <button type="button" role="menuitem" onClick={() => choose(onImport)} className="flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-gray-50">
-              Import contacts
-            </button>
-          )}
-          {canExport && (
-            <button type="button" role="menuitem" onClick={() => choose(onExport)} className="flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-gray-50">
-              Export contacts
-            </button>
-          )}
+          <button type="button" role="menuitem" onClick={() => choose(onImport)} className="flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-gray-50">
+            Import contacts
+          </button>
+          <button type="button" role="menuitem" onClick={() => choose(onExport)} className="flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-gray-50">
+            Export contacts
+          </button>
         </div>
       )}
     </div>

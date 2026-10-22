@@ -175,14 +175,12 @@ function Switch({ label, checked, disabled, onChange }: { label: string; checked
 type Props = {
   /** null = add a new product. */
   productId: number | null;
-  /** Admins and managers can change products; everyone else sees the details read-only. */
-  canEdit: boolean;
   onClose: () => void;
   /** Called after a save or archive so the list reloads and the modal closes. */
   onChanged: () => void;
 };
 
-export default function ProductModal({ productId, canEdit, onClose, onChanged }: Props) {
+export default function ProductModal({ productId, onClose, onChanged }: Props) {
   const isNew = productId === null;
   const [product, setProduct] = useState<Product | null>(null);
   const [draft, setDraft] = useState<Draft>(() => toDraft(null));
@@ -234,11 +232,11 @@ export default function ProductModal({ productId, canEdit, onClose, onChanged }:
   }, []);
 
   const set = <K extends keyof Draft>(key: K) => (value: Draft[K]) => setDraft((current) => ({ ...current, [key]: value }));
-  const readOnly = !canEdit || isLoading;
+  const readOnly = isLoading;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!canEdit || isSaving || isLoading) return;
+    if (isSaving || isLoading) return;
     const problem = problemWith(draft);
     if (problem) { setError(problem); return; }
     const accessToken = token();
@@ -346,11 +344,9 @@ export default function ProductModal({ productId, canEdit, onClose, onChanged }:
                     <div key={kind} className={labelClass}>
                       <div className="flex items-center justify-between gap-2">
                         <label htmlFor={`pm-${kind}`}>{OPTION_LABEL[kind]}</label>
-                        {canEdit && (
-                          <button type="button" onClick={() => { setAddingOption(addingOption === kind ? null : kind); setNewOptionName(""); }} className="text-[11.5px] font-semibold text-[#0E4D3A] hover:underline">
-                            + Add new
-                          </button>
-                        )}
+                        <button type="button" onClick={() => { setAddingOption(addingOption === kind ? null : kind); setNewOptionName(""); }} className="text-[11.5px] font-semibold text-[#0E4D3A] hover:underline">
+                          + Add new
+                        </button>
                       </div>
                       <select id={`pm-${kind}`} className={fieldClass} value={draft[OPTION_FIELD[kind]]} disabled={readOnly} onChange={(e) => set(OPTION_FIELD[kind])(e.target.value)}>
                         <option value="">None</option>
@@ -434,7 +430,7 @@ export default function ProductModal({ productId, canEdit, onClose, onChanged }:
                   ))}
                   {draft.features.length === 0 && readOnly && <span className="text-[13px] text-[#9AA0AC]">No features added.</span>}
                 </div>
-                {canEdit && !isLoading && (
+                {!isLoading && (
                   <div className="flex gap-2">
                     <input
                       className={fieldClass}
@@ -455,7 +451,7 @@ export default function ProductModal({ productId, canEdit, onClose, onChanged }:
           {error && <p role="alert" className="shrink-0 border-t border-[#FECDCA] bg-[#FEF3F2] px-6 py-2.5 text-[13px] text-[#B42318]">{error}</p>}
 
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2.5 border-t border-[#EFEFF2] px-6 py-4">
-            {canEdit && product ? (
+            {product ? (
               <button type="button" onClick={toggleArchive} disabled={isSaving || isLoading} className={`flex h-10 items-center gap-1.5 rounded-lg px-3.5 text-[13.5px] font-semibold disabled:opacity-50 ${product.is_active ? "text-[#B42323] hover:bg-[#FEF3F2]" : "text-[#0E4D3A] hover:bg-[#E7F5EE]"}`}>
                 <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" /></svg>
                 {product.is_active ? "Archive Product" : "Restore Product"}
@@ -463,13 +459,11 @@ export default function ProductModal({ productId, canEdit, onClose, onChanged }:
             ) : <span />}
             <div className="flex gap-2.5">
               <button type="button" onClick={onClose} disabled={isSaving} className="h-10 rounded-lg border border-[#DEE1E5] bg-white px-4 text-[13.5px] font-semibold text-[#3A3E4A] hover:bg-[#F7F8F9] disabled:opacity-50">
-                {canEdit ? "Cancel" : "Close"}
+                Cancel
               </button>
-              {canEdit && (
-                <button type="submit" disabled={isSaving || isLoading} className="h-10 rounded-lg bg-[#0E4D3A] px-4 text-[13.5px] font-semibold text-white hover:opacity-90 disabled:opacity-50">
-                  {isSaving ? "Saving…" : isNew ? "Add Product" : "Save Changes"}
-                </button>
-              )}
+              <button type="submit" disabled={isSaving || isLoading} className="h-10 rounded-lg bg-[#0E4D3A] px-4 text-[13.5px] font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                {isSaving ? "Saving…" : isNew ? "Add Product" : "Save Changes"}
+              </button>
             </div>
           </div>
         </form>

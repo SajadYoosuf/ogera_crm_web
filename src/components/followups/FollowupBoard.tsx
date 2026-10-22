@@ -4,7 +4,7 @@ import Link from "next/link";
 import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { istToday } from "@/components/DatePicker";
 import { ApiError } from "@/lib/api/auth";
-import { isMonitoringRole, listAllEmployees } from "@/lib/api/employees";
+import { listAllEmployees } from "@/lib/api/employees";
 import { usePopoverFit } from "@/hooks/usePopoverFit";
 import FilterSelect from "@/components/FilterSelect";
 import { listLeadSources, type ApiContact } from "@/features/contacts/api/contacts";
@@ -77,8 +77,8 @@ function currentUserId(): number | null {
 }
 
 const PERIOD_TABS: { value: PeriodMode; label: string }[] = [
-  { value: "day", label: "Today" }, { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" }, { value: "last_month", label: "Last Month" }, { value: "custom", label: "Custom" },
+  { value: "day", label: "Day" }, { value: "week", label: "Week" },
+  { value: "month", label: "Month" }, { value: "last_month", label: "Last Month" }, { value: "all", label: "All" }, { value: "custom", label: "Custom" },
 ];
 
 const TYPE_COLORS: Record<LeadKind, { activeBg: string; activeFg: string }> = {
@@ -146,6 +146,10 @@ export default function FollowupBoard() {
   };
   const pickPeriodMode = (mode: PeriodMode) => {
     setShowPicker(false);
+    if (mode === "all") {
+      setPeriod({ mode: "all", anchor: today, from: "", to: "" });
+      return;
+    }
     if (mode === "custom") {
       setPeriod({ mode: "custom", anchor: today, from: period.from || "", to: period.to || "" });
       setShowPicker(true);
@@ -156,20 +160,20 @@ export default function FollowupBoard() {
       return;
     }
     if (mode === period.mode) return;
-    const anchor = period.mode === "custom" ? today : period.anchor;
+    const anchor = period.mode === "custom" || period.mode === "all" ? today : period.anchor;
     setPeriod({ mode, anchor, ...periodRange(mode, anchor, period) });
   };
   const { to: periodTo } = periodRange(period.mode, period.anchor, period);
 
   const assignees = useMemo(
-    () => [...new Set(staff ? staff.filter((m) => !isMonitoringRole(m.role)).map((m) => m.name) : leads.map((l) => l.assigned_to?.name).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b)),
+    () => [...new Set(staff ? staff.map((m) => m.name) : leads.map((l) => l.assigned_to?.name).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b)),
     [leads, staff],
   );
   const sources = useMemo(
     () => [...new Set(allSources ?? leads.map((l) => l.lead_source?.name).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b)),
     [leads, allSources],
   );
-  const owners = useMemo(() => staff?.filter((m) => !isMonitoringRole(m.role)).sort((a, b) => a.name.localeCompare(b.name)) ?? null, [staff]);
+  const owners = useMemo(() => staff?.slice().sort((a, b) => a.name.localeCompare(b.name)) ?? null, [staff]);
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -285,11 +289,11 @@ export default function FollowupBoard() {
                 options={PERIOD_TABS}
                 className="w-full sm:hidden"
               />
-              <div role="tablist" aria-label="Created period" className="hidden sm:flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-[9px]">
+              <div role="group" aria-label="Created period" className="hidden sm:flex p-[3px] gap-[2px] bg-[#F2F3F5] border border-[#E5E7EA] rounded-[9px]">
                 {PERIOD_TABS.map(({ value, label }) => {
                   const on = period.mode === value;
                   return (
-                    <button key={value} type="button" role="tab" aria-selected={on} onClick={() => pickPeriodMode(value)}
+                    <button key={value} type="button" aria-pressed={on} onClick={() => pickPeriodMode(value)}
                       className={`h-[30px] px-3 rounded-[7px] text-[13px] border-none transition-colors ${on ? "bg-white text-[#1A1C21] font-semibold shadow-sm" : "bg-transparent text-[#5F6473] font-medium hover:bg-white/60"}`}>
                       {label}
                     </button>
@@ -384,10 +388,23 @@ export default function FollowupBoard() {
             ))}
           </div>
         ) : (
-          <div
-            className="flex gap-3.5 overflow-x-auto pb-2.5"
-            style={{ scrollbarWidth: "thin", scrollbarColor: "#DEE1E5 transparent" }}
-          >
+          <>
+            {/* Board-level empty state: stages exist but no leads match */}
+            {stages.length > 0 && visible.length === 0 && (
+              <div role="status" className="flex-1 bg-white rounded-2xl border border-[#E5E7EA] py-16 px-6 flex flex-col items-center text-center">
+                <h2 className="text-base font-bold text-[#1A1C21]">
+                  {hasFilters ? "No matching leads" : `No ${kind} leads yet`}
+                </h2>
+                <p className="mt-2 text-sm text-gray-500">
+                  {hasFilters ? "Try clearing your filters." : "Add contacts and set them as leads to fill this board."}
+                </p>
+              </div>
+            )}
+
+            <div
+              className={`flex gap-3.5 overflow-x-auto pb-2.5${stages.length > 0 && visible.length === 0 ? " hidden" : ""}`}
+              style={{ scrollbarWidth: "thin", scrollbarColor: "#DEE1E5 transparent" }}
+            >
             {stages.map((stage) => {
               const stageLeads = byStage.get(stage.id) ?? [];
               const colors = stageColors(stage.slug);
@@ -465,6 +482,7 @@ export default function FollowupBoard() {
               </div>
             )}
           </div>
+          </>
         )}
       </div>
 
