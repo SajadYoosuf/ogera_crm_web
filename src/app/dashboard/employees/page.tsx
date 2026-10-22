@@ -22,6 +22,7 @@ type FormValues = { name: string; email: string; phone: string; role: EmployeeRo
 
 const AVATAR_TONES = ["bg-[#E7F5EE] text-[#0E4D3A]", "bg-[#E0F2FE] text-[#0B6AA8]", "bg-[#DCFCE7] text-[#167A44]", "bg-[#FEF3C7] text-[#9A6200]", "bg-[#FCE7F3] text-[#A8326E]"];
 const ROLE_STYLES: Record<string, string> = {
+  all: "bg-[#F0F0F3] text-[#3A3E4A]",
   admin: "bg-[#1A1C21] text-white",
   manager: "bg-[#F1EDFF] text-[#5B3FD6]",
   sales_executive: "bg-[#EEF4FF] text-[#1D5BBF]",
@@ -393,7 +394,13 @@ export default function EmployeesPage() {
   const employees = useMemo(() => state.status === "ready" ? state.employees : [], [state]);
   // Only the roles that exist on this page, in the API's order.
   // Every role the backend defines, so any employee's role can be filtered.
-  const roleOptions = useMemo<FilterOption[]>(() => EMPLOYEE_ROLES.map((role) => ({ value: role, label: roleLabel(role) })), []);
+  const roleOptions = useMemo<FilterOption[]>(
+    () => [
+      { value: "", label: "All Roles" },
+      ...EMPLOYEE_ROLES.map((role) => ({ value: role, label: roleLabel(role) })),
+    ],
+    [],
+  );
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return employees.filter((employee) =>
@@ -477,10 +484,7 @@ export default function EmployeesPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <FilterSelect fit clearable className="w-auto" label="Role" value={roleFilter} onChange={(value) => { setRoleFilter(value); setPage(1); }} options={roleOptions} />
-              <button type="button" onClick={() => void load("Refresh button")} disabled={state.status === "loading"} aria-label="Refresh employees" title="Refresh" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50">
-                <Icon className={`h-4 w-4 ${state.status === "loading" ? "animate-spin" : ""}`}>{icons.refresh}</Icon>
-              </button>
+              <FilterSelect fit clearable className="w-auto" label="Role" value={roleFilter} onChange={(value) => { setRoleFilter(value); setPage(1); }} options={roleOptions} /> 
             </div>
           </div>
 
