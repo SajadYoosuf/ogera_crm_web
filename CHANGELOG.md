@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-10-23 — `4c918e0` (branch `version1`)
+
+**feat(pipeline): Sprint 1 — task system redesign + bug fixes**
+
+Author: sajad yoosuf
+Previous commit on this side: `4a400c9` feat(web/pipeline): redesign toolbar and add-lead modal (2026-10-23)
+
+### Summary
+Cleans up the Schedule Followup form (priority field, auto-title from type) and removes dead date/time/loggedBy fields from ActivityLogForm. Adds meeting and email icons and colour tiles. See `docs/changes/2026-10-23-sprint1-pipeline-tasks.md`. Backend changes are in the same commit.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Added | `docs/changes/2026-10-23-sprint1-pipeline-tasks.md` | Change notes |
+| Modified | `src/components/followups/ActivityIcons.tsx` | Add meeting (calendar) and email (envelope) icons |
+| Modified | `src/components/followups/ActivityLogForm.tsx` | Remove dead date/time/loggedBy fields |
+| Modified | `src/components/followups/FollowupScheduleForm.tsx` | Add priority radio, auto-title from type selection |
+| Modified | `src/components/followups/designTokens.ts` | Add ACTIVITY_TILE tiles for meeting and email |
+| Modified | `src/lib/api/activities.ts` | Add priority to ScheduleInput; coordinates to LogActivityInput |
+
+### Notes
+Backend (models, routes, schemas, migration) is in the same commit `4c918e0`.
+
+---
+
 ## 2026-10-22 — `fce4d1f` (branch `phase1-redesign`)
 
 **feat: house stage and tank type lists move to Settings**
