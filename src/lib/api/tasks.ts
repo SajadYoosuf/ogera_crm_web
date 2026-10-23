@@ -21,6 +21,23 @@ export type TaskQuery = {
   assignedTo?: number; type?: string; contactType?: "consumer" | "partner" | "dealer"; q?: string; includeOverdue?: boolean;
 };
 
+/**
+ * Change a follow-up's status.
+ * - "completed" marks it done (outcome = "done").
+ * - "todo" | "inprogress" | "pending" are plain status moves.
+ * Calls PATCH /contacts/{contactId}/followups/{id}.
+ */
+export function changeTaskStatus(accessToken: string, contactId: number, taskId: number, status: "todo" | "inprogress" | "pending" | "completed") {
+  const body = status === "completed"
+    ? { status: "completed", outcome: "done" }
+    : { status };
+  return request<unknown>(`/contacts/${contactId}/followups/${taskId}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 export function listTasks(accessToken: string, query: TaskQuery) {
   const params = new URLSearchParams({ status: query.status });
   if (query.dateFrom) params.set("date_from", query.dateFrom);

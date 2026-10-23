@@ -27,7 +27,7 @@ export default function ModalShell({ title, subtitle, onClose, onSubmit, footer,
       <form
         noValidate // each form checks its own fields, so the person always sees our message, not the browser's
         onSubmit={onSubmit}
-        className="flex max-h-[860px] w-full max-w-[520px] flex-col bg-white"
+        className="flex max-h-[min(860px,92dvh)] w-full max-w-[520px] flex-col bg-white"
         style={{ borderRadius: 16, boxShadow: SHADOW.modal }}
       >
         <div className="flex shrink-0 items-center justify-between gap-4 px-6 py-5" style={{ borderBottom: `1px solid ${COLOR.borderDefault}` }}>

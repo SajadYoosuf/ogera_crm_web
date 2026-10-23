@@ -6,6 +6,13 @@ import { formatClock, formatWhen, typeLabel } from "@/components/followups/activ
 import { whatsappLink } from "@/components/followups/stages";
 import { fromISO } from "./calendar";
 
+const STATUS_OPTIONS: { value: "todo" | "inprogress" | "pending" | "completed"; label: string }[] = [
+  { value: "todo", label: "To do" },
+  { value: "inprogress", label: "In Progress" },
+  { value: "pending", label: "Pending" },
+  { value: "completed", label: "Completed" },
+];
+
 export const STATE_STYLE: Record<TaskItem["task_state"], { chip: string; bar: string; border: string }> = {
   pending: { chip: "bg-[#F0F0F3] text-[#4B5060]", bar: "bg-gray-300", border: "border-gray-300" },
   due_today: { chip: "bg-[#FFF7E6] text-[#9A5B00]", bar: "bg-amber-400", border: "border-amber-400" },
@@ -38,13 +45,13 @@ export function CompactTask({ task, showAssignee, onOpen }: { task: TaskItem; sh
   );
 }
 
-/** Full task card with the actions: call / WhatsApp, Mark done and Reschedule. Both open a dialog owned by the Tasks screen. */
-export default function TaskCard({ task, showAssignee, showDate = false, onStartMarkDone, onStartReschedule }: {
+/** Full task card. Status dropdown on the left lets the employee change the task state inline. */
+export default function TaskCard({ task, showAssignee, showDate = false, onChangeStatus, onStartReschedule }: {
   task: TaskItem; showAssignee: boolean; showDate?: boolean;
-  onStartMarkDone: (task: TaskItem) => void;
+  onChangeStatus: (task: TaskItem, status: "todo" | "inprogress" | "pending" | "completed") => void;
   onStartReschedule: (task: TaskItem) => void;
 }) {
-  const open = task.status === "pending";
+  const isDone = task.task_state === "done";
   const style = STATE_STYLE[task.task_state];
 
   return (
@@ -66,17 +73,27 @@ export default function TaskCard({ task, showAssignee, showDate = false, onStart
 
         {task.notes && <p className="mt-2 whitespace-pre-line text-sm text-gray-700">&ldquo;{task.notes}&rdquo;</p>}
         <p className="mt-1.5 text-xs text-gray-500">
-          {task.task_state === "done"
+          {isDone
             ? `Done by ${task.completed_by_name ?? "someone"}${task.completed_at ? ` · ${formatWhen(task.completed_at)}` : ""}`
             : showAssignee && `Assigned to ${task.assigned_to_name ?? "no one"}`}
         </p>
 
-        {open && (
+        {!isDone && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => onStartMarkDone(task)} className="h-[38px] rounded-lg bg-[#0E7A4F] px-4 text-sm font-semibold text-white hover:bg-[#0B6A44]">Mark done</button>
-            <button type="button" onClick={() => onStartReschedule(task)} className="h-[38px] rounded-lg border border-[#DEE1E5] bg-white px-4 text-sm font-medium text-[#3A3E4A] hover:bg-[#F3F3F5]">Reschedule</button>
-            <a href={`tel:${task.contact_phone}`} aria-label={`Call ${task.contact_name}`} className="grid h-[38px] w-[38px] place-items-center rounded-lg text-[#0E7A4F] hover:bg-[#F3F3F5]"><ActivityTypeIcon type="phone_call" className="h-[18px] w-[18px]" /></a>
-            <a href={whatsappLink(task.contact_phone)} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${task.contact_name}`} className="grid h-11 w-11 place-items-center rounded-xl hover:bg-emerald-50"><ActivityTypeIcon type="whatsapp" className="h-[18px] w-[18px]" /></a>
+            {/* Status dropdown — leftmost, lets the employee change state without opening a dialog */}
+            <select
+              aria-label="Change task status"
+              value={task.status}
+              onChange={(e) => onChangeStatus(task, e.target.value as "todo" | "inprogress" | "pending" | "completed")}
+              className="h-[34px] rounded-lg border border-[#DEE1E5] bg-white pl-2.5 pr-7 text-[13px] font-medium text-[#3A3E4A] hover:bg-[#F3F3F5] focus:outline-none focus:ring-2 focus:ring-[#BFE6D2]"
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <button type="button" onClick={() => onStartReschedule(task)} className="h-[34px] rounded-lg border border-[#DEE1E5] bg-white px-3.5 text-[13px] font-medium text-[#3A3E4A] hover:bg-[#F3F3F5]">Reschedule</button>
+            <a href={`tel:${task.contact_phone}`} aria-label={`Call ${task.contact_name}`} className="grid h-[34px] w-[34px] place-items-center rounded-lg text-[#0E7A4F] hover:bg-[#F3F3F5]"><ActivityTypeIcon type="phone_call" className="h-[17px] w-[17px]" /></a>
+            <a href={whatsappLink(task.contact_phone)} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${task.contact_name}`} className="grid h-[34px] w-[34px] place-items-center rounded-lg hover:bg-emerald-50"><ActivityTypeIcon type="whatsapp" className="h-[17px] w-[17px]" /></a>
           </div>
         )}
       </div>

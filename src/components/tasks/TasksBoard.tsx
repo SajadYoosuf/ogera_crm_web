@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isoDate } from "@/components/followups/activities";
 import { useEnumOptions } from "@/hooks/useEnumOptions";
 import { ApiError } from "@/lib/api/auth";
-import { markFollowupDone, rescheduleFollowup } from "@/lib/api/activities";
+import { rescheduleFollowup } from "@/lib/api/activities";
+import { changeTaskStatus } from "@/lib/api/tasks";
 import FollowupScheduleForm from "@/components/followups/FollowupScheduleForm";
 import { listAllEmployees } from "@/lib/api/employees";
 import { listTasks, type TaskItem, type TaskList, type TaskStatus } from "@/lib/api/tasks";
@@ -12,7 +13,7 @@ import DateRangePicker from "@/components/DateRangePicker";
 import { addDays, MAX_CUSTOM_DAYS, rangeFor, startOfWeek, type TaskView } from "./calendar";
 import TaskCard from "./TaskCard";
 import TaskTable, { useWide } from "./TaskTable";
-import { CompleteTaskDialog, NextFollowupDialog, RescheduleTaskDialog } from "./TaskDialogs";
+import { RescheduleTaskDialog } from "./TaskDialogs";
 
 // Due date picks the range the list covers. Today is the day view on today's date.
 type DueKey = "all" | "today" | "week" | "month" | "custom";
@@ -104,8 +105,8 @@ export default function TasksBoard() {
     return () => document.removeEventListener("mousedown", onPointer);
   }, [filterOpen]);
 
-  // One dialog at a time. Mark done runs: log the activity, then ask about the next follow-up. Reschedule is one dialog.
-  const [dialog, setDialog] = useState<{ step: "complete" | "next" | "schedule" | "reschedule"; task: TaskItem } | null>(null);
+  // One dialog at a time. Status changes go directly via the dropdown. Reschedule is the only dialog.
+  const [dialog, setDialog] = useState<{ step: "schedule" | "reschedule"; task: TaskItem } | null>(null);
 
   function accessTokenOrThrow() {
     const accessToken = sessionStorage.getItem("ogera_access_token");
@@ -113,13 +114,17 @@ export default function TasksBoard() {
     return accessToken;
   }
 
-  async function completeTask(task: TaskItem, notes: string) {
-    const accessToken = accessTokenOrThrow();
-    if (task.contact_id === null) throw new Error("This task is not linked to a lead, so it cannot be marked here.");
-    try { await markFollowupDone(accessToken, task.contact_id, task.id, notes); }
-    catch (caught) { throw new Error(caught instanceof ApiError ? caught.message : "Could not save. Please try again."); }
-    setDialog({ step: "next", task });
-    await load(true);
+  async function handleStatusChange(task: TaskItem, status: "todo" | "inprogress" | "pending" | "completed") {
+    if (task.contact_id === null) { setNotice("This task has no linked lead — status cannot be changed here."); return; }
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    if (!accessToken) { setNotice("Sign in again to continue."); return; }
+    try {
+      await changeTaskStatus(accessToken, task.contact_id, task.id, status);
+      await load(true);
+      if (status === "completed") setNotice(`Marked done — ${task.contact_name}.`);
+    } catch (caught) {
+      setNotice(caught instanceof ApiError ? caught.message : "Could not update status. Please try again.");
+    }
   }
 
   async function rescheduleTask(task: TaskItem, date: string, time: string) {
@@ -132,7 +137,6 @@ export default function TasksBoard() {
     await load(true);
   }
 
-  const startMarkDone = (task: TaskItem) => setDialog({ step: "complete", task });
   const startReschedule = (task: TaskItem) => setDialog({ step: "reschedule", task });
 
   const dueKey: DueKey = view === "day" ? "today" : view;
@@ -309,10 +313,10 @@ export default function TasksBoard() {
           ) : data && (
             <div className={`min-w-0 flex-1 ${isLoading ? "opacity-60 transition-opacity" : "transition-opacity"}`}>
               {wide ? (
-                <TaskTable tasks={items} empty={items.length === 0 ? emptyState : undefined} onStartMarkDone={startMarkDone} onStartReschedule={startReschedule} />
+                <TaskTable tasks={items} empty={items.length === 0 ? emptyState : undefined} onChangeStatus={handleStatusChange} onStartReschedule={startReschedule} />
               ) : items.length === 0 ? emptyState : (
                 <ul className="space-y-3 p-4">
-                  {items.map((task) => <li key={task.id}><TaskCard task={task} showAssignee onStartMarkDone={startMarkDone} onStartReschedule={startReschedule} /></li>)}
+                  {items.map((task) => <li key={task.id}><TaskCard task={task} showAssignee onChangeStatus={handleStatusChange} onStartReschedule={startReschedule} /></li>)}
                 </ul>
               )}
             </div>
@@ -323,12 +327,6 @@ export default function TasksBoard() {
         </section>
       </div>
 
-      {dialog?.step === "complete" && (
-        <CompleteTaskDialog task={dialog.task} onSave={(notes) => completeTask(dialog.task, notes)} onCancel={() => setDialog(null)} />
-      )}
-      {dialog?.step === "next" && (
-        <NextFollowupDialog task={dialog.task} onSchedule={() => setDialog({ step: "schedule", task: dialog.task })} onDone={() => { setDialog(null); setNotice(`Done. The activity was logged for ${dialog.task.contact_name}.`); }} />
-      )}
       {dialog?.step === "schedule" && dialog.task.contact_id !== null && (
         <FollowupScheduleForm contactId={dialog.task.contact_id} contactName={dialog.task.contact_name}
           staff={staff.length > 0 ? staff : dialog.task.assigned_to === null ? [] : [{ id: dialog.task.assigned_to, name: dialog.task.assigned_to_name ?? "Assignee" }]}

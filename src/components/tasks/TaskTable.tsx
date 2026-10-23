@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { typeLabel } from "@/components/followups/activities";
 import type { TaskItem } from "@/lib/api/tasks";
 import { fromISO } from "./calendar";
@@ -44,61 +43,22 @@ const PRIORITY: Record<string, { label: string; pill: string }> = {
   low: { label: "Low", pill: "bg-[#EAF8EF] text-[#17703F]" },
 };
 
-type TaskAction = { onStartMarkDone: (task: TaskItem) => void; onStartReschedule: (task: TaskItem) => void };
+const STATUS_OPTIONS: { value: "todo" | "inprogress" | "pending" | "completed"; label: string }[] = [
+  { value: "todo", label: "To do" },
+  { value: "inprogress", label: "In Progress" },
+  { value: "pending", label: "Pending" },
+  { value: "completed", label: "Completed" },
+];
 
-function TaskRow({ task, onStartMarkDone, onStartReschedule }: { task: TaskItem } & TaskAction) {
-  // The menu is drawn in a portal at screen coordinates, so the table's scroll box cannot clip it.
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [menuAt, setMenuAt] = useState<{ top: number; left: number } | null>(null);
-  const menuOpen = menuAt !== null;
+type TaskAction = { onChangeStatus: (task: TaskItem, status: "todo" | "inprogress" | "pending" | "completed") => void; onStartReschedule: (task: TaskItem) => void };
 
-  // Where the menu sits for the button's current position: below it, or above when the screen ends first.
-  function menuPositionFor(rect: DOMRect) {
-    const MENU_WIDTH = 160;
-    const MENU_HEIGHT = 92;
-    const opensUp = rect.bottom + MENU_HEIGHT > window.innerHeight;
-    return { top: opensUp ? rect.top - MENU_HEIGHT - 4 : rect.bottom + 4, left: Math.max(8, rect.right - MENU_WIDTH) };
-  }
-
-  function toggleMenu() {
-    if (menuOpen) { setMenuAt(null); return; }
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) setMenuAt(menuPositionFor(rect));
-  }
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onPointer = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (!menuRef.current?.contains(target) && !buttonRef.current?.contains(target)) setMenuAt(null);
-    };
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuAt(null); };
-    // Scrolling or resizing moves the menu with its button. It closes only when the button leaves the screen.
-    const follow = () => {
-      const rect = buttonRef.current?.getBoundingClientRect();
-      if (!rect || rect.bottom < 0 || rect.top > window.innerHeight) { setMenuAt(null); return; }
-      setMenuAt(menuPositionFor(rect));
-    };
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("resize", follow);
-    window.addEventListener("scroll", follow, true);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", follow);
-      window.removeEventListener("scroll", follow, true);
-    };
-  }, [menuOpen]);
+function TaskRow({ task, onChangeStatus, onStartReschedule }: { task: TaskItem } & TaskAction) {
   const done = task.task_state === "done";
-  const open = task.status === "pending";
   const priority = PRIORITY[task.priority ?? "medium"] ?? PRIORITY.medium;
   const name = task.assigned_to_name ?? "Unassigned";
   const initial = name.charAt(0).toUpperCase();
   const avatar = AVATAR[[...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % AVATAR.length];
-  const status = STATUS_PILL[task.task_state];
-  const title = task.title || task.notes?.split("\n")[0] || typeLabel(task.type); // the task's own name first
+  const title = task.title || task.notes?.split("\n")[0] || typeLabel(task.type);
   const due = task.scheduled_date ? fromISO(task.scheduled_date).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "";
   return (
     <tr className="border-t border-[#EFEFF2] hover:bg-[#F5F8F6]">
@@ -120,11 +80,25 @@ function TaskRow({ task, onStartMarkDone, onStartReschedule }: { task: TaskItem 
           {typeLabel(task.type)}
         </span>
       </td>
+      {/* Status column: dropdown for open tasks, read-only pill for done */}
       <td className="whitespace-nowrap px-3 align-middle">
-        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${status.pill}`}>
-          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-          {stateLabel(task)}
-        </span>
+        {done ? (
+          <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_PILL[task.task_state].pill}`}>
+            <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${STATUS_PILL[task.task_state].dot}`} />
+            {stateLabel(task)}
+          </span>
+        ) : (
+          <select
+            aria-label="Change task status"
+            value={task.status}
+            onChange={(e) => onChangeStatus(task, e.target.value as "todo" | "inprogress" | "pending" | "completed")}
+            className="h-8 rounded-lg border border-[#DEE1E5] bg-white pl-2.5 pr-6 text-[13px] font-medium text-[#3A3E4A] hover:bg-[#F3F3F5] focus:outline-none focus:ring-2 focus:ring-[#BFE6D2]"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        )}
       </td>
       <td className="whitespace-nowrap px-3 align-middle text-[#6B7080]">
         {due}{due && <span aria-hidden="true"> · </span>}{timeText(task)}
@@ -133,19 +107,11 @@ function TaskRow({ task, onStartMarkDone, onStartReschedule }: { task: TaskItem 
         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${priority.pill}`}>{priority.label}</span>
       </td>
       <td className="whitespace-nowrap px-3 align-middle">
-        {open && (
-          <button ref={buttonRef} type="button" aria-label={`Actions for ${title}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={toggleMenu}
-            className="grid h-8 w-8 place-items-center rounded-lg text-[#4B5060] hover:bg-[#F3F3F5]">
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="12" cy="19" r="1.8" /></svg>
+        {!done && (
+          <button type="button" onClick={() => onStartReschedule(task)} aria-label={`Reschedule ${title}`}
+            className="h-8 rounded-lg border border-[#DEE1E5] bg-white px-3 text-[13px] font-medium text-[#3A3E4A] hover:bg-[#F3F3F5]">
+            Reschedule
           </button>
-        )}
-        {menuAt && createPortal(
-          <div ref={menuRef} role="menu" style={{ position: "fixed", top: menuAt.top, left: menuAt.left, width: 160 }}
-            className="z-[1100] rounded-lg border border-[#DEE1E5] bg-white p-1 shadow-[0_12px_28px_rgba(16,24,40,0.16)]">
-            <button type="button" role="menuitem" onClick={() => { setMenuAt(null); onStartMarkDone(task); }} className="flex w-full rounded-md px-3 py-2 text-left text-sm text-[#3A3E4A] hover:bg-[#F3F3F5]">Mark done</button>
-            <button type="button" role="menuitem" onClick={() => { setMenuAt(null); onStartReschedule(task); }} className="flex w-full rounded-md px-3 py-2 text-left text-sm text-[#3A3E4A] hover:bg-[#F3F3F5]">Reschedule</button>
-          </div>,
-          document.body,
         )}
       </td>
     </tr>
@@ -153,7 +119,7 @@ function TaskRow({ task, onStartMarkDone, onStartReschedule }: { task: TaskItem 
 }
 
 /** Follow-ups as a table: task, lead, assigned staff, task type, status, due date and actions. */
-export default function TaskTable({ tasks, empty, onStartMarkDone, onStartReschedule }: { tasks: TaskItem[]; empty?: ReactNode } & TaskAction) {
+export default function TaskTable({ tasks, empty, onChangeStatus, onStartReschedule }: { tasks: TaskItem[]; empty?: ReactNode } & TaskAction) {
   const head = "px-3 py-3 text-left text-[13px] font-medium text-[#4B5060]";
   return (
     // relative: the scroll box contains its table, so a wide table scrolls inside it and never widens the page
@@ -173,7 +139,7 @@ export default function TaskTable({ tasks, empty, onStartMarkDone, onStartResche
         <tbody>
           {tasks.length === 0 && empty
             ? <tr><td colSpan={7}>{empty}</td></tr>
-            : tasks.map((task) => <TaskRow key={task.id} task={task} onStartMarkDone={onStartMarkDone} onStartReschedule={onStartReschedule} />)}
+            : tasks.map((task) => <TaskRow key={task.id} task={task} onChangeStatus={onChangeStatus} onStartReschedule={onStartReschedule} />)}
         </tbody>
       </table>
     </div>
