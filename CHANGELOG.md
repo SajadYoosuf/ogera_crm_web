@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-10-23 — `5c7648c` (branch `version1`)
+
+**feat(pipeline): Sprint 2 — contact creation auto follow-up (48h rule)**
+
+Author: sajad yoosuf
+Previous commit on this side: `4c918e0` feat(pipeline): Sprint 1 — task system redesign + bug fixes (2026-10-23)
+
+### Summary
+Shows the "Schedule First Follow-up?" prompt modal after admin/manager creates a contact. The modal pre-fills +48h and lets them pick a staff assignee before closing. See `docs/changes/2026-10-23-sprint2-auto-followup.md`. Backend changes in the same commit.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Added | `docs/changes/2026-10-23-sprint2-auto-followup.md` | Change notes |
+| Added | `src/features/contacts/components/AutoFollowupPromptModal.tsx` | New prompt modal component |
+| Modified | `src/features/contacts/api/contacts.ts` | `ApiContactDetail.auto_followup_needed` field |
+| Modified | `src/features/contacts/hooks/useContactEditor.ts` | `pendingAutoFollowup` state, `closePendingFollowup` |
+| Modified | `src/features/contacts/ContactsView.tsx` | Import and render `AutoFollowupPromptModal` |
+
+### Notes
+Backend (config, routes, schemas, tests, migration) is in the same commit `5c7648c`.
+
+---
+
 ## 2026-10-23 — `4c918e0` (branch `version1`)
 
 **feat(pipeline): Sprint 1 — task system redesign + bug fixes**
