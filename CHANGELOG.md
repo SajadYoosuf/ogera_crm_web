@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-10-23 — `104369b` (branch `version1`)
+
+**feat(web/tasks): modal height cap + task status dropdown**
+
+Author: sajad yoosuf
+Previous commit on this side: `6352e71` feat(notifications): full notification module — FCM push + in-app inbox (2026-10-23)
+
+### Summary
+Two targeted UX fixes: the Schedule Follow-up modal is now capped at 92dvh so it never fills the full screen on smaller viewports; the Tasks page replaces the old "Mark Done" button flow with an inline status dropdown (To do / In Progress / Pending / Completed) that calls the API directly without any dialog.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/components/followups/ModalShell.tsx` | max-h cap: `860px` → `min(860px,92dvh)` using CSS min() and dvh units |
+| Modified | `src/components/tasks/TaskCard.tsx` | Replaced Mark Done button with status select dropdown on the left of the action row |
+| Modified | `src/components/tasks/TaskTable.tsx` | Status column: dropdown for open tasks, read-only pill for done; removed portal dots-menu |
+| Modified | `src/components/tasks/TasksBoard.tsx` | Replaced completeTask/startMarkDone with handleStatusChange; removed CompleteTaskDialog/NextFollowupDialog |
+| Modified | `src/lib/api/tasks.ts` | Added changeTaskStatus() — calls PATCH /contacts/{id}/followups/{id} |
+
+### Notes
+Web-only change. Backend not touched. No migration needed.
+
+---
+
 ## 2026-10-23 — `5c7648c` (branch `version1`)
 
 **feat(pipeline): Sprint 2 — contact creation auto follow-up (48h rule)**
