@@ -8,11 +8,15 @@ export type EmployeeRole = (typeof EMPLOYEE_ROLES)[number];
 
 export type EmployeeList = { items: Employee[]; total: number; skip: number; limit: number };
 
+export const EMPLOYEE_BRANCHES = ["malappuram", "perinthalmanna", "kottakkal"] as const;
+export type EmployeeBranch = (typeof EMPLOYEE_BRANCHES)[number];
+
 export type EmployeeCreate = {
   name: string;
   email: string;
   phone?: string;
   role?: EmployeeRole;
+  branch?: EmployeeBranch | null;
   is_field_staff?: boolean;
   password: string;
 };
@@ -20,6 +24,7 @@ export type EmployeeCreate = {
 /** Partial update. `phone: null` clears it; the other fields cannot be null. */
 export type EmployeeUpdate = Partial<Omit<EmployeeCreate, "phone">> & {
   phone?: string | null;
+  branch?: EmployeeBranch | null;
   is_active?: boolean;
 };
 

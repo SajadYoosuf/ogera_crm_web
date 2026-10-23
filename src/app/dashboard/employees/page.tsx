@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/auth";
 import {
   createEmployee, deleteEmployee, getEmployee,
-  listAllEmployees, logEvent, updateEmployee, EMPLOYEE_ROLES,
-  type Employee, type EmployeeRole, type EmployeeUpdate,
+  listAllEmployees, logEvent, updateEmployee, EMPLOYEE_ROLES, EMPLOYEE_BRANCHES,
+  type Employee, type EmployeeRole, type EmployeeBranch, type EmployeeUpdate,
 } from "@/lib/api/employees";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { dmSans } from "@/lib/auth-fonts";
@@ -18,7 +18,7 @@ type LoadState =
   | { status: "ready"; employees: Employee[]; syncedAt: Date };
 
 type Viewer = { id: number; role: string };
-type FormValues = { name: string; email: string; phone: string; role: EmployeeRole; is_active: boolean; password: string };
+type FormValues = { name: string; email: string; phone: string; role: EmployeeRole; branch: EmployeeBranch | ""; is_active: boolean; password: string };
 
 const AVATAR_TONES = ["bg-[#E7F5EE] text-[#0E4D3A]", "bg-[#E0F2FE] text-[#0B6AA8]", "bg-[#DCFCE7] text-[#167A44]", "bg-[#FEF3C7] text-[#9A6200]", "bg-[#FCE7F3] text-[#A8326E]"];
 const ROLE_STYLES: Record<string, string> = {
@@ -79,10 +79,10 @@ const stop = (event: React.MouseEvent) => event.stopPropagation();
 const csvCell = (value: string) => `"${(/^[=+\-@]/.test(value) ? `'${value}` : value).replaceAll('"', '""')}"`;
 
 function downloadCsv(rows: Employee[]) {
-  const header = ["Name", "Email", "Phone", "Role", "Status", "Joined"];
+  const header = ["Name", "Email", "Phone", "Role", "Branch", "Status", "Joined"];
   const body = rows.map((employee) => [
     employee.name, employee.email, formatPhone(employee.phone) ?? "", roleLabel(employee.role),
-    employee.is_active ? "Active" : "Inactive", formatJoined(employee.created_at),
+    employee.branch ?? "", employee.is_active ? "Active" : "Inactive", formatJoined(employee.created_at),
   ]);
   const csv = [header, ...body].map((line) => line.map(csvCell).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -98,10 +98,10 @@ function downloadCsv(rows: Employee[]) {
  * Each cell is typed as String so leading-zero values like phone numbers are preserved.
  */
 function downloadXls(rows: Employee[]) {
-  const header = ["Name", "Email", "Phone", "Role", "Status", "Joined"];
+  const header = ["Name", "Email", "Phone", "Role", "Branch", "Status", "Joined"];
   const body = rows.map((employee) => [
     employee.name, employee.email, formatPhone(employee.phone) ?? "", roleLabel(employee.role),
-    employee.is_active ? "Active" : "Inactive", formatJoined(employee.created_at),
+    employee.branch ?? "", employee.is_active ? "Active" : "Inactive", formatJoined(employee.created_at),
   ]);
   const escape = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const xlsCell = (v: string) => `<Cell><Data ss:Type="String">${escape(v)}</Data></Cell>`;
@@ -214,6 +214,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
   const [values, setValues] = useState<FormValues>({
     name: employee?.name ?? "", email: employee?.email ?? "", phone: toIndianLocal(employee?.phone),
     role: (employee?.role as EmployeeRole) ?? "sales_executive",
+    branch: (employee?.branch as EmployeeBranch) ?? "",
     is_active: employee?.is_active ?? true, password: "",
   });
   const [error, setError] = useState("");
@@ -242,6 +243,8 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
         if (values.email.trim().toLowerCase() !== employee.email) patch.email = values.email.trim();
         if (values.phone !== toIndianLocal(employee.phone)) patch.phone = values.phone ? `+91${values.phone}` : null;
         if (values.role !== employee.role) patch.role = values.role;
+        const branchVal = values.branch || null;
+        if (branchVal !== (employee.branch ?? null)) patch.branch = branchVal;
         if (values.is_active !== employee.is_active) patch.is_active = values.is_active;
         if (values.password) patch.password = values.password;
         if (Object.keys(patch).length > 0) await updateEmployee(accessToken, employee.id, patch);
@@ -251,6 +254,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
           name: values.name.trim(), email: values.email.trim(), role: values.role,
           password: values.password,
           ...(values.phone ? { phone: `+91${values.phone}` } : {}),
+          ...(values.branch ? { branch: values.branch } : {}),
         });
         onSaved(`${values.name.trim()} was added to the team.`);
       }
@@ -303,6 +307,12 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
                 {roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
               </select>
               {isSelf && <span className="text-[11px] font-normal text-gray-400">You can&apos;t change your own role.</span>}
+            </label>
+            <label className="crm-field-label">Branch
+              <select value={values.branch} onChange={(e) => set("branch", e.target.value as EmployeeBranch | "")} className="crm-select capitalize">
+                <option value="">— Select branch —</option>
+                {EMPLOYEE_BRANCHES.map((b) => <option key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</option>)}
+              </select>
             </label>
             <div className="crm-field-label">
               <label htmlFor="employee-password">{isEdit ? "New password" : "Password"}</label>
@@ -361,6 +371,7 @@ export default function EmployeesPage() {
   const [search, setSearch] = useState("");
   // "" means no filter chosen; the dropdowns then show only their label.
   const [roleFilter, setRoleFilter] = useState("");
+  const [branchFilter, setBranchFilter] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Employee | null>(null);
   const [editor, setEditor] = useState<{ employee?: Employee } | null>(null);
@@ -456,8 +467,9 @@ export default function EmployeesPage() {
     const term = search.trim().toLowerCase();
     return employees.filter((employee) =>
       (!roleFilter || employee.role === roleFilter) &&
-      (!term || [employee.name, employee.email, employee.phone ?? "", roleLabel(employee.role)].some((field) => field.toLowerCase().includes(term))));
-  }, [employees, search, roleFilter]);
+      (!branchFilter || employee.branch === branchFilter) &&
+      (!term || [employee.name, employee.email, employee.phone ?? "", roleLabel(employee.role), employee.branch ?? ""].some((field) => field.toLowerCase().includes(term))));
+  }, [employees, search, roleFilter, branchFilter]);
 
   const isReady = state.status === "ready";
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -471,7 +483,7 @@ export default function EmployeesPage() {
   }
 
   function clearFilters() {
-    setSearch(""); setRoleFilter(""); setPage(1);
+    setSearch(""); setRoleFilter(""); setBranchFilter(""); setPage(1);
   }
 
   async function confirmDelete() {
@@ -567,7 +579,11 @@ export default function EmployeesPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <FilterSelect fit clearable className="w-auto" label="Role" value={roleFilter} onChange={(value) => { setRoleFilter(value); setPage(1); }} options={roleOptions} /> 
+              <FilterSelect fit clearable className="w-auto" label="Role" value={roleFilter} onChange={(value) => { setRoleFilter(value); setPage(1); }} options={roleOptions} />
+              <FilterSelect fit clearable className="w-auto" label="Branch" value={branchFilter} onChange={(value) => { setBranchFilter(value); setPage(1); }} options={[
+                { value: "", label: "All Branches" },
+                ...EMPLOYEE_BRANCHES.map((b) => ({ value: b, label: b.charAt(0).toUpperCase() + b.slice(1) })),
+              ]} />
             </div>
           </div>
 
@@ -611,6 +627,7 @@ export default function EmployeesPage() {
                       <th scope="col" className="px-4 py-3 font-medium">Full name</th>
                       <th scope="col" className="px-3 py-3 font-medium">Email</th>
                       <th scope="col" className="px-3 py-3 font-medium">Role</th>
+                      <th scope="col" className="px-3 py-3 font-medium">Branch</th>
                       <th scope="col" className="px-3 py-3 font-medium">Status</th>
                       <th scope="col" className="px-3 py-3 font-medium">Phone number</th>
                       <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
@@ -634,6 +651,7 @@ export default function EmployeesPage() {
                             <a href={`mailto:${employee.email}`} className="font-medium text-[#1565D8] hover:underline">{employee.email}</a>
                           </td>
                           <td className="px-3"><RoleBadge role={employee.role} /></td>
+                          <td className="whitespace-nowrap px-3 text-sm text-[#3A3E4A] capitalize">{employee.branch ?? <span className="text-[#B4B8C2]">—</span>}</td>
                           <td className="px-3"><StatusPill active={employee.is_active} /></td>
                           <td className="whitespace-nowrap px-3 tabular-nums text-[#1A1C21]">{formatPhone(employee.phone) ?? <span className="text-[#B4B8C2]">Not added</span>}</td>
                           <td className="whitespace-nowrap px-4 text-right" onClick={stop}>
@@ -675,6 +693,9 @@ export default function EmployeesPage() {
                         <div className="mt-3 flex flex-wrap items-center gap-1.5">
                           <RoleBadge role={employee.role} />
                           <StatusPill active={employee.is_active} />
+                          {employee.branch && (
+                            <span className="inline-flex items-center whitespace-nowrap rounded-[6px] bg-[#F0F7FF] px-2.5 py-[3px] text-xs font-semibold capitalize text-[#1D5BBF]">{employee.branch}</span>
+                          )}
                         </div>
                         <div className="mt-3 flex items-center gap-1.5 text-[12px] text-[#6B7080]">
                           <Icon className="h-3.5 w-3.5 shrink-0 text-[#8A8F9C]">{icons.phone}</Icon>
@@ -755,6 +776,7 @@ export default function EmployeesPage() {
                 {[
                   { label: "Email", value: selected.email },
                   { label: "Phone", value: formatPhone(selected.phone) ?? "Not added" },
+                  { label: "Branch", value: selected.branch ? selected.branch.charAt(0).toUpperCase() + selected.branch.slice(1) : "Not assigned" },
                   { label: "Member since", value: formatDate(selected.created_at) },
                   { label: "Last updated", value: formatDate(selected.updated_at) },
                 ].map((row) => (

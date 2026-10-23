@@ -35,6 +35,7 @@ export type Employee = {
   role: string;
   is_field_staff: boolean;
   phone: string | null;
+  branch: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

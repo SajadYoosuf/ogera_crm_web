@@ -6,7 +6,7 @@ import {
 } from "@/lib/api/employees";
 
 const employee = (id: number, role = "sales_executive"): Employee => ({
-  id, name: `Emp ${id}`, email: `e${id}@ogera.com`, role, is_field_staff: false, phone: null, is_active: true,
+  id, name: `Emp ${id}`, email: `e${id}@ogera.com`, role, is_field_staff: false, phone: null, branch: null, is_active: true,
   created_at: "2026-10-01T09:00:00", updated_at: "2026-10-01T09:00:00", deleted_at: null,
 });
 

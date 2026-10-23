@@ -21,7 +21,7 @@ export default function FilterSelect({ label, value, onChange, options, icon, cl
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const listStyle = usePopoverFit(open, rootRef, 240);
-  const current = options.find((option) => option.value === value) ?? (clearable ? undefined : options[0]);
+  const current = clearable && !value ? undefined : options.find((option) => option.value === value) ?? (clearable ? undefined : options[0]);
 
   useEffect(() => {
     if (!open) return;
