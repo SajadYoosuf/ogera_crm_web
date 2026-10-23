@@ -18,8 +18,26 @@ export default function FollowupScheduleForm({ contactId, contactName, staff, de
 }) {
   const { types: activityTypes, loaded: typesLoaded, error: typesError } = useActivityTypes();
   const schedulable = activityTypes.filter((item) => !(NOT_SCHEDULABLE as readonly string[]).includes(item.value));
-  const [title, setTitle] = useState("");
+
+  // Auto-fill title from the selected task type. The user can always edit it.
+  // When the type changes the title is updated only if it still matches the previous auto-title,
+  // so a user who already typed a custom title does not lose their text.
   const [type, setType] = useState("phone_call");
+  const [title, setTitle] = useState(() => {
+    const phone = schedulable.find((t) => t.value === "phone_call");
+    return phone?.label ?? "Phone Call";
+  });
+  const [titleEdited, setTitleEdited] = useState(false);
+
+  function pickType(value: string) {
+    setType(value);
+    if (!titleEdited) {
+      const label = schedulable.find((t) => t.value === value)?.label ?? value;
+      setTitle(label);
+    }
+  }
+
+  const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [note, setNote] = useState("");
@@ -43,7 +61,7 @@ export default function FollowupScheduleForm({ contactId, contactName, staff, de
     setIsSaving(true); setError("");
     try {
       await scheduleFollowup(accessToken, contactId, {
-        title: title.trim() || undefined, type, scheduled_date: date, assigned_to: Number(assignee),
+        title: title.trim() || undefined, type, priority, scheduled_date: date, assigned_to: Number(assignee),
         ...(time ? { scheduled_time: time } : {}), ...(note.trim() ? { notes: note.trim() } : {}),
       });
       await onSaved();
@@ -66,10 +84,7 @@ export default function FollowupScheduleForm({ contactId, contactName, staff, de
       }
     >
       <div className="space-y-5 px-6 py-5">
-        <label className="flex flex-col gap-1.5" style={MODAL_FIELD_LABEL}>Task name (optional)
-          <input type="text" value={title} maxLength={200} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Send quotation" className={MODAL_FIELD_CLASS} style={MODAL_INPUT} />
-        </label>
-
+        {/* Activity type — picking a type auto-fills the title if the user hasn't typed one yet */}
         <div>
           <p className="text-[13px] font-semibold text-[#3A3F46]">Activity type</p>
           {typesError && <p role="alert" className="text-xs font-semibold text-red-600">{typesError}</p>}
@@ -78,7 +93,7 @@ export default function FollowupScheduleForm({ contactId, contactName, staff, de
             {schedulable.map((option) => {
               const on = type === option.value;
               return (
-                <button key={option.value} type="button" role="radio" aria-checked={on} onClick={() => setType(option.value)}
+                <button key={option.value} type="button" role="radio" aria-checked={on} onClick={() => pickType(option.value)}
                   className="flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors"
                   style={{
                     ...TYPE.bodyMd,
@@ -91,6 +106,35 @@ export default function FollowupScheduleForm({ contactId, contactName, staff, de
                     <ActivityTypeIcon type={option.value} className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 truncate">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Task name — auto-filled from type, editable */}
+        <label className="flex flex-col gap-1.5" style={MODAL_FIELD_LABEL}>Task name (optional)
+          <input type="text" value={title} maxLength={200}
+            onChange={(event) => { setTitle(event.target.value); setTitleEdited(true); }}
+            placeholder="e.g. Send quotation" className={MODAL_FIELD_CLASS} style={MODAL_INPUT} />
+        </label>
+
+        {/* Priority */}
+        <div className="flex flex-col gap-1.5">
+          <span style={MODAL_FIELD_LABEL}>Priority</span>
+          <div className="flex gap-2">
+            {(["high", "medium", "low"] as const).map((p) => {
+              const colours = { high: { on: "#FDECEC", text: "#B42323", border: "#B42323" }, medium: { on: "#FFF7E6", text: "#9A5B00", border: "#D97706" }, low: { on: "#EAF8EF", text: "#17703F", border: "#17703F" } };
+              const on = priority === p;
+              return (
+                <button key={p} type="button" onClick={() => setPriority(p)}
+                  className="flex-1 rounded-lg border px-3 py-2 text-center capitalize transition-colors"
+                  style={{ ...TYPE.bodyMd, fontWeight: 600,
+                    borderColor: on ? colours[p].border : COLOR.borderStrong,
+                    background: on ? colours[p].on : COLOR.surfaceWhite,
+                    color: on ? colours[p].text : COLOR.textSecondary,
+                  }}>
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
                 </button>
               );
             })}

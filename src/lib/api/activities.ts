@@ -23,8 +23,8 @@ export type ActivityItem = {
   overdue_days: number;
 };
 
-export type LogActivityInput = { activity_type: string; notes: string };
-export type ScheduleInput = { title?: string; type: string; scheduled_date: string; scheduled_time?: string; notes?: string; assigned_to: number };
+export type LogActivityInput = { activity_type: string; notes: string; coordinates?: { lat: number; lng: number } };
+export type ScheduleInput = { title?: string; type: string; priority?: "high" | "medium" | "low"; scheduled_date: string; scheduled_time?: string; notes?: string; assigned_to: number };
 
 /** Activity types that cannot be scheduled. Every other active type in Settings can be. */
 export const NOT_SCHEDULABLE = ["internal_note"] as const;

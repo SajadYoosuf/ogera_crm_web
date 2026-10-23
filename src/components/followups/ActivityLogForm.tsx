@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { listAllEmployees } from "@/lib/api/employees";
+import { useState } from "react";
 import { ActivityTypeIcon } from "./ActivityIcons";
 import ModalShell from "./ModalShell";
 import { ACTIVITY_TILE, ACTIVITY_TILE_DEFAULT, COLOR, MODAL_CANCEL, MODAL_FIELD_CLASS, MODAL_FIELD_LABEL, MODAL_INPUT, MODAL_SAVE, TYPE } from "./designTokens";
 import { ApiError } from "@/lib/api/auth";
 import { logActivity } from "@/lib/api/activities";
 import { useActivityTypes } from "./useActivityTypes";
-import { isoDate } from "./activities";
 
 /** One quick GPS fix for a field visit. It never blocks the save: denied, unavailable or slow all resolve to null. */
 function currentPosition(): Promise<{ lat: number; lng: number } | null> {
@@ -22,33 +20,16 @@ function currentPosition(): Promise<{ lat: number; lng: number } | null> {
   });
 }
 
-/** Record something that already happened. The time is the server's, so there is no date field. */
+/**
+ * Record something that already happened. The timestamp is always the current server time —
+ * there is no date/time override, keeping the history honest.
+ */
 export default function ActivityLogForm({ contactId, contactName, onSaved, onCancel }: {
   contactId: number; contactName: string; onSaved: () => Promise<void>; onCancel: () => void;
 }) {
   const { types: activityTypes, loaded: typesLoaded, error: typesError } = useActivityTypes();
   const [type, setType] = useState("phone_call");
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState(() => isoDate());
-  const [time, setTime] = useState("");
-  const [staff, setStaff] = useState<{ id: number; name: string }[]>([]);
-  const [loggedBy, setLoggedBy] = useState("");
-
-  useEffect(() => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) return;
-    let cancelled = false;
-    listAllEmployees(accessToken)
-      .then((result) => {
-        if (cancelled) return;
-        const active = result.employees.filter((e) => e.is_active).map(({ id, name }) => ({ id, name }));
-        setStaff(active);
-        const me = (JSON.parse(sessionStorage.getItem("ogera_user") ?? "null") as { id?: number } | null)?.id;
-        if (typeof me === "number" && active.some((member) => member.id === me)) setLoggedBy(String(me));
-      })
-      .catch(() => { /* the select stays empty; the name is shown only when the list loads */ });
-    return () => { cancelled = true; };
-  }, []);
   const [notes, setNotes] = useState("");
   const [notesError, setNotesError] = useState("");
   const [error, setError] = useState("");
@@ -117,19 +98,6 @@ export default function ActivityLogForm({ contactId, contactName, onSaved, onCan
             placeholder="What happened? e.g. Called, customer asked about 500L tank price" aria-invalid={Boolean(notesError)}
             style={{ ...MODAL_INPUT, height: "auto", minHeight: 42, padding: "10px 12px", resize: "vertical" }} />
           {notesError && <span role="alert" className="text-xs font-semibold text-red-600">{notesError}</span>}
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1.5" style={MODAL_FIELD_LABEL}>Date
-            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={MODAL_FIELD_CLASS} style={MODAL_INPUT} />
-          </label>
-          <label className="flex flex-col gap-1.5" style={MODAL_FIELD_LABEL}>Time
-            <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className={MODAL_FIELD_CLASS} style={MODAL_INPUT} />
-          </label>
-        </div>
-        <label className="flex flex-col gap-1.5" style={MODAL_FIELD_LABEL}>Logged By
-          <select value={loggedBy} onChange={(event) => setLoggedBy(event.target.value)} className={MODAL_FIELD_CLASS} style={MODAL_INPUT}>
-            {staff.map((member) => <option key={member.id} value={String(member.id)}>{member.name}</option>)}
-          </select>
         </label>
         {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
       </div>

@@ -17,6 +17,12 @@ export function ActivityTypeIcon({ type, className = "h-4 w-4" }: { type: string
       return svg(<><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></>, className);
     case "demo":
       return svg(<path d="M3 4h18M5 4v10h14V4M12 14v5M8 21l4-2 4 2" />, className);
+    case "meeting":
+      // Calendar icon
+      return svg(<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>, className);
+    case "email":
+      // Envelope icon
+      return svg(<><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M2 7l10 7 10-7" /></>, className);
     default:
       return svg(<><path d="M5 4h14v10l-6 6H5Z" /><path d="M13 20v-6h6" /></>, className);
   }

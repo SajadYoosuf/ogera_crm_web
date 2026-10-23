@@ -111,6 +111,8 @@ export const ACTIVITY_TILE: Record<string, { bg: string; fg: string }> = {
   whatsapp: { bg: "#E7F8EE", fg: "#1F9254" },
   quote: { bg: "#EAF8EF", fg: "#0E7A4F" },
   field_visit: { bg: "#FFF3E0", fg: "#B45309" },
+  meeting: { bg: "#F3EEFF", fg: "#5B3FD6" },
+  email: { bg: "#FFF0FB", fg: "#9C2BAD" },
 };
 export const ACTIVITY_TILE_DEFAULT = { bg: COLOR.surfaceMuted, fg: COLOR.textSecondary };
 
