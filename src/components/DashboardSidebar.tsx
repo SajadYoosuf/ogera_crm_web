@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import NotificationBell from "@/components/dashboard/NotificationBell";
 
 interface SessionUser { name: string; email: string; role: string; }
 
@@ -252,9 +253,10 @@ export default function DashboardSidebar() {
           </svg>
         </button>
 
-        {/* Footer: Settings (everyone; team tabs for admin and manager) and Log out */}
+        {/* Footer: Notifications, Settings and Log out */}
         <div className="shrink-0 space-y-1 px-3.5 pb-4">
           {visibleMenuItems.filter((item) => item.category === "FOOTER").map(renderLink)}
+          <NotificationBell collapsed={collapsed} />
           <button
             type="button"
             onClick={logout}

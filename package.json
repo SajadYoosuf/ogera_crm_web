@@ -18,6 +18,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
+    "firebase": "^13.1.0",
     "jsonwebtoken": "^9.0.3",
     "leaflet": "^1.9.4",
     "libphonenumber-js": "^1.13.14",
