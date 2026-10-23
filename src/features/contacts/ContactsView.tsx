@@ -7,6 +7,7 @@ import type { FilterGroup } from "@/components/FilterPanel";
 import SelectField from "@/components/SelectField";
 import ContactExportModal from "@/features/contacts/components/ContactExportModal";
 import ContactImportModal from "@/features/contacts/components/ContactImportModal";
+import AutoFollowupPromptModal from "@/features/contacts/components/AutoFollowupPromptModal";
 import ContactRowMenu from "@/features/contacts/components/ContactRowMenu";
 import VerifiedBadge from "@/features/contacts/components/VerifiedBadge";
 import ContactsMoreMenu from "@/features/contacts/components/ContactsMoreMenu";
@@ -51,6 +52,7 @@ export default function ContactsView() {
   const {
     editor, openEditor, closeEditor, updateForm, saveContact, searchReferral, sourceValue,
     deleteTarget, setDeleteTarget, deleteContact, isSaving, formError, setFormError, selectedReferral, setSelectedReferral,
+    pendingAutoFollowup, closePendingFollowup,
   } = useContactEditor({ leadSources, onSaved: loadContacts });
   const [ioDialog, setIoDialog] = useState<"import" | "export" | null>(null);
   const [productSearch, setProductSearch] = useState("");
@@ -755,6 +757,13 @@ export default function ContactsView() {
           extraFilterCount={[filters.partnerType && filters.type === "partner", filters.district, filters.assignedTo, filters.createdBy, filters.verified, submittedSearch].filter(Boolean).length} />
       )}
       {ioDialog === "import" && <ContactImportModal leadSources={leadSources} onClose={() => setIoDialog(null)} onImported={() => { setPage(1); void loadContacts(); }} />}
+      {pendingAutoFollowup && (
+        <AutoFollowupPromptModal
+          contactId={pendingAutoFollowup.contactId}
+          staff={employees.filter((e) => e.is_active && e.role !== "admin" && e.role !== "manager").map((e) => ({ id: e.id, name: e.name }))}
+          onDone={closePendingFollowup}
+        />
+      )}
     </div>
   );
 }

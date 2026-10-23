@@ -98,6 +98,8 @@ export async function listLeadSources(accessToken: string): Promise<LeadSource[]
 export type ApiContactDetail = {
   id: number;
   contact_type: ApiContactType;
+  /** True when the creator is admin/manager — web should show the "Schedule first follow-up?" prompt. */
+  auto_followup_needed?: boolean;
   name: string;
   phone: string;
   district: string;

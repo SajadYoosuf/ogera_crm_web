@@ -10,6 +10,13 @@ import { blankContact, toForm, KIND_LABELS, type Contact, type ContactForm } fro
 
 type Editor = { contact?: Contact; values: ContactForm; loading?: boolean } | null;
 
+/**
+ * When a contact is created by admin/manager the backend does not auto-schedule a first follow-up.
+ * Instead it signals the web via `auto_followup_needed: true` and we show a prompt modal.
+ * This type holds the minimal data the modal needs.
+ */
+type PendingAutoFollowup = { contactId: number };
+
 /** Add / edit / delete for one contact. `onSaved` refreshes the list after a change. */
 export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSource[]; onSaved: () => Promise<void> | void }) {
   const router = useRouter();
@@ -20,6 +27,8 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
   const [selectedReferral, setSelectedReferral] = useState<PickerItem | null>(null);
   // Set when the page was opened from another page's "Add" button; the modal then hands the user back there.
   const [returnTo, setReturnTo] = useState<string | null>(null);
+  // Set when the backend signals that the creator (admin/manager) should assign a first follow-up.
+  const [pendingAutoFollowup, setPendingAutoFollowup] = useState<PendingAutoFollowup | null>(null);
 
   // Older records store "showroom" / "Meta" etc.; match them to a real source by name or slug, and keep unknown values selectable.
   const currentSource = editor?.values.source ?? "";
@@ -144,11 +153,20 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
     try {
       if (editor.contact) {
         await updateContact(accessToken, editor.contact.id, body);
+        setEditor(null); await onSaved();
       } else {
-        await createContact(accessToken, body);
+        const created = await createContact(accessToken, body);
+        setEditor(null);
+        if (returnTo) { router.push(returnTo); return; }
+        // When admin/manager create a contact, the backend asks us to prompt for a first follow-up.
+        if (created.auto_followup_needed) {
+          setPendingAutoFollowup({ contactId: created.id });
+          // Refresh the list so the new contact is visible while the prompt is open.
+          await onSaved();
+        } else {
+          await onSaved();
+        }
       }
-      if (!editor.contact && returnTo) { setEditor(null); router.push(returnTo); return; }
-      setEditor(null); await onSaved();
     } catch (caught) {
       if (caught instanceof ApiError && caught.kind === "invalid_credentials") { router.push("/"); return; }
       setFormError(caught instanceof ApiError ? caught.message : "Contact could not be saved. Please try again.");
@@ -169,9 +187,13 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
     } finally { setIsSaving(false); }
   }
 
+  /** Called by the AutoFollowupPromptModal when the user schedules or skips. */
+  const closePendingFollowup = () => setPendingAutoFollowup(null);
+
   return {
     editor, openEditor, closeEditor, updateForm, saveContact, searchReferral, sourceValue,
     deleteTarget, setDeleteTarget, deleteContact,
     isSaving, formError, setFormError, selectedReferral, setSelectedReferral,
+    pendingAutoFollowup, closePendingFollowup,
   };
 }
