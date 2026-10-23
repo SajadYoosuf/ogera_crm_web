@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { istToday } from "@/components/DatePicker";
 import { ApiError } from "@/lib/api/auth";
 import { listAllEmployees } from "@/lib/api/employees";
 import { usePopoverFit } from "@/hooks/usePopoverFit";
 import FilterSelect from "@/components/FilterSelect";
-import { listLeadSources, type ApiContact } from "@/features/contacts/api/contacts";
+import { listLeadSources, listContacts, updateContact, type ApiContact } from "@/features/contacts/api/contacts";
 import { changeStage, listLeads, type LeadKind } from "@/lib/api/leads";
 import { TODAY_ONLY, periodRange, stepAnchor, titleOf, type Period, type PeriodMode } from "./PeriodFilter";
 import { AVATAR_COLORS, FIELD_LABELS, STAGE_DESCRIPTIONS, formatCardDate, initials, stageColors, whatsappLink } from "./stages";
@@ -78,7 +77,7 @@ function currentUserId(): number | null {
 
 const PERIOD_TABS: { value: PeriodMode; label: string }[] = [
   { value: "day", label: "Day" }, { value: "week", label: "Week" },
-  { value: "month", label: "Month" }, { value: "last_month", label: "Last Month" }, { value: "all", label: "All" }, { value: "custom", label: "Custom" },
+  { value: "month", label: "Month" }, { value: "year", label: "Year" }, { value: "custom", label: "Custom" },
 ];
 
 const TYPE_COLORS: Record<LeadKind, { activeBg: string; activeFg: string }> = {
@@ -110,6 +109,17 @@ export default function FollowupBoard() {
   const [userId] = useState(currentUserId);
   const [staff, setStaff] = useState<{ id: number; name: string; role: string }[] | null>(null);
 
+  // ── Add Lead modal state ──
+  const [addLeadOpen, setAddLeadOpen] = useState(false);
+  const [addLeadSearch, setAddLeadSearch] = useState("");
+  const [addLeadResults, setAddLeadResults] = useState<ApiContact[]>([]);
+  const [addLeadSearching, setAddLeadSearching] = useState(false);
+  const [addLeadContact, setAddLeadContact] = useState<ApiContact | null>(null);
+  const [addLeadStageId, setAddLeadStageId] = useState<number | null>(null);
+  const [addLeadAssigneeName, setAddLeadAssigneeName] = useState("");
+  const [addLeadSaving, setAddLeadSaving] = useState(false);
+  const [addLeadError, setAddLeadError] = useState("");
+
   const { stages, isLoading: stagesLoading } = useStageTypes(kind);
 
   const load = useCallback(async () => {
@@ -135,6 +145,11 @@ export default function FollowupBoard() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  useEffect(() => {
+    if (addLeadOpen) void searchAddLeadContacts(addLeadSearch);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addLeadOpen, kind]);
+
   function selectKind(next: LeadKind) {
     if (next === kind) return;
     setPanel(null); setBlocked(null); setLeads([]); setIsLoading(true); setShowPicker(false); setKind(next);
@@ -146,24 +161,48 @@ export default function FollowupBoard() {
   };
   const pickPeriodMode = (mode: PeriodMode) => {
     setShowPicker(false);
-    if (mode === "all") {
-      setPeriod({ mode: "all", anchor: today, from: "", to: "" });
-      return;
-    }
     if (mode === "custom") {
       setPeriod({ mode: "custom", anchor: today, from: period.from || "", to: period.to || "" });
       setShowPicker(true);
       return;
     }
-    if (mode === "last_month") {
-      setPeriod({ mode: "last_month", anchor: today, ...periodRange("last_month", today, period) });
-      return;
-    }
     if (mode === period.mode) return;
-    const anchor = period.mode === "custom" || period.mode === "all" ? today : period.anchor;
+    const anchor = period.mode === "custom" ? today : period.anchor;
     setPeriod({ mode, anchor, ...periodRange(mode, anchor, period) });
   };
   const { to: periodTo } = periodRange(period.mode, period.anchor, period);
+
+  // ── Add Lead modal helpers ──
+  const searchAddLeadContacts = useCallback(async (q: string) => {
+    const token = sessionStorage.getItem("ogera_access_token");
+    if (!token) return;
+    setAddLeadSearching(true);
+    try {
+      const res = await listContacts(token, { search: q || undefined, contact_type: kind, limit: 20 });
+      setAddLeadResults(res.items);
+    } catch { /* silent */ } finally { setAddLeadSearching(false); }
+  }, [kind]);
+
+  const closeAddLead = () => {
+    setAddLeadOpen(false); setAddLeadSearch(""); setAddLeadResults([]);
+    setAddLeadContact(null); setAddLeadStageId(null); setAddLeadAssigneeName(""); setAddLeadError("");
+  };
+
+  const submitAddLead = async () => {
+    if (!addLeadContact || !addLeadStageId || userId === null) return;
+    const token = sessionStorage.getItem("ogera_access_token");
+    if (!token) { setAddLeadError("Sign in again to continue."); return; }
+    setAddLeadSaving(true); setAddLeadError("");
+    try {
+      await changeStage(token, addLeadContact.id, userId, { stage_id: addLeadStageId });
+      const assigneeStaff = staff?.find((s) => s.name === addLeadAssigneeName);
+      if (assigneeStaff) await updateContact(token, addLeadContact.id, { assigned_to: assigneeStaff.id });
+      closeAddLead();
+      await load();
+    } catch (e) {
+      setAddLeadError(e instanceof ApiError ? e.message : "Could not add lead. Please try again.");
+    } finally { setAddLeadSaving(false); }
+  };
 
   const assignees = useMemo(
     () => [...new Set(staff ? staff.map((m) => m.name) : leads.map((l) => l.assigned_to?.name).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b)),
@@ -231,18 +270,18 @@ export default function FollowupBoard() {
       {/* ── Page header ── */}
       <header className="shrink-0 h-[72px] bg-white border-b border-[#E5E7EA] flex items-center justify-between gap-3 pl-16 pr-4 sm:pr-7 lg:pl-7">
         <h1 className="min-w-0 truncate text-xl sm:text-[26px] font-bold tracking-tight text-[#1A1C21]">Lead Pipeline</h1>
-        <Link href="/contacts?add=1&returnTo=/dashboard/followups" className="shrink-0">
-          <button type="button" className="h-10 px-3.5 sm:px-4 flex items-center gap-2 rounded-[10px] bg-[#0E7A4F] text-white text-sm font-semibold hover:bg-[#0B6640] transition-colors">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            Add Lead
-          </button>
-        </Link>
+        <button type="button" onClick={() => setAddLeadOpen(true)} className="shrink-0 h-10 px-3.5 sm:px-4 flex items-center gap-2 rounded-[10px] bg-[#0E7A4F] text-white text-sm font-semibold hover:bg-[#0B6640] transition-colors">
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          Add Lead
+        </button>
       </header>
 
       {/* ── Content area ── */}
       <div className="flex-1 flex flex-col gap-3.5 p-5 lg:p-7 min-w-0">
         {/* ── Filter toolbar ── */}
-        <div className="bg-white border border-[#E5E7EA] rounded-2xl px-3.5 py-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-3.5">
+        <div className="bg-white border border-[#E5E7EA] rounded-2xl px-3.5 py-3 flex flex-col gap-3">
+
+          {/* Row 1: type tabs · search · period tabs · date nav + Today */}
           <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
 
             {/* Contact type tabs */}
@@ -279,9 +318,8 @@ export default function FollowupBoard() {
               />
             </label>
 
-            {/* Date range tabs */}
+            {/* Period mode tabs */}
             <div className="relative w-full sm:w-auto">
-              {/* Phones: one dropdown instead of the tab row, which doesn't fit */}
               <FilterSelect
                 label="Period"
                 value={period.mode}
@@ -312,8 +350,8 @@ export default function FollowupBoard() {
               )}
             </div>
 
-            {/* Date navigation arrows + label (day / week / month only) */}
-            {(period.mode === "day" || period.mode === "week" || period.mode === "month") && (
+            {/* Date navigation: arrows · label · Today (day / week / month / year) */}
+            {(period.mode === "day" || period.mode === "week" || period.mode === "month" || period.mode === "year") && (
               <div className="flex items-center gap-1">
                 <button type="button" aria-label={`Previous ${period.mode}`} onClick={() => movePeriod(-1)} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[7px] bg-white text-[#4B5060] hover:bg-gray-50 transition-colors">
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
@@ -322,12 +360,17 @@ export default function FollowupBoard() {
                 <button type="button" aria-label={`Next ${period.mode}`} onClick={() => movePeriod(1)} disabled={periodTo >= today} className="w-8 h-8 flex items-center justify-center border border-[#DEE1E5] rounded-[7px] bg-white text-[#4B5060] hover:bg-gray-50 disabled:opacity-40 transition-colors">
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setPeriod({ mode: period.mode, anchor: today, ...periodRange(period.mode, today, period) })}
+                  disabled={period.from <= today && today <= (period.to || today)}
+                  className="h-8 px-3 border border-[#DEE1E5] rounded-[7px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                >
+                  Today
+                </button>
               </div>
             )}
-            {/* Last month label */}
-            {period.mode === "last_month" && (
-              <span className="text-[13.5px] font-semibold text-[#1A1C21] whitespace-nowrap">{titleOf("last_month", period.anchor)}</span>
-            )}
+
             {/* Custom date range chip */}
             {period.mode === "custom" && !showPicker && (
               <button type="button" onClick={() => setShowPicker(true)} className="h-8 px-3 border border-[#DEE1E5] rounded-[7px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 transition-colors flex items-center gap-1.5">
@@ -340,8 +383,8 @@ export default function FollowupBoard() {
 
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-1.5">
-            {/* Lead owner */}
+          {/* Row 2: lead owner · source · clear filters (left-aligned) */}
+          <div className="flex flex-wrap items-center gap-2">
             <BoardDropdown
               label="Lead owner"
               value={assignee}
@@ -349,8 +392,6 @@ export default function FollowupBoard() {
               options={assignees}
               icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="7" r="4" /><path d="M5.5 21a6.5 6.5 0 0 1 13 0" /></svg>}
             />
-
-            {/* Source */}
             <BoardDropdown
               label="Source"
               value={source}
@@ -358,13 +399,13 @@ export default function FollowupBoard() {
               options={sources}
               icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z" /></svg>}
             />
-
             {hasFilters && (
               <button type="button" onClick={() => { setSearch(""); setAssignee(""); setSource(""); setShowPicker(false); setPeriod(defaultPeriod()); }} className="h-[38px] px-3 border border-[#DEE1E5] rounded-[10px] bg-white text-[#3A3E4A] text-[13px] font-semibold hover:bg-gray-50 transition-colors">
                 Clear filters
               </button>
             )}
           </div>
+
         </div>
 
         {/* ── Board ── */}
@@ -508,6 +549,135 @@ export default function FollowupBoard() {
           missing={blocked.missing}
           onClose={() => setBlocked(null)}
         />
+      )}
+
+      {/* ── Add Lead modal ── */}
+      {addLeadOpen && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Add lead">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={closeAddLead} aria-hidden="true" />
+
+          <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EA]">
+              <h2 className="text-[15px] font-bold text-[#1A1C21]">
+                {addLeadContact ? "Set stage & owner" : `Select ${kind} contact`}
+              </h2>
+              <button type="button" onClick={closeAddLead} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#8A8F9C] hover:bg-gray-100 transition-colors" aria-label="Close">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {!addLeadContact ? (
+              /* Step 1: search and pick a contact */
+              <>
+                <div className="px-5 py-3 border-b border-[#E5E7EA]">
+                  <label className="relative flex items-center">
+                    <svg className="absolute left-3 w-4 h-4 text-[#8A8F9C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+                    <input
+                      type="search"
+                      autoFocus
+                      value={addLeadSearch}
+                      onChange={(e) => { setAddLeadSearch(e.target.value); void searchAddLeadContacts(e.target.value); }}
+                      placeholder="Search by name or phone…"
+                      className="h-[38px] w-full pl-9 pr-3 border border-[#DEE1E5] rounded-[8px] text-[13.5px] text-[#1A1C21] bg-white placeholder:text-[#8A8F9C] focus:outline-none focus:ring-2 focus:ring-[#BFE6D2]"
+                    />
+                  </label>
+                </div>
+                <ul className="overflow-y-auto flex-1 py-1.5 px-1.5" style={{ minHeight: 120, maxHeight: 340 }}>
+                  {addLeadSearching ? (
+                    <li className="py-8 text-center text-sm text-[#8A8F9C]">Searching…</li>
+                  ) : addLeadResults.length === 0 ? (
+                    <li className="py-8 text-center text-sm text-[#8A8F9C]">No contacts found</li>
+                  ) : addLeadResults.map((c, idx) => {
+                    const av = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+                    const name = c.name || c.phone;
+                    return (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => { setAddLeadContact(c); setAddLeadStageId(stages[0]?.id ?? null); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F7F8F9] transition-colors text-left"
+                        >
+                          <span className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold" style={{ background: av.bg, color: av.fg }}>
+                            {initials(name).charAt(0)}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[13px] font-semibold text-[#1A1C21] truncate">{name}</p>
+                            <p className="text-[11.5px] text-[#8A8F9C] truncate">{[c.phone, c.district].filter(Boolean).join(" · ")}</p>
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            ) : (
+              /* Step 2: stage + assigned to */
+              <div className="px-5 py-4 flex flex-col gap-4 overflow-y-auto">
+                {/* Selected contact chip */}
+                <div className="flex items-center gap-3 p-3 bg-[#F7F8F9] border border-[#E5E7EA] rounded-xl">
+                  <span className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold bg-[#E0F2EC] text-[#0E7A4F]">
+                    {initials(addLeadContact.name || addLeadContact.phone).charAt(0)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-semibold text-[#1A1C21] truncate">{addLeadContact.name || addLeadContact.phone}</p>
+                    <p className="text-[11.5px] text-[#8A8F9C]">{[addLeadContact.phone, addLeadContact.district].filter(Boolean).join(" · ")}</p>
+                  </div>
+                  <button type="button" onClick={() => setAddLeadContact(null)} className="shrink-0 text-[11.5px] text-[#0E7A4F] font-semibold hover:underline">Change</button>
+                </div>
+
+                {/* Lead stage */}
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#4B5060] mb-1.5">Lead stage <span className="text-rose-500">*</span></label>
+                  <select
+                    value={addLeadStageId ?? ""}
+                    onChange={(e) => setAddLeadStageId(Number(e.target.value))}
+                    className="w-full h-10 px-3 border border-[#DEE1E5] rounded-[8px] text-[13.5px] text-[#1A1C21] bg-white focus:outline-none focus:ring-2 focus:ring-[#BFE6D2]"
+                  >
+                    <option value="" disabled>Select stage</option>
+                    {stages.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                </div>
+
+                {/* Assigned to */}
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#4B5060] mb-1.5">Assigned to</label>
+                  <select
+                    value={addLeadAssigneeName}
+                    onChange={(e) => setAddLeadAssigneeName(e.target.value)}
+                    className="w-full h-10 px-3 border border-[#DEE1E5] rounded-[8px] text-[13.5px] text-[#1A1C21] bg-white focus:outline-none focus:ring-2 focus:ring-[#BFE6D2]"
+                  >
+                    <option value="">— Unassigned —</option>
+                    {(owners ?? []).map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                  </select>
+                </div>
+
+                {addLeadError && (
+                  <p role="alert" className="text-[12.5px] text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">{addLeadError}</p>
+                )}
+              </div>
+            )}
+
+            {/* Footer */}
+            {addLeadContact && (
+              <div className="px-5 py-4 border-t border-[#E5E7EA] flex gap-2 justify-end">
+                <button type="button" onClick={closeAddLead} className="h-9 px-4 rounded-[8px] border border-[#DEE1E5] bg-white text-[13px] font-semibold text-[#3A3E4A] hover:bg-gray-50 transition-colors">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void submitAddLead()}
+                  disabled={!addLeadStageId || addLeadSaving}
+                  className="h-9 px-4 rounded-[8px] bg-[#0E7A4F] text-white text-[13px] font-semibold hover:bg-[#0B6640] disabled:opacity-50 transition-colors flex items-center gap-2"
+                >
+                  {addLeadSaving && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+                  Add to pipeline
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

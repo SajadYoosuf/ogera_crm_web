@@ -3,7 +3,7 @@
 import DateRangePicker from "@/components/DateRangePicker";
 import { addDays, fromISO, startOfWeek, toISO } from "@/components/tasks/calendar";
 
-export type PeriodMode = "day" | "week" | "month" | "last_month" | "all" | "custom";
+export type PeriodMode = "day" | "week" | "month" | "year" | "custom";
 export type Period = { mode: PeriodMode; anchor: string; from: string; to: string };
 
 export const TODAY_ONLY = (today: string): Period => ({ mode: "day", anchor: today, from: today, to: today });
@@ -17,7 +17,7 @@ export const THIS_MONTH = (today: string): Period => {
 
 const MODES: { value: PeriodMode; label: string }[] = [
   { value: "day", label: "Today" }, { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" }, { value: "last_month", label: "Last Month" }, { value: "custom", label: "Custom" },
+  { value: "month", label: "This Month" }, { value: "year", label: "This Year" }, { value: "custom", label: "Custom" },
 ];
 
 export function periodRange(mode: PeriodMode, anchor: string, custom: { from: string; to: string }) {
@@ -27,9 +27,9 @@ export function periodRange(mode: PeriodMode, anchor: string, custom: { from: st
     const d = fromISO(anchor);
     return { from: toISO(new Date(d.getFullYear(), d.getMonth(), 1)), to: toISO(new Date(d.getFullYear(), d.getMonth() + 1, 0)) };
   }
-  if (mode === "last_month") {
+  if (mode === "year") {
     const d = fromISO(anchor);
-    return { from: toISO(new Date(d.getFullYear(), d.getMonth() - 1, 1)), to: toISO(new Date(d.getFullYear(), d.getMonth(), 0)) };
+    return { from: toISO(new Date(d.getFullYear(), 0, 1)), to: toISO(new Date(d.getFullYear(), 11, 31)) };
   }
   return mode === "custom" ? custom : { from: "", to: "" };
 }
@@ -38,16 +38,14 @@ export function stepAnchor(mode: PeriodMode, anchor: string, direction: -1 | 1) 
   if (mode === "day") return addDays(anchor, direction);
   if (mode === "week") return addDays(anchor, 7 * direction);
   const d = fromISO(anchor);
+  if (mode === "year") return toISO(new Date(d.getFullYear() + direction, 0, 1));
   return toISO(new Date(d.getFullYear(), d.getMonth() + direction, 1));
 }
 
 export function titleOf(mode: PeriodMode, anchor: string) {
   if (mode === "day") return fromISO(anchor).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   if (mode === "month") return fromISO(anchor).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
-  if (mode === "last_month") {
-    const d = fromISO(anchor);
-    return new Date(d.getFullYear(), d.getMonth() - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
-  }
+  if (mode === "year") return String(fromISO(anchor).getFullYear());
   const { from, to } = periodRange("week", anchor, { from: "", to: "" });
   const short = { day: "numeric", month: "short" } as const;
   return `${fromISO(from).toLocaleDateString("en-GB", short)} – ${fromISO(to).toLocaleDateString("en-GB", { ...short, year: "numeric" })}`;
