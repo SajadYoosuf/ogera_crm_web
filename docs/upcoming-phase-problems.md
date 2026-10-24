@@ -118,6 +118,45 @@ backend is confirmed and its states are complete.
 
 ---
 
+## 3. Tasks page: "Add New" button does nothing
+
+**Status:** Open
+**Area:** Web / Tasks (`src/components/tasks/TasksBoard.tsx`, around line 176-180; dialogs in `src/components/tasks/TaskDialogs.tsx`)
+**Found:** 2026-10-24, manual check of the `/dashboard/tasks` page
+
+### What we see
+
+On the Tasks page, clicking the green **Add New** button in the header does not open anything. Nothing happens and no error is shown.
+
+### Why it matters
+
+Users cannot create a task from the Tasks page. The only visible path is to schedule a follow-up from a lead, which the empty state tells them to do.
+
+### What we know (verified by reading the code)
+
+- The button is a plain `<button type="button">` with no `onClick` prop, so clicking it runs no code.
+- A search of `src/components/tasks/` finds no create-task dialog or handler. `TaskDialogs.tsx` only has the reschedule and edit-note flows.
+- The empty-state text says "Schedule a follow-up from a lead and it shows up on its day." This suggests creation is meant to start from a lead, not from this page.
+
+### What we do not know yet
+
+- [ ] Should "Add New" create a standalone task, or only a follow-up linked to a lead? A task needs a `contact_id` to appear on the board (see the reschedule guard in `TasksBoard.tsx`), so a standalone task may not be possible with the current data model.
+- [ ] Does the backend have a create-task or create-followup endpoint, and what does it require? The backend code is not in this repo.
+- [ ] Was the button meant to link to the Contacts page (pick a lead first) instead of opening a dialog?
+
+### Suggested fix plan
+
+1. Decide the behavior with the product owner. Options: (a) open a "New follow-up" dialog that asks for a lead, date, and type; (b) send the user to the Contacts page to pick a lead; (c) hide the button until the flow exists.
+2. Confirm the backend create endpoint and its request and response schema.
+3. Build the chosen flow with loading, empty, error, and success states (use the `ui-states` checklist), then check phone and tablet layout (use `responsive-ui`).
+4. Add a test that clicking the button opens the flow, plus one for a failed create.
+
+### Quick fix if the flow is not ready
+
+Until the flow exists, either hide the button or disable it with a tooltip ("Coming soon"), so users do not click a button that looks broken.
+
+---
+
 ## Template for new items
 
 ```
