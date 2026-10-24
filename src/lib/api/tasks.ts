@@ -1,13 +1,21 @@
 import { request } from "./auth";
 import type { ActivityItem } from "./activities";
 
-/** A follow-up task with the contact it belongs to. Mirrors API.md (GET /tasks). Standalone tasks have no contact (contact_id null). */
+/** The status values a user can pick from the task dropdown. */
+export type TaskFollowupStatus = "todo" | "inprogress" | "completed";
+
+/**
+ * A follow-up task with the contact it belongs to. Mirrors API.md (GET /tasks). Standalone tasks have no contact (contact_id null).
+ * `followup_status` is the real stored status (todo / inprogress / completed). The dropdown must read this,
+ * not `status`, because `status` is only "pending" or "done".
+ */
 export type TaskItem = ActivityItem & {
   contact_id: number | null;
   contact_name: string;
   contact_phone: string;
   contact_type: string;
   priority?: "high" | "medium" | "low";
+  followup_status?: TaskFollowupStatus | null;
 };
 
 export type TaskSummary = { overdue: number; today: number; upcoming: number; done: number };
@@ -27,7 +35,7 @@ export type TaskQuery = {
  * - "todo" | "inprogress" | "pending" are plain status moves.
  * Calls PATCH /contacts/{contactId}/followups/{id}.
  */
-export function changeTaskStatus(accessToken: string, contactId: number, taskId: number, status: "todo" | "inprogress" | "pending" | "completed") {
+export function changeTaskStatus(accessToken: string, contactId: number, taskId: number, status: TaskFollowupStatus) {
   const body = status === "completed"
     ? { status: "completed", outcome: "done" }
     : { status };

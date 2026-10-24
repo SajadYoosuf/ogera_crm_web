@@ -1,15 +1,14 @@
 "use client";
 
-import type { TaskItem } from "@/lib/api/tasks";
+import type { TaskFollowupStatus, TaskItem } from "@/lib/api/tasks";
 import { ActivityTypeIcon } from "@/components/followups/ActivityIcons";
 import { formatClock, formatWhen, typeLabel } from "@/components/followups/activities";
 import { whatsappLink } from "@/components/followups/stages";
 import { fromISO } from "./calendar";
 
-const STATUS_OPTIONS: { value: "todo" | "inprogress" | "pending" | "completed"; label: string }[] = [
+const STATUS_OPTIONS: { value: TaskFollowupStatus; label: string }[] = [
   { value: "todo", label: "To do" },
   { value: "inprogress", label: "In Progress" },
-  { value: "pending", label: "Pending" },
   { value: "completed", label: "Completed" },
 ];
 
@@ -48,7 +47,7 @@ export function CompactTask({ task, showAssignee, onOpen }: { task: TaskItem; sh
 /** Full task card. Status dropdown on the left lets the employee change the task state inline. */
 export default function TaskCard({ task, showAssignee, showDate = false, onChangeStatus, onStartReschedule }: {
   task: TaskItem; showAssignee: boolean; showDate?: boolean;
-  onChangeStatus: (task: TaskItem, status: "todo" | "inprogress" | "pending" | "completed") => void;
+  onChangeStatus: (task: TaskItem, status: TaskFollowupStatus) => void;
   onStartReschedule: (task: TaskItem) => void;
 }) {
   const isDone = task.task_state === "done";
@@ -83,10 +82,12 @@ export default function TaskCard({ task, showAssignee, showDate = false, onChang
             {/* Status dropdown — leftmost, lets the employee change state without opening a dialog */}
             <select
               aria-label="Change task status"
-              value={task.status}
-              onChange={(e) => onChangeStatus(task, e.target.value as "todo" | "inprogress" | "pending" | "completed")}
+              value={task.followup_status ?? ""}
+              onChange={(e) => onChangeStatus(task, e.target.value as TaskFollowupStatus)}
               className="h-[34px] rounded-lg border border-[#DEE1E5] bg-white pl-2.5 pr-7 text-[13px] font-medium text-[#3A3E4A] hover:bg-[#F3F3F5] focus:outline-none focus:ring-2 focus:ring-[#BFE6D2]"
             >
+              {/* Shown only until the real status arrives, so the select never claims a wrong state */}
+              {!task.followup_status && <option value="" disabled>Set status</option>}
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
