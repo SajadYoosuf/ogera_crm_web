@@ -51,7 +51,7 @@ export const listStageTypes = (accessToken: string, contactType: LeadKind) =>
 
 /** One row of GET /contacts/{id}/history (backend HistoryItem). Fields not used by an event type are null. */
 export type HistoryEvent = {
-  event_type: "stage" | "activity" | "followup" | "followup_rescheduled" | "assignment";
+  event_type: "stage" | "activity" | "followup" | "followup_rescheduled" | "assignment" | "followup_edit";
   timestamp: string;
   actor_id: number | null;
   actor_name: string | null;
@@ -71,6 +71,10 @@ export type HistoryEvent = {
   followup_status: string | null;
   assigned_to_name: string | null;
   assigned_from_name: string | null;
+  /** For a follow-up edit: which field changed, e.g. 'channel', 'priority', 'due_at'. */
+  field_name?: string | null;
+  old_value?: string | null;
+  new_value?: string | null;
 };
 
 /** Stages, scheduled follow-ups, logged activities and owner changes for one lead, newest first. */

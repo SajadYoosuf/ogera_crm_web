@@ -58,6 +58,14 @@ function describe(event: HistoryEvent): { title: string; detail?: string; icon: 
         detail: event.assigned_from_name ? `Moved from ${event.assigned_from_name}` : undefined,
         icon: "",
       };
+    case "followup_edit":
+      return {
+        title: `Follow-up ${event.field_name ?? "field"} changed`,
+        detail: joinDetail([
+          event.old_value || event.new_value ? `${event.old_value ?? "—"} → ${event.new_value ?? "—"}` : null,
+        ]),
+        icon: "",
+      };
   }
 }
 
