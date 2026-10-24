@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-24 — `5cf85b9` (branch `fix/task-status-in-progress`)
+
+**fix(web/tasks): bind status dropdown to followup_status**
+
+Author: sajad yoosuf
+Previous commit on this side: `600e73a` docs: add upcoming-phase problems list (FCM service worker)
+
+### Summary
+The task status dropdown read the legacy `status` field, which only says pending or done, so choosing "In Progress" snapped back to "Pending". It now binds to `followup_status` from the API. "Pending" is removed from the options and from the `TaskFollowupStatus` type to match the backend.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/lib/api/tasks.ts` | `followup_status` on `TaskItem`; `TaskFollowupStatus` without `pending` |
+| Modified | `src/components/tasks/TaskTable.tsx` | Dropdown binds to `followup_status`; "Pending" option removed |
+| Modified | `src/components/tasks/TaskCard.tsx` | Dropdown binds to `followup_status`; "Pending" option removed |
+| Modified | `src/components/tasks/TasksBoard.tsx` | Status change handler uses `TaskFollowupStatus` |
+
+### Notes
+Type-checked with `tsc --noEmit` and linted with ESLint: clean. Six unit tests fail in `tests/components/tasks-board.test.tsx`, `followup-board.test.tsx`, `lead-activity.test.tsx` and `followups/activities.test.ts`. They look for "Mark done" and "Actions for" buttons that are not in the source, so they are not caused by this change. Not yet checked in the browser.
+
+---
+
 ## 2026-10-24 — `b581435` (branch `main`)
 
 **fix(web/followups): handle followup_edit history events**
