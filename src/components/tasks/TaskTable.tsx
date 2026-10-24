@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore, type ReactNode } from "react";
 import { typeLabel } from "@/components/followups/activities";
-import type { TaskItem } from "@/lib/api/tasks";
+import type { TaskFollowupStatus, TaskItem } from "@/lib/api/tasks";
 import { fromISO } from "./calendar";
 import { stateLabel, timeText } from "./TaskCard";
 
@@ -43,14 +43,13 @@ const PRIORITY: Record<string, { label: string; pill: string }> = {
   low: { label: "Low", pill: "bg-[#EAF8EF] text-[#17703F]" },
 };
 
-const STATUS_OPTIONS: { value: "todo" | "inprogress" | "pending" | "completed"; label: string }[] = [
+const STATUS_OPTIONS: { value: TaskFollowupStatus; label: string }[] = [
   { value: "todo", label: "To do" },
   { value: "inprogress", label: "In Progress" },
-  { value: "pending", label: "Pending" },
   { value: "completed", label: "Completed" },
 ];
 
-type TaskAction = { onChangeStatus: (task: TaskItem, status: "todo" | "inprogress" | "pending" | "completed") => void; onStartReschedule: (task: TaskItem) => void };
+type TaskAction = { onChangeStatus: (task: TaskItem, status: TaskFollowupStatus) => void; onStartReschedule: (task: TaskItem) => void };
 
 function TaskRow({ task, onChangeStatus, onStartReschedule }: { task: TaskItem } & TaskAction) {
   const done = task.task_state === "done";
@@ -90,10 +89,12 @@ function TaskRow({ task, onChangeStatus, onStartReschedule }: { task: TaskItem }
         ) : (
           <select
             aria-label="Change task status"
-            value={task.status}
-            onChange={(e) => onChangeStatus(task, e.target.value as "todo" | "inprogress" | "pending" | "completed")}
+            value={task.followup_status ?? ""}
+            onChange={(e) => onChangeStatus(task, e.target.value as TaskFollowupStatus)}
             className="h-8 rounded-lg border border-[#DEE1E5] bg-white pl-2.5 pr-6 text-[13px] font-medium text-[#3A3E4A] hover:bg-[#F3F3F5] focus:outline-none focus:ring-2 focus:ring-[#BFE6D2]"
           >
+            {/* Shown only until the real status arrives, so the select never claims a wrong state */}
+            {!task.followup_status && <option value="" disabled>Set status</option>}
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}

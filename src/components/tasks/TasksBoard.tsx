@@ -8,7 +8,7 @@ import { rescheduleFollowup } from "@/lib/api/activities";
 import { changeTaskStatus } from "@/lib/api/tasks";
 import FollowupScheduleForm from "@/components/followups/FollowupScheduleForm";
 import { listAllEmployees } from "@/lib/api/employees";
-import { listTasks, type TaskItem, type TaskList, type TaskStatus } from "@/lib/api/tasks";
+import { listTasks, type TaskFollowupStatus, type TaskItem, type TaskList, type TaskStatus } from "@/lib/api/tasks";
 import DateRangePicker from "@/components/DateRangePicker";
 import { addDays, MAX_CUSTOM_DAYS, rangeFor, startOfWeek, type TaskView } from "./calendar";
 import TaskCard from "./TaskCard";
@@ -114,7 +114,7 @@ export default function TasksBoard() {
     return accessToken;
   }
 
-  async function handleStatusChange(task: TaskItem, status: "todo" | "inprogress" | "pending" | "completed") {
+  async function handleStatusChange(task: TaskItem, status: TaskFollowupStatus) {
     if (task.contact_id === null) { setNotice("This task has no linked lead — status cannot be changed here."); return; }
     const accessToken = sessionStorage.getItem("ogera_access_token");
     if (!accessToken) { setNotice("Sign in again to continue."); return; }
