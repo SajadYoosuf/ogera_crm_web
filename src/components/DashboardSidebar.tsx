@@ -79,7 +79,16 @@ const menuItems: MenuItem[] = [
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
     ),
   },
-  
+  {
+    id: "expenses",
+    label: "Expenses",
+    href: "/dashboard/expenses",
+    category: "ADMIN",
+    icon: (
+      <path d="M2 7h20v12H2zM2 11h20M6 15h4M16 3l-2 4M8 3l2 4" />
+    ),
+  },
+
 ];
 
 const categories = [
