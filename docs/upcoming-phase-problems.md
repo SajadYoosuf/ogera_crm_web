@@ -72,6 +72,52 @@ with the `NEXT_PUBLIC_FIREBASE_*` env vars, or move it to a build-time generated
 
 ---
 
+## 2. Expense management module: pending work
+
+**Status:** Open (module is partly built and not yet committed)
+**Area:** Web (`src/app/dashboard/expenses/page.tsx`, `src/lib/api/expenses.ts`), Backend (`/expenses` endpoints), Flutter (claim submission, if in scope)
+**Found:** 2026-10-24, review of uncommitted work on the `fix/task-status-in-progress` checkout
+
+### What we see
+
+The web expense review page and its API client exist as untracked files. They are not yet linked from the
+dashboard, not covered by tests, and not documented. Nothing in `docs/`, `CHANGELOG.md`, or the sidebar mentions expenses yet.
+
+### Why it matters
+
+Managers and admins cannot reach the page from the UI. The module cannot ship until its contract with the
+backend is confirmed and its states are complete.
+
+### What is pending
+
+- [ ] **Sidebar link:** add an "Expenses" item to `src/components/DashboardSidebar.tsx` (currently only Dashboard, Contacts, Followups, Tasks, Sales, Products, Employees).
+- [ ] **Role gating:** show the link and page only to managers and admins. The API returns 403 for other roles; the UI should not offer the page to them at all.
+- [ ] **Replace `alert()` on approve failure** (`page.tsx`, around line 133) with an inline error message, as the reject modal already does.
+- [ ] **Backend contract check:** confirm the backend routes match `src/lib/api/expenses.ts`:
+  `GET /expenses`, `GET /expenses/{id}`, `POST /expenses/{id}/approve`, `POST /expenses/{id}/reject`. The backend code is not in this repo, so check it there.
+- [ ] **Receipt access:** `bill_photo_url` is shown in an `<img>` tag. Confirm the backend serves receipts only to authorized managers and admins (prevent IDOR, per CLAUDE.md), and that a direct link does not expose other employees' bills.
+- [ ] **Claim submission:** the web client has no create-claim call. Decide whether employees submit claims from the Flutter app, and if so, add that flow and its API contract.
+- [ ] **UI states:** check loading, empty, error, and success for the list, the detail view, approve, and reject (use the `ui-states` checklist).
+- [ ] **Responsive layout:** check the KPI cards, filter bar, table, and receipt view on phone and tablet widths (use the `responsive-ui` checklist).
+- [ ] **Tests:** add unit tests for the filter and KPI logic, an integration test with a mocked API for approve and reject, and one Playwright flow for review. Follow `feature-testing`.
+- [ ] **Commit and docs:** commit the expense files on their own branch, and add the module to `docs/MODULES.md` and `CHANGELOG.md` when done.
+
+### What we do not know yet
+
+- [ ] Does the backend `/expenses` module exist and match these routes?
+- [ ] Who may create a claim, and from which app?
+- [ ] Are bill photos stored with access checks, or as public files?
+
+### Suggested fix plan
+
+1. Confirm the backend contract first (the cheapest check that can block everything else).
+2. Add the sidebar link with role gating, and remove the `alert()`.
+3. Check the receipt access rules with the backend.
+4. Finish the UI states and responsive checks.
+5. Add tests, then docs, then commit.
+
+---
+
 ## Template for new items
 
 ```
