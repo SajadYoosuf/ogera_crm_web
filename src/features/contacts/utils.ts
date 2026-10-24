@@ -26,7 +26,9 @@ export type ContactSource = string;
 
 export interface Contact {
   id: number; kind: ApiContactType; profession?: string; name: string; phone: string; stage?: string; source?: string;
-  address?: string; district?: string; assignedTo?: string; assignedToId?: number; createdAt: string;
+  address?: string; district?: string; assignedTo?: string; assignedToId?: number;
+  /** Name of the employee who created the contact, and their branch. */
+  createdBy?: string; createdByBranch?: string; createdAt: string;
   isVerified: boolean; missingFields: string[];
 }
 export interface ContactForm {
@@ -54,6 +56,8 @@ export const fromApi = (contact: ApiContact): Contact => ({
   stage: contact.lead_stage?.stage_slug,
   assignedTo: contact.assigned_to?.name ?? undefined,
   assignedToId: contact.assigned_to?.id ?? undefined,
+  createdBy: contact.created_by?.name ?? undefined,
+  createdByBranch: contact.created_by_branch ?? undefined,
   createdAt: contact.created_at,
   isVerified: contact.is_verified, missingFields: contact.missing_fields ?? [],
 });

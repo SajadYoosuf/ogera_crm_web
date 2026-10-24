@@ -21,6 +21,8 @@ import { KIND_LABELS, PAGE_SIZE, TYPE_TABS, professionLabel, type Contact, type 
 
 // Contacts design: purple accent, pastel avatars and a 1px-border table card.
 const ACCENT_BUTTON = "bg-[#0E4D3A] text-white transition-colors hover:bg-[#0E4D3A]";
+// Soft shadow on the pinned Action column's left edge, so it reads as sitting on top of the scrolling columns.
+const STICKY_EDGE = "shadow-[-8px_0_8px_-8px_rgba(16,24,40,0.18)]";
 const AVATAR_TONES = ["bg-[#E7F5EE] text-[#0E4D3A]", "bg-[#E0F2FE] text-[#0B6AA8]", "bg-[#DCFCE7] text-[#167A44]", "bg-[#FEF3C7] text-[#9A6200]", "bg-[#FCE7F3] text-[#A8326E]"];
 const DATE_FORMAT = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
@@ -127,7 +129,8 @@ export default function ContactsView() {
     updateForm("interestedProducts", updated);
   };
 
-  const tableColumns = ["Contact", "Contact Type", "Contact Number", "Location", "Source", "Stage", ...(canAssign ? ["Assigned to"] : []), "Status"];
+  // Created by / Assigned to are admin and manager columns, so they only show once the employee list loads.
+  const tableColumns = ["Contact", "Contact Type", "Contact Number", "Location", "Source", "Stage", ...(canAssign ? ["Created by", "Assigned to"] : []), "Status"];
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
   const hasNonTypeFilters = Object.entries(filters).some(([k, v]) => k !== "type" && Boolean(v));
@@ -260,20 +263,21 @@ export default function ContactsView() {
             <>
               {/* Wide desktop: the monitoring table. Phones and tablets use the cards below. */}
               <div className="hidden overflow-x-auto xl:block">
-                <table className="w-full min-w-[1040px] border-collapse text-sm">
+                <table className="w-full min-w-[1180px] border-collapse text-sm">
                   <thead className="bg-[#F7F7F9] text-left text-[13px] font-medium text-[#4B5060]">
                     <tr>
                       {tableColumns.map((column) => (
                         <th key={column} scope="col" className="px-3 py-3 font-medium whitespace-nowrap">{column}</th>
                       ))}
-                      <th scope="col" className="px-4 py-3 text-center font-medium">Action</th>
+                      {/* Action stays pinned to the right edge while the table scrolls sideways. */}
+                      <th scope="col" className={`sticky right-0 z-10 bg-[#F7F7F9] px-4 py-3 text-center font-medium ${STICKY_EDGE}`}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {contacts.map((contact) => {
                       const label = contact.name || contact.phone;
                       return (
-                        <tr key={contact.id} onClick={() => openEditor(contact)} className="cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB] [&_td]:py-3.5">
+                        <tr key={contact.id} onClick={() => openEditor(contact)} className="group cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB] [&_td]:py-3.5">
                           <td className="px-3">
                             <div className="flex items-center gap-2.5">
                               <span aria-hidden="true" className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${avatarTone(contact)}`}>{initialOf(contact)}</span>
@@ -290,12 +294,22 @@ export default function ContactsView() {
                           <td className="whitespace-nowrap px-3 text-[#6B7080]">{contact.source || <span className="text-[#B4B8C2]">—</span>}</td>
                           <td className="whitespace-nowrap px-3 text-[#1A1C21] capitalize">{contact.stage ? contact.stage.replaceAll("_", " ") : <span className="text-[#B4B8C2]">—</span>}</td>
                           {canAssign && (
+                            <td className="px-3 text-[#3A3E4A]">
+                              {contact.createdBy ? (
+                                <>
+                                  <span className="block whitespace-nowrap">{contact.createdBy}</span>
+                                  {contact.createdByBranch && <span className="block text-xs capitalize text-[#8A8F9C]">{contact.createdByBranch}</span>}
+                                </>
+                              ) : <span className="text-[#B4B8C2]">—</span>}
+                            </td>
+                          )}
+                          {canAssign && (
                             <td className="whitespace-nowrap px-3 text-[#3A3E4A]">
                               {contact.assignedTo || <span className="text-[#8A8F9C]">Unassigned</span>}
                             </td>
                           )}
                           <td className="whitespace-nowrap px-3"><VerifiedBadge contact={contact} /></td>
-                          <td className="px-4 text-center" onClick={(event) => event.stopPropagation()}>
+                          <td className={`sticky right-0 z-10 bg-white px-4 text-center transition-colors group-hover:bg-[#FAFAFB] ${STICKY_EDGE}`} onClick={(event) => event.stopPropagation()}>
                             <ContactRowMenu label={label} onEdit={() => openEditor(contact)} onDelete={() => { setFormError(""); setDeleteTarget(contact); }} />
                           </td>
                         </tr>
@@ -323,6 +337,7 @@ export default function ContactsView() {
                       <div className="mt-3 space-y-1.5 text-[12px] text-[#6B7080]">
                         <p className="truncate">{contact.district || "Location not added"}</p>
                         {contact.source && <p className="truncate">{contact.source}</p>}
+                        {canAssign && contact.createdBy && <p className="truncate">Created by {contact.createdBy}{contact.createdByBranch ? ` · ${contact.createdByBranch}` : ""}</p>}
                         {canAssign && <p className="truncate">Assigned to {contact.assignedTo || "nobody"}</p>}
                       </div>
                       <div className="mt-3 border-t border-[#EFEFF2] pt-2.5 text-[11px] font-medium text-[#8A8F9C]">
