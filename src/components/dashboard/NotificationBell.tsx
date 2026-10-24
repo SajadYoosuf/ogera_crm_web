@@ -1,27 +1,25 @@
 "use client";
 
 /**
- * NotificationBell — bell icon with unread badge + dropdown panel.
+ * NotificationBell — bell button for the dashboard header with an unread badge.
  *
  * HOW IT WORKS:
- *   - Renders a bell icon button with a red badge when unread_count > 0.
- *   - Clicking toggles a dropdown panel (NotificationPanel).
- *   - Clicking outside closes the panel.
- *   - All notification data comes from `useNotifications()` (60s polling).
+ *   - Shows a bell icon. A red badge appears when there are unread notifications.
+ *   - Clicking the bell opens the notification inbox as a modal (NotificationPanel).
+ *   - Data comes from `useNotifications()` (60s polling).
  *   - FCM foreground messages trigger an immediate refresh via `useFcmToken(refresh)`.
+ *
+ * WHO SEES IT?
+ *   Only managers and admins. The dashboard header decides this and only renders
+ *   this component for them, so the polling and FCM setup run only for them.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useFcmToken } from "@/hooks/useFcmToken";
 import NotificationPanel from "./NotificationPanel";
 
-interface Props {
-  collapsed?: boolean;
-}
-
-export default function NotificationBell({ collapsed }: Props) {
+export default function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
 
   const { notifications, unreadCount, markRead, markAllRead, refresh } = useNotifications();
 
@@ -30,40 +28,24 @@ export default function NotificationBell({ collapsed }: Props) {
 
   const close = useCallback(() => setOpen(false), []);
 
-  // Close panel on outside click
-  useEffect(() => {
-    function onOutsideClick(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    if (open) {
-      document.addEventListener("mousedown", onOutsideClick);
-      return () => document.removeEventListener("mousedown", onOutsideClick);
-    }
-  }, [open]);
-
   return (
-    <div ref={wrapperRef} className="relative">
+    <>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(true)}
         title="Notifications"
+        aria-haspopup="dialog"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
-        className={`flex h-10 w-full items-center gap-2.5 rounded-[8px] px-2.5 text-sm font-medium text-[#4B5060] transition-colors hover:bg-white/60 hover:text-[#1A1C21] ${collapsed ? "lg:justify-center lg:px-0" : ""}`}
+        className="relative flex h-[38px] w-[38px] shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[#DEE1E5] bg-white text-[#3A3E4A] hover:bg-[#F7F7F9]"
       >
-        {/* Bell icon with badge */}
-        <span className="relative shrink-0">
-          <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-          {unreadCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          )}
-        </span>
-        <span className={collapsed ? "lg:hidden" : ""}>Notifications</span>
+        <svg className="size-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+        {unreadCount > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
       </button>
 
       {open && (
@@ -74,6 +56,6 @@ export default function NotificationBell({ collapsed }: Props) {
           onClose={close}
         />
       )}
-    </div>
+    </>
   );
 }
