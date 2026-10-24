@@ -9,3 +9,12 @@
 .env.*
 /playwright-report-live/
 /test-results-live/
+
+# Dependencies and build output (generated, never commit)
+/node_modules/
+/.next/
+/out/
+*.tsbuildinfo
+
+# Local zip exports of design files
+*.zip
