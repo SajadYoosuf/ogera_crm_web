@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardHome from "@/components/dashboard/DashboardHome";
 import type { DashboardSummary } from "@/lib/api/dashboard";
 
+// The real bell pulls in Firebase messaging, which cannot load in jsdom. A stub keeps this test about the header.
+vi.mock("@/components/dashboard/NotificationBell", () => ({
+  default: () => <button type="button" aria-label="Notifications stub">bell</button>,
+}));
+
 const fetchMock = vi.fn();
 const json = (data: unknown, status = 200) => ({ ok: status < 400, status, json: async () => data, headers: new Headers() });
 
@@ -57,6 +62,21 @@ afterEach(() => {
 });
 
 describe("DashboardHome", () => {
+  it("shows the notification bell in the header for a manager", async () => {
+    sessionStorage.setItem("ogera_user", JSON.stringify({ id: 2, name: "Mina Manager", role: "manager" }));
+    render(<DashboardHome />);
+
+    expect(await screen.findByRole("button", { name: "Notifications stub" })).toBeTruthy();
+  });
+
+  it("hides the notification bell from a sales executive", async () => {
+    sessionStorage.setItem("ogera_user", JSON.stringify({ id: 3, name: "Sam Sales", role: "sales_executive" }));
+    render(<DashboardHome />);
+
+    expect(await screen.findByText("Welcome back, Sam")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Notifications stub" })).toBeNull();
+  });
+
   it("loads the month by default and shows the KPIs, stages, follow-ups and recent leads", async () => {
     render(<DashboardHome />);
 

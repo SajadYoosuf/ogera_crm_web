@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import NotificationBell from "@/components/dashboard/NotificationBell";
 import { ApiError } from "@/lib/api/auth";
 import { getDashboardSummary, type DashboardLead, type DashboardRange, type DashboardSummary } from "@/lib/api/dashboard";
 import {
@@ -38,6 +39,15 @@ function firstNameOf(stored: string | null): string {
   try {
     const name = (JSON.parse(stored ?? "null") as { name?: string } | null)?.name?.trim() ?? "";
     return name.split(/\s+/)[0] ?? "";
+  } catch {
+    return "";
+  }
+}
+
+// Only managers and admins see the notification bell. Reads the role saved at login.
+function roleOf(stored: string | null): string {
+  try {
+    return (JSON.parse(stored ?? "null") as { role?: string } | null)?.role ?? "";
   } catch {
     return "";
   }
@@ -98,6 +108,8 @@ export default function DashboardHome() {
   // sessionStorage is browser-only, so it is read after hydration with a null server snapshot.
   const storedUser = useSyncExternalStore(noopSubscribe, () => sessionStorage.getItem("ogera_user"), () => null);
   const firstName = firstNameOf(storedUser);
+  const role = roleOf(storedUser);
+  const canSeeNotifications = role === "manager" || role === "admin";
 
   useEffect(() => {
     let active = true; // a slower response for a range the user has left must not overwrite the current one
@@ -165,34 +177,38 @@ export default function DashboardHome() {
           <p className="mt-0.5 text-[12.5px] text-[#8A8F9C]">{firstName ? `Welcome back, ${firstName}` : "Welcome back"}</p>
         </div>
 
-        <div ref={menuRef} className="relative shrink-0">
-          <button
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-[38px] cursor-pointer items-center gap-2 rounded-lg border border-[#DEE1E5] bg-white px-3.5 text-[13.5px] font-semibold text-[#3A3E4A] hover:bg-[#F7F7F9]"
-          >
-            <svg className="size-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M3 10h18M8 2v4M16 2v4" /></svg>
-            {rangeLabel}
-            <svg className="size-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-          </button>
-          {menuOpen && (
-            <div role="menu" className="absolute top-[44px] right-0 z-10 flex w-[180px] flex-col gap-0.5 rounded-[10px] border border-[#DEE1E5] bg-white p-1.5 shadow-[0_12px_28px_rgba(16,24,40,0.16)]">
-              {RANGE_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={option.value === range}
-                  onClick={() => pickRange(option.value)}
-                  className={`rounded-md px-3 py-2 text-left text-[13px] ${option.value === range ? "bg-[rgba(14,122,79,0.08)] font-semibold text-[#0E4D3A]" : "text-[#3A3E4A] hover:bg-[#F3F3F5]"}`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {canSeeNotifications && <NotificationBell />}
+
+          <div ref={menuRef} className="relative">
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((open) => !open)}
+              className="flex h-[38px] cursor-pointer items-center gap-2 rounded-lg border border-[#DEE1E5] bg-white px-3.5 text-[13.5px] font-semibold text-[#3A3E4A] hover:bg-[#F7F7F9]"
+            >
+              <svg className="size-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M3 10h18M8 2v4M16 2v4" /></svg>
+              {rangeLabel}
+              <svg className="size-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+            </button>
+            {menuOpen && (
+              <div role="menu" className="absolute top-[44px] right-0 z-10 flex w-[180px] flex-col gap-0.5 rounded-[10px] border border-[#DEE1E5] bg-white p-1.5 shadow-[0_12px_28px_rgba(16,24,40,0.16)]">
+                {RANGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={option.value === range}
+                    onClick={() => pickRange(option.value)}
+                    className={`rounded-md px-3 py-2 text-left text-[13px] ${option.value === range ? "bg-[rgba(14,122,79,0.08)] font-semibold text-[#0E4D3A]" : "text-[#3A3E4A] hover:bg-[#F3F3F5]"}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
