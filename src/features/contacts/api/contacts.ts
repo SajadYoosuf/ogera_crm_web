@@ -19,6 +19,8 @@ export type ApiContact = {
   lead_source: NameRef | null;
   assigned_to: NameRef | null;
   created_by: NameRef | null;
+  /** Creator's employee branch, e.g. "malappuram"; null when unknown. */
+  created_by_branch: string | null;
   created_at: string;
   /** Computed by the backend: false while any required detail is pending. */
   is_verified: boolean;

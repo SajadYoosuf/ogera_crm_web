@@ -14,7 +14,7 @@ const fail = (status: number, detail: unknown) => ({ ok: false, status, json: as
 const lead = {
   id: 1, contact_type: "consumer", name: "Asha", phone: "9800000001", address: "Street", district: "Malappuram", profession_type: null,
   lead_stage: { stage_id: 1, stage_slug: "new_lead", stage_name: "New Lead", changed_at: "2026-10-05T10:00:00" }, lead_source: { id: 1, name: "Meta" },
-  assigned_to: { id: 7, name: "Sajad" }, created_by: null, created_at: "2026-10-01T09:00:00", is_verified: true, missing_fields: [],
+  assigned_to: { id: 7, name: "Sajad" }, created_by: null, created_by_branch: null, created_at: "2026-10-01T09:00:00", is_verified: true, missing_fields: [],
 } as ApiContact;
 
 const longDay = (date: Date) => date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
