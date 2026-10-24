@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-24 — `b581435` (branch `main`)
+
+**fix(web/followups): handle followup_edit history events**
+
+Author: sajad yoosuf
+Previous commit on this side: `a12a28d` docs: update changelog for 104369b - modal height cap + task status dropdown (2026-10-23)
+
+### Summary
+The lead history panel crashed while rendering whenever a lead had a follow-up field edit (channel, priority, due date or status change), because the backend emits a `followup_edit` event that the frontend did not handle. The type now includes `followup_edit` and the timeline shows it as "Follow-up <field> changed" with old → new values.
+
+### Files
+| Status | File | Change |
+| --- | --- | --- |
+| Modified | `src/lib/api/leads.ts` | Added `followup_edit` to `HistoryEvent.event_type` and optional `field_name`, `old_value`, `new_value` |
+| Modified | `src/components/followups/HistoryList.tsx` | Added `followup_edit` case to `describe()` |
+
+### Notes
+Web-only change. Backend not touched. Type-checked with `tsc --noEmit`; not yet checked in the browser.
+
+---
+
 ## 2026-10-23 — `104369b` (branch `version1`)
 
 **feat(web/tasks): modal height cap + task status dropdown**
