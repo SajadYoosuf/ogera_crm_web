@@ -39,9 +39,12 @@ export function useFcmToken(onForegroundMessage?: () => void) {
         // Register the worker explicitly so FCM does not have to discover it
         // implicitly. This also gives getToken the exact registration that
         // should receive push messages.
-        const serviceWorkerRegistration = await navigator.serviceWorker.register(
+        await navigator.serviceWorker.register(
           "/firebase-messaging-sw.js",
         );
+        // register() may resolve while the worker is still installing. FCM's
+        // PushManager subscription requires an active worker.
+        const serviceWorkerRegistration = await navigator.serviceWorker.ready;
         const token = await getToken(messaging!, {
           vapidKey: VAPID_KEY,
           serviceWorkerRegistration,
