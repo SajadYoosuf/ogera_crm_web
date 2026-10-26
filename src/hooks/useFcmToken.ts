@@ -31,10 +31,21 @@ export function useFcmToken(onForegroundMessage?: () => void) {
 
     async function setupFcm() {
       try {
+        if (!("serviceWorker" in navigator)) return;
+
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return;
 
-        const token = await getToken(messaging!, { vapidKey: VAPID_KEY });
+        // Register the worker explicitly so FCM does not have to discover it
+        // implicitly. This also gives getToken the exact registration that
+        // should receive push messages.
+        const serviceWorkerRegistration = await navigator.serviceWorker.register(
+          "/firebase-messaging-sw.js",
+        );
+        const token = await getToken(messaging!, {
+          vapidKey: VAPID_KEY,
+          serviceWorkerRegistration,
+        });
         if (token) {
           await registerFcmToken(token);
         }

@@ -12,12 +12,12 @@
  *   build which registers `firebase` on the global scope via importScripts().
  *
  * HOW IS IT REGISTERED?
- *   The browser automatically looks for this file at /firebase-messaging-sw.js
- *   when getToken() is called from the app. No manual registration needed.
+ *   The client explicitly registers this file and passes the registration to
+ *   getToken(), ensuring FCM uses the intended worker in every environment.
  */
 
-importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/13.1.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/13.1.0/firebase-messaging-compat.js");
 
 // These values are safe to be public — they identify the Firebase project only.
 // They match the NEXT_PUBLIC_FIREBASE_* env vars in the web app.

@@ -12,7 +12,7 @@ These are **not** being worked on now. Items here are logged so they are not los
 
 ## 1. Push notifications: FCM service worker fails to register
 
-**Status:** Open
+**Status:** Fix implemented; production verification pending
 **Area:** Web / Notifications (`src/hooks/useFcmToken.ts`, `public/firebase-messaging-sw.js`)
 **Found:** 2026-10-24, browser console on `/dashboard`
 
@@ -54,15 +54,11 @@ default service worker. Service worker not registered after 10000 ms
 - [ ] Does the error happen only in dev mode (`next dev`), or also in production?
 - [ ] Does the service worker register in an incognito window with no extensions?
 
-### Suggested fix plan (for the next phase)
+### Fix implemented
 
-1. Confirm the env vars and the VAPID key first (cheapest check).
-2. Confirm the service worker URL loads and registers with `navigator.serviceWorker.getRegistrations()`.
-3. Register the service worker explicitly in the hook with `navigator.serviceWorker.register("/firebase-messaging-sw.js")`
-   and pass the registration to `getToken({ vapidKey, serviceWorkerRegistration })`.
-4. Show a clear UI state when push is unavailable (permission denied, unsupported browser, or setup failed),
-   so the user is not left with only a console warning.
-5. Add a test for the setup path with a mocked `getToken` that rejects, to confirm the app does not crash.
+1. The hook now explicitly registers `/firebase-messaging-sw.js` and passes the registration to `getToken()`.
+2. The service-worker Firebase compat SDK is aligned with the app's Firebase `13.1.0` dependency.
+3. Production still needs a browser check confirming the worker URL returns 200 and that the Vercel build has the VAPID key.
 
 ### Security note
 
