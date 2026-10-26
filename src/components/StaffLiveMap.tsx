@@ -6,6 +6,7 @@ import { CircleMarker, MapContainer, Polyline, TileLayer, useMap } from "react-l
 import { ApiError } from "@/lib/api/auth";
 import { getStaffRoute, listLiveStaff, type StaffLocation, type StaffRoute } from "@/lib/api/staff-locations";
 import { parseApiDate } from "@/lib/date-time";
+import { GEOCODE_INTERVAL_MS, reverseGeocodeLocation } from "@/lib/geocode";
 
 const colors = ["#2563eb", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#db2777"];
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
@@ -18,6 +19,7 @@ const formatDateTime = (value: string) => {
   return parsed ? new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(parsed) : "—";
 };
 const formatDistance = (value: number) => value >= 1000 ? `${(value / 1000).toFixed(1)} km` : `${Math.round(value)} m`;
+const pointKey = (latitude: number, longitude: number) => `${latitude.toFixed(5)},${longitude.toFixed(5)}`;
 
 function FitMap({ points }: { points: [number, number][] }) {
   const map = useMap();
@@ -34,6 +36,8 @@ export default function StaffLiveMap() {
   const [refreshing, setRefreshing] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
+  const [geocodedAddresses, setGeocodedAddresses] = useState<Record<string, string>>({});
+  const [geocoding, setGeocoding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [routeError, setRouteError] = useState<string | null>(null);
 
@@ -53,6 +57,29 @@ export default function StaffLiveMap() {
 
   useEffect(() => { void loadLive(); const timer = window.setInterval(() => void loadLive(true), 20_000); return () => window.clearInterval(timer); }, [loadLive]);
   useEffect(() => { if (selectedId !== null) void loadRoute(selectedId, date); else setRoute(null); }, [date, loadRoute, selectedId]);
+  useEffect(() => {
+    let cancelled = false;
+    const missingPoints = (route?.points ?? []).filter((point) => !point.address && !geocodedAddresses[pointKey(point.latitude, point.longitude)]);
+    if (missingPoints.length === 0) return;
+
+    const resolveAddresses = async () => {
+      setGeocoding(true);
+      for (const point of missingPoints) {
+        if (cancelled) return;
+        const address = await reverseGeocodeLocation(point.latitude, point.longitude);
+        if (address && !cancelled) {
+          setGeocodedAddresses((current) => ({ ...current, [pointKey(point.latitude, point.longitude)]: address }));
+        }
+        if (!cancelled && missingPoints.indexOf(point) < missingPoints.length - 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, GEOCODE_INTERVAL_MS));
+        }
+      }
+      if (!cancelled) setGeocoding(false);
+    };
+
+    void resolveAddresses();
+    return () => { cancelled = true; };
+  }, [geocodedAddresses, route]);
 
   const selected = staff.find((member) => member.userId === selectedId) ?? null;
   const routePoints = useMemo(() => (route?.points ?? []).map((point) => [point.latitude, point.longitude] as [number, number]), [route]);
@@ -79,7 +106,7 @@ export default function StaffLiveMap() {
           <div className="space-y-2">{staff.map((member) => { const color = colors[member.colorIndex % colors.length]; const active = member.userId === selectedId; return <button key={member.userId} type="button" onClick={() => setSelectedId(member.userId)} className={`flex w-full items-center gap-3 rounded-[10px] border p-3 text-left transition ${active ? "border-[#BFE5D2] bg-[#EAF4EF]" : "border-[#EFEFF2] hover:border-[#BFE5D2] hover:bg-[#F7FBF8]"}`}><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} /><span className="min-w-0 flex-1"><span className="block truncate text-[13.5px] font-semibold text-[#1A1C21]">{member.name}</span><span className="block text-[11.5px] font-medium capitalize text-[#6B7080]">{member.state.replaceAll("_", " ")} · {formatTime(member.recordedAt)}</span></span></button>; })}</div>
         </aside>
         <div className="relative order-1 min-h-[430px] lg:order-2"><MapContainer center={[11.2588, 75.7804]} zoom={9} className="h-full min-h-[430px] w-full"><TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /><FitMap points={mapPoints} />{staff.filter((member) => member.latitude !== null && member.longitude !== null).map((member) => <CircleMarker key={member.userId} center={[member.latitude!, member.longitude!]} radius={member.userId === selectedId ? 11 : 8} pathOptions={{ color: colors[member.colorIndex % colors.length], fillColor: colors[member.colorIndex % colors.length], fillOpacity: 0.85, weight: member.userId === selectedId ? 4 : 2 }} eventHandlers={{ click: () => setSelectedId(member.userId) }} />)}{selected && routePoints.length > 1 && <Polyline positions={routePoints} pathOptions={{ color: colors[selected.colorIndex % colors.length], weight: 5 }} />}{selected && route?.points.map((point, index) => <CircleMarker key={`${point.recordedAt}-${index}`} center={routePoints[index]} radius={selectedPointIndex === index ? 8 : 4} pathOptions={{ color: colors[selected.colorIndex % colors.length], fillColor: "#ffffff", fillOpacity: 1, weight: selectedPointIndex === index ? 3 : 1.5 }} eventHandlers={{ click: () => setSelectedPointIndex(index) }} />)}</MapContainer>
-          {selected && <section className="absolute bottom-4 left-4 right-4 z-[500] flex max-h-[500px] flex-col overflow-hidden rounded-[14px] border border-[#DEE1E5] bg-white/95 shadow-xl backdrop-blur sm:left-auto sm:w-[370px]"><div className="shrink-0 border-b border-[#EFEFF2] p-4"><div className="flex items-start justify-between gap-3"><div><h2 className="font-[family-name:var(--font-sora)] text-[15px] font-bold text-[#1A1C21]">{selected.name}</h2><p className="mt-0.5 text-[11.5px] text-[#6B7080]">{selected.address ?? "Address unavailable"}</p></div><button type="button" onClick={() => setSelectedId(null)} className="rounded-[8px] px-2 py-1 text-lg leading-none text-[#8A8F9C] hover:bg-[#F3F6F4] hover:text-[#1A1C21]" aria-label="Close route panel">×</button></div><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><label className="text-[11.5px] font-semibold text-[#6B7080]" htmlFor="route-date">Daily history</label><input id="route-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className="h-8 rounded-[8px] border border-[#DEE1E5] bg-white px-2 text-xs text-[#3A3E4A] outline-none focus:border-[#0E4D3A]" /></div>{!routeLoading && !routeError && <div className="mt-3 grid grid-cols-2 gap-2 text-xs"><div className="rounded-[8px] bg-[#F3F6F4] p-2"><span className="block text-[#6B7080]">Distance</span><strong className="text-[#0E4D3A]">{formatDistance(route?.distanceMeters ?? 0)}</strong></div><div className="rounded-[8px] bg-[#F3F6F4] p-2"><span className="block text-[#6B7080]">Location updates</span><strong className="text-[#0E4D3A]">{route?.points.length ?? 0}</strong></div></div>}</div>{routeLoading && <p className="p-4 text-xs text-[#6B7080]">Loading daily history…</p>}{routeError && <p className="p-4 text-xs text-rose-600">{routeError}</p>}{!routeLoading && !routeError && <div className="min-h-0 overflow-y-auto p-3"><div className="space-y-1.5">{(route?.points ?? []).slice().reverse().map((point, reverseIndex) => { const index = (route?.points.length ?? 0) - reverseIndex - 1; const active = selectedPointIndex === index; return <button key={`${point.recordedAt}-${index}`} type="button" onClick={() => setSelectedPointIndex(index)} className={`flex w-full gap-3 rounded-[9px] border p-2.5 text-left transition ${active ? "border-[#9ED8B8] bg-[#EAF4EF]" : "border-[#EFEFF2] hover:border-[#BFE5D2] hover:bg-[#F7FBF8]"}`}><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#0E7A4F]" /><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="text-[12.5px] font-semibold text-[#1A1C21]">{formatDateTime(point.recordedAt)}</span><span className="text-[10.5px] font-medium capitalize text-[#6B7080]">{point.state}</span></span><span className="mt-0.5 block truncate text-[11.5px] text-[#6B7080]">{point.address ?? "Location update"}</span></span></button>; })}</div>{route?.points.length === 0 && <p className="py-5 text-center text-xs text-[#6B7080]">No location history for this day.</p>}</div>}</section>}
+          {selected && <section className="absolute bottom-4 left-4 right-4 z-[500] flex max-h-[500px] flex-col overflow-hidden rounded-[14px] border border-[#DEE1E5] bg-white/95 shadow-xl backdrop-blur sm:left-auto sm:w-[370px]"><div className="shrink-0 border-b border-[#EFEFF2] p-4"><div className="flex items-start justify-between gap-3"><div><h2 className="font-[family-name:var(--font-sora)] text-[15px] font-bold text-[#1A1C21]">{selected.name}</h2><p className="mt-0.5 text-[11.5px] text-[#6B7080]">{selected.address ?? "Address unavailable"}</p></div><button type="button" onClick={() => setSelectedId(null)} className="rounded-[8px] px-2 py-1 text-lg leading-none text-[#8A8F9C] hover:bg-[#F3F6F4] hover:text-[#1A1C21]" aria-label="Close route panel">×</button></div><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><label className="text-[11.5px] font-semibold text-[#6B7080]" htmlFor="route-date">Daily history</label><input id="route-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className="h-8 rounded-[8px] border border-[#DEE1E5] bg-white px-2 text-xs text-[#3A3E4A] outline-none focus:border-[#0E4D3A]" /></div>{!routeLoading && !routeError && <div className="mt-3 grid grid-cols-2 gap-2 text-xs"><div className="rounded-[8px] bg-[#F3F6F4] p-2"><span className="block text-[#6B7080]">Distance</span><strong className="text-[#0E4D3A]">{formatDistance(route?.distanceMeters ?? 0)}</strong></div><div className="rounded-[8px] bg-[#F3F6F4] p-2"><span className="block text-[#6B7080]">Location updates</span><strong className="text-[#0E4D3A]">{route?.points.length ?? 0}</strong></div></div>}</div>{routeLoading && <p className="p-4 text-xs text-[#6B7080]">Loading daily history…</p>}{routeError && <p className="p-4 text-xs text-rose-600">{routeError}</p>}{!routeLoading && !routeError && <div className="min-h-0 overflow-y-auto p-3"><div className="space-y-1.5">{(route?.points ?? []).slice().reverse().map((point, reverseIndex) => { const index = (route?.points.length ?? 0) - reverseIndex - 1; const active = selectedPointIndex === index; const address = point.address ?? geocodedAddresses[pointKey(point.latitude, point.longitude)] ?? selected.address ?? (geocoding ? "Resolving address…" : "Address unavailable"); return <button key={`${point.recordedAt}-${index}`} type="button" onClick={() => setSelectedPointIndex(index)} aria-label={`${formatDateTime(point.recordedAt)} at ${address}`} className={`flex w-full gap-3 rounded-[9px] border p-2.5 text-left transition ${active ? "border-[#9ED8B8] bg-[#EAF4EF]" : "border-[#EFEFF2] hover:border-[#BFE5D2] hover:bg-[#F7FBF8]"}`}><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#0E7A4F]" /><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="text-[12.5px] font-semibold text-[#1A1C21]">{formatDateTime(point.recordedAt)}</span><span className="text-[10.5px] font-medium capitalize text-[#6B7080]">{point.state}</span></span><span className="mt-1 block break-words text-[11.5px] leading-4 text-[#6B7080]">{address}</span></span></button>; })}</div>{route?.points.length === 0 && <p className="py-5 text-center text-xs text-[#6B7080]">No location history for this day.</p>}</div>}</section>}
         </div>
       </section>
     </div>

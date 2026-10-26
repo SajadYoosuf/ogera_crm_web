@@ -3,6 +3,7 @@
 // resolve of a few hundred records is slow enough to be worth persisting.
 
 const CACHE_KEY = "ogera_map_geocode_cache_v1";
+const REVERSE_CACHE_KEY = "ogera_map_reverse_geocode_cache_v1";
 
 export interface GeoPoint {
   lat: number;
@@ -25,6 +26,49 @@ export function writeGeocodeCache(cache: GeocodeCache) {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
   } catch {
     // Quota exceeded or storage disabled — losing the cache only costs speed.
+  }
+}
+
+type ReverseGeocodeCache = Record<string, string>;
+
+function coordinateKey(latitude: number, longitude: number) {
+  return `${latitude.toFixed(5)},${longitude.toFixed(5)}`;
+}
+
+function readReverseGeocodeCache(): ReverseGeocodeCache {
+  try {
+    const raw = localStorage.getItem(REVERSE_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as ReverseGeocodeCache) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeReverseGeocodeCache(cache: ReverseGeocodeCache) {
+  try {
+    localStorage.setItem(REVERSE_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Quota exceeded or storage disabled — losing the cache only costs speed.
+  }
+}
+
+export async function reverseGeocodeLocation(latitude: number, longitude: number): Promise<string | null> {
+  const key = coordinateKey(latitude, longitude);
+  const cache = readReverseGeocodeCache();
+  if (cache[key]) return cache[key];
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}&zoom=18&addressdetails=1`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const data = await response.json() as { display_name?: string };
+    const address = data.display_name?.trim() || null;
+    if (address) {
+      writeReverseGeocodeCache({ ...cache, [key]: address });
+    }
+    return address;
+  } catch {
+    return null;
   }
 }
 
