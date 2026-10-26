@@ -35,6 +35,15 @@ const menuItems: MenuItem[] = [
     ),
   },
   {
+    id: "field-map",
+    label: "Field Map",
+    href: "/dashboard/map",
+    category: "MAIN",
+    icon: (
+      <path d="M12 21s-7-6.2-7-11.5a7 7 0 1 1 14 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" />
+    ),
+  },
+  {
     id: "followups",
     label: "Lead Pipeline",
     href: "/dashboard/followups",
