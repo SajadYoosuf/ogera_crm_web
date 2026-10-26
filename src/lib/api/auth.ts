@@ -10,8 +10,13 @@ if (typeof window !== "undefined") {
 // session or cached address cannot keep sending requests there. Runs once per page load.
 const LOCAL_BACKEND_PATTERN = /(localhost|127\.0\.0\.1):8000/;
 
-function clearLocalBackendStorage(store: Storage) {
+function clearLocalBackendStorage(storageType: "localStorage" | "sessionStorage") {
   try {
+    // Accessing browser storage itself can throw in Chrome when the page is
+    // running in a restricted or opaque document (for example, a restored
+    // mobile tab or an embedded browser context). Keep that access inside the
+    // guard; passing `localStorage` as an argument would evaluate it first.
+    const store = window[storageType];
     for (let i = store.length - 1; i >= 0; i -= 1) {
       const key = store.key(i);
       if (key && LOCAL_BACKEND_PATTERN.test(store.getItem(key) ?? "")) store.removeItem(key);
@@ -22,8 +27,8 @@ function clearLocalBackendStorage(store: Storage) {
 }
 
 if (typeof window !== "undefined") {
-  clearLocalBackendStorage(localStorage);
-  clearLocalBackendStorage(sessionStorage);
+  clearLocalBackendStorage("localStorage");
+  clearLocalBackendStorage("sessionStorage");
 }
 
 const REQUEST_TIMEOUT_MS = 15_000;
