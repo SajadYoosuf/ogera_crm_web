@@ -1,4 +1,4 @@
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://ogera-crm.onrender.com").replace(/\/+$/, "");
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://ogera-crm-backend.onrender.com").replace(/\/+$/, "");
 
 // Shown once in the browser console so a deployment can be checked: which backend is this build calling,
 // and was NEXT_PUBLIC_API_BASE_URL set when it was built (otherwise it falls back to the production API).
