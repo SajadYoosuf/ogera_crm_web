@@ -112,7 +112,7 @@ export type ApiContactDetail = {
   consumer_profile?: { house_stage: string | null; current_tank_type: string | null; current_tank_capacity: number | null; current_tank_age: number | null } | null;
   partner_profile?: { profession_type: string; work_area?: string | null } | null;
   dealer_profile?: { owner_name: string; email?: string | null } | null;
-  /** Products this contact has expressed interest in. */
+  /** The single product this contact has expressed interest in. */
   interested_products?: { id: number; name: string }[] | null;
   /** Free-text note. Null when none has been entered. */
   notes?: string | null;
@@ -132,7 +132,7 @@ export type ContactInput = {
   consumer_profile?: { house_stage: string | null; current_tank_type?: string | null; current_tank_capacity?: number | null; current_tank_age?: number | null };
   partner_profile?: { profession_type: string; work_area?: string | null };
   dealer_profile?: { owner_name: string; email?: string | null };
-  /** Replace the full list of interested products. Omit to keep unchanged, [] to clear. */
+  /** Replace the interested product. Omit to keep unchanged, [] to clear, [id] to select one. */
   interested_product_ids?: number[];
   /** Free-text note. Omit to keep unchanged, null to clear, string to set. */
   notes?: string | null;

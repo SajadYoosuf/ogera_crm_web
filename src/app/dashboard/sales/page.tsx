@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import SaleFormModal from "@/components/SaleFormModal";
 import { ApiError } from "@/lib/api/auth";
-import { listSaleProducts, listSales, type Sale } from "@/lib/api/sales";
+import { listAllEmployees, type Employee } from "@/lib/api/employees";
+import { listSales, type Sale } from "@/lib/api/sales";
+import { listProducts } from "@/lib/api/products";
 import { dmSans, sora } from "@/lib/auth-fonts";
 
 const PAGE_SIZE = 8;
@@ -36,9 +38,14 @@ export default function SalesPage() {
   const [search, setSearch] = useState("");
   const [submittedSearch, setSubmittedSearch] = useState("");
   const [productNames, setProductNames] = useState<string[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<number | null>(null);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
+  const [employeesError, setEmployeesError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState("");
+  const [errorKind, setErrorKind] = useState<ApiError["kind"] | null>(null);
   const [editing, setEditing] = useState<Sale | "new" | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const latestRequest = useRef(0);
@@ -59,6 +66,7 @@ export default function SalesPage() {
     const requestId = ++latestRequest.current;
     setIsLoading(true);
     setError("");
+    setErrorKind(null);
     listSales(accessToken, { search: submittedSearch || undefined, skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE })
       .then((result) => {
         if (requestId !== latestRequest.current) return; // a newer request has replaced this one
@@ -67,9 +75,13 @@ export default function SalesPage() {
       })
       .catch((caught) => {
         if (requestId !== latestRequest.current) return;
-        setSales([]);
-        setTotal(0);
-        setError(caught instanceof ApiError ? caught.message : "Could not load the sales. Please try again.");
+        if (caught instanceof ApiError) {
+          setErrorKind(caught.kind);
+          setError(caught.message);
+        } else {
+          setErrorKind("unknown");
+          setError("Could not load the sales. Please try again.");
+        }
       })
       .finally(() => {
         if (requestId === latestRequest.current) setIsLoading(false);
@@ -81,10 +93,49 @@ export default function SalesPage() {
     return () => window.clearTimeout(timer);
   }, [load, reloadKey]);
 
+  // Retry a failed request automatically once the browser reconnects.
+  useEffect(() => {
+    const onOnline = () => setReloadKey((key) => key + 1);
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, []);
+
   useEffect(() => {
     const accessToken = sessionStorage.getItem("ogera_access_token");
     if (!accessToken) return;
-    listSaleProducts(accessToken).then(setProductNames).catch(() => setProductNames([]));
+    let cancelled = false;
+    const loadAllProducts = async () => {
+      const names: string[] = [];
+      let skip = 0;
+      let total = Number.POSITIVE_INFINITY;
+      while (skip < total) {
+        const result = await listProducts(accessToken, { skip, limit: 100 });
+        names.push(...result.items.map((product) => product.name));
+        total = result.total;
+        if (result.items.length === 0) break;
+        skip += result.items.length;
+      }
+      if (!cancelled) setProductNames(names);
+    };
+    loadAllProducts().catch(() => { if (!cancelled) setProductNames([]); });
+    return () => { cancelled = true; };
+  }, [reloadKey]);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(sessionStorage.getItem("ogera_user") ?? "null") as { id?: number } | null;
+      setCurrentEmployeeId(typeof stored?.id === "number" ? stored.id : null);
+    } catch {
+      setCurrentEmployeeId(null);
+    }
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    if (!accessToken) { setEmployeesLoading(false); return; }
+    setEmployeesLoading(true);
+    setEmployeesError("");
+    listAllEmployees(accessToken)
+      .then((result) => setEmployees(result.employees))
+      .catch(() => setEmployeesError("Employee list could not be loaded."))
+      .finally(() => setEmployeesLoading(false));
   }, [reloadKey]);
 
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -96,6 +147,7 @@ export default function SalesPage() {
     if (!accessToken) return;
     setIsExporting(true);
     setError("");
+    setErrorKind(null);
     try {
       // Every row that matches the search, not only the page on screen.
       const rows: Sale[] = [];
@@ -104,8 +156,8 @@ export default function SalesPage() {
         rows.push(...result.items);
         if (result.items.length === 0 || rows.length >= result.total) break;
       }
-      const header = ["Customer", "Phone", "Alternate phone", "Address", "Product purchased", "Purchase date"];
-      const body = rows.map((r) => [r.name, r.phone, r.alt_phone, r.address, r.purchased_product, r.purchase_date]);
+      const header = ["Customer", "Phone", "Alternate phone", "Address", "Product purchased", "Purchase date", "Created by", "Branch"];
+      const body = rows.map((r) => [r.name, r.phone, r.alt_phone, r.address, r.purchased_product, r.purchase_date, r.created_by?.name ?? null, r.created_by?.branch ?? null]);
       const csv = [header, ...body].map((line) => line.map(toCsvCell).join(",")).join("\r\n");
       const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
       const link = document.createElement("a");
@@ -114,7 +166,13 @@ export default function SalesPage() {
       link.click();
       URL.revokeObjectURL(url);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not export the sales. Please try again.");
+      if (caught instanceof ApiError) {
+        setErrorKind(caught.kind);
+        setError(caught.message);
+      } else {
+        setErrorKind("unknown");
+        setError("Could not export the sales. Please try again.");
+      }
     } finally {
       setIsExporting(false);
     }
@@ -164,7 +222,7 @@ export default function SalesPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1040px] border-collapse text-sm">
+            <table aria-busy={isLoading} className="w-full min-w-[1240px] border-collapse text-sm">
               <thead>
                 <tr className="bg-[#F7F7F9] text-left text-[13px] text-[#4B5060]">
                   <th scope="col" className="px-4 py-3 font-medium">Customer</th>
@@ -172,10 +230,17 @@ export default function SalesPage() {
                   <th scope="col" className="px-3 py-3 font-medium">Address</th>
                   <th scope="col" className="px-3 py-3 font-medium">Product Purchased</th>
                   <th scope="col" className="px-3 py-3 font-medium">Purchase Date</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Created By</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Branch</th>
                   <th scope="col" className="px-4 py-3 text-center font-medium">Action</th>
                 </tr>
               </thead>
               <tbody>
+                {isLoading && sales.length === 0 && Array.from({ length: 6 }, (_, index) => (
+                  <tr key={`loading-${index}`} aria-hidden="true" className="border-t border-[#EFEFF2] animate-pulse">
+                    {Array.from({ length: 8 }, (_, cell) => <td key={cell} className="h-14 px-3"><span className={`block h-3 rounded bg-[#EEF0F2] ${cell === 0 ? "w-32" : cell === 3 ? "w-40" : "w-20"}`} /></td>)}
+                  </tr>
+                ))}
                 {sales.map((sale) => (
                   <tr
                     key={sale.id}
@@ -199,6 +264,8 @@ export default function SalesPage() {
                     <td className="max-w-[220px] truncate whitespace-nowrap px-3 text-[#6B7080]" title={sale.address ?? undefined}>{sale.address ?? "—"}</td>
                     <td className="whitespace-nowrap px-3 text-[#3A3E4A]">{sale.purchased_product ?? "—"}</td>
                     <td className="whitespace-nowrap px-3 text-[#6B7080]">{formatDate(sale.purchase_date)}</td>
+                    <td className="whitespace-nowrap px-3 text-[#3A3E4A]">{sale.created_by?.name ?? "—"}</td>
+                    <td className="whitespace-nowrap px-3 capitalize text-[#6B7080]">{sale.created_by?.branch ?? "—"}</td>
                     <td className="px-4 text-center">
                       <button
                         type="button"
@@ -213,12 +280,17 @@ export default function SalesPage() {
                 ))}
               </tbody>
             </table>
-            {!isLoading && sales.length === 0 && (
+            {error && (
+              <div role="alert" className={`flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm ${errorKind === "offline" || errorKind === "network" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+                <span>{errorKind === "offline" ? "You’re offline. " : errorKind === "network" ? "Can’t reach the server. " : ""}{error}</span>
+                <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="rounded-[7px] border border-current px-3 py-1.5 text-xs font-semibold hover:bg-white/60">Try again</button>
+              </div>
+            )}
+            {!isLoading && !error && sales.length === 0 && (
               <p className="px-4 py-10 text-center text-sm text-[#6B7080]">
-                {error || (submittedSearch ? "No sales match your search." : "No sales recorded yet.")}
+                {submittedSearch ? "No sales match your search." : "No sales recorded yet."}
               </p>
             )}
-            {error && sales.length > 0 && <p role="alert" className="px-4 py-3 text-center text-sm text-rose-700">{error}</p>}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEFF2] px-4 py-3.5">
@@ -266,6 +338,10 @@ export default function SalesPage() {
         <SaleFormModal
           sale={editing === "new" ? null : editing}
           productNames={productNames}
+          employees={employees}
+          currentEmployeeId={currentEmployeeId}
+          employeesLoading={employeesLoading}
+          employeesError={employeesError}
           onClose={() => setEditing(null)}
           onChanged={() => { setEditing(null); setReloadKey((k) => k + 1); }}
         />

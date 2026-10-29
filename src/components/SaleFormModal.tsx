@@ -2,19 +2,21 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/auth";
+import type { Employee } from "@/lib/api/employees";
 import { createSale, deleteSale, updateSale, type Sale } from "@/lib/api/sales";
 
-type Draft = { purchase_date: string; name: string; phone: string; alt_phone: string; address: string; purchased_product: string };
+type Draft = { purchase_date: string; name: string; phone: string; alt_phone: string; address: string; purchased_product: string; created_by_employee_id: string };
 
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
-const toDraft = (sale: Sale | null): Draft => ({
+const toDraft = (sale: Sale | null, currentEmployeeId: number | null): Draft => ({
   purchase_date: sale?.purchase_date ?? today(),
   name: sale?.name ?? "",
   phone: sale?.phone ?? "",
   alt_phone: sale?.alt_phone ?? "",
   address: sale?.address ?? "",
   purchased_product: sale?.purchased_product ?? "",
+  created_by_employee_id: String(sale?.created_by_employee_id ?? currentEmployeeId ?? ""),
 });
 
 const fieldClass = "w-full h-10 px-3 rounded-[8px] border border-[#DEE1E5] bg-white text-sm text-[#1A1C21] outline-none focus:border-[#0E4D3A] disabled:bg-[#F7F8F9] disabled:text-[#4B5060]";
@@ -24,13 +26,17 @@ type Props = {
   /** null = add a new sale. */
   sale: Sale | null;
   productNames: string[];
+  employees: Employee[];
+  currentEmployeeId: number | null;
+  employeesLoading: boolean;
+  employeesError: string;
   onClose: () => void;
   /** Called after a save or delete so the list reloads. */
   onChanged: () => void;
 };
 
-export default function SaleFormModal({ sale, productNames, onClose, onChanged }: Props) {
-  const [draft, setDraft] = useState<Draft>(() => toDraft(sale));
+export default function SaleFormModal({ sale, productNames, employees, currentEmployeeId, employeesLoading, employeesError, onClose, onChanged }: Props) {
+  const [draft, setDraft] = useState<Draft>(() => toDraft(sale, currentEmployeeId));
   const [isSaving, setIsSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState("");
@@ -48,11 +54,16 @@ export default function SaleFormModal({ sale, productNames, onClose, onChanged }
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!draft.name.trim()) { setError("Enter the buyer name."); return; }
+    if (!draft.purchased_product) { setError("Select the purchased product."); return; }
     const accessToken = sessionStorage.getItem("ogera_access_token");
     if (!accessToken) { setError(sessionError); return; }
     setIsSaving(true);
     setError("");
-    const input = { ...draft, purchase_date: draft.purchase_date || null };
+    const input = {
+      ...draft,
+      purchase_date: draft.purchase_date || null,
+      created_by_employee_id: draft.created_by_employee_id ? Number(draft.created_by_employee_id) : null,
+    };
     try {
       if (sale) await updateSale(accessToken, sale.id, input); else await createSale(accessToken, input);
       onChanged();
@@ -108,12 +119,31 @@ export default function SaleFormModal({ sale, productNames, onClose, onChanged }
               <input className={fieldClass} type="date" value={draft.purchase_date} onChange={(e) => set("purchase_date")(e.target.value)} />
             </label>
             <label className={labelClass}>Product purchased
-              <input className={fieldClass} list="sale-products" value={draft.purchased_product} onChange={(e) => set("purchased_product")(e.target.value)} maxLength={150} />
-              <datalist id="sale-products">
-                {productNames.map((name) => <option key={name} value={name} />)}
-              </datalist>
+              <select className={fieldClass} value={draft.purchased_product} onChange={(e) => set("purchased_product")(e.target.value)} required>
+                <option value="">Select product</option>
+                {productNames.map((name) => <option key={name} value={name}>{name}</option>)}
+                {draft.purchased_product && !productNames.includes(draft.purchased_product) && (
+                  <option value={draft.purchased_product}>{draft.purchased_product} (legacy)</option>
+                )}
+              </select>
             </label>
           </div>
+          <label className={labelClass}>Created by
+            <select
+              className={fieldClass}
+              value={draft.created_by_employee_id}
+              onChange={(e) => set("created_by_employee_id")(e.target.value)}
+              disabled={employeesLoading}
+            >
+              <option value="">Select employee</option>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.name}{employee.branch ? ` · ${employee.branch}` : ""}
+                </option>
+              ))}
+            </select>
+            {employeesError ? <span className="text-xs font-normal text-amber-700">{employeesError} The signed-in employee will be used if no selection is made.</span> : null}
+          </label>
           <label className={labelClass}>Address
             <textarea className="w-full px-3 py-2 rounded-[8px] border border-[#DEE1E5] bg-white text-sm text-[#1A1C21] outline-none focus:border-[#0E4D3A] disabled:bg-[#F7F8F9] disabled:text-[#4B5060]" rows={3} value={draft.address} onChange={(e) => set("address")(e.target.value)} />
           </label>

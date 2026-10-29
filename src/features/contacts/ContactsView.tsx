@@ -106,11 +106,10 @@ export default function ContactsView() {
     return sourceValue && !names.includes(sourceValue) ? [sourceValue, ...names] : names;
   }, [leadSources, sourceValue, editor?.contact]);
 
-  // Filtered product list for the interested-products picker dropdown.
+  // Filtered product list for the single interested-product picker dropdown.
   // Shows up to 20 results matching the search term, or the first 20 active products when blank.
   const filteredPickerProducts = useMemo(() => {
     const q = productSearch.toLowerCase().trim();
-    const selectedIds = new Set(editor?.values.interestedProducts.map((p) => p.id) ?? []);
     // Keep already-selected products visible so you can deselect them even if they're archived
     const candidatePool = q
       ? products.filter((p) => p.name.toLowerCase().includes(q))
@@ -120,13 +119,10 @@ export default function ContactsView() {
     return [...selected.map((p) => ({ id: p.id, name: p.name, is_active: false })), ...candidatePool].slice(0, 20);
   }, [products, productSearch, editor?.values.interestedProducts]);
 
-  const toggleProduct = (id: number, name: string) => {
+  const selectProduct = (id: number, name: string) => {
     if (!editor) return;
     const current = editor.values.interestedProducts;
-    const updated = current.some((p) => p.id === id)
-      ? current.filter((p) => p.id !== id)
-      : [...current, { id, name }];
-    updateForm("interestedProducts", updated);
+    updateForm("interestedProducts", current.some((p) => p.id === id) ? [] : [{ id, name }]);
   };
 
   // Created by / Assigned to are admin and manager columns, so they only show once the employee list loads.
@@ -633,7 +629,7 @@ export default function ContactsView() {
                 {/* Products interested — consumer only; partners and dealers don't track product interest */}
                 {editor.values.contactType === "consumer" && (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[13px] font-semibold text-[#3A3F46]">Products interested</label>
+                  <label className="text-[13px] font-semibold text-[#3A3F46]">Product interested in</label>
                   <div className="relative">
                     <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8F9C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.25" /><path d="m16 16 4.25 4.25" /></svg>
                     <input
@@ -656,7 +652,7 @@ export default function ContactsView() {
                               key={product.id}
                               type="button"
                               onMouseDown={(e) => e.preventDefault()} // prevent input blur before click fires
-                              onClick={() => { toggleProduct(product.id, product.name); setProductSearch(""); }}
+                              onClick={() => { selectProduct(product.id, product.name); setProductSearch(""); setProductDropdownOpen(false); }}
                               className={`flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-[#F7FBF9] ${selected ? "text-[#0E4D3A]" : "text-[#1A1C21]"}`}
                             >
                               <span className="truncate">{product.name}</span>
@@ -675,7 +671,7 @@ export default function ContactsView() {
                     )}
                   </div>
 
-                  {/* Selected product chips */}
+                  {/* Selected product */}
                   {(editor?.values.interestedProducts.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                       {editor!.values.interestedProducts.map((product) => (
@@ -683,7 +679,7 @@ export default function ContactsView() {
                           {product.name}
                           <button
                             type="button"
-                            onClick={() => toggleProduct(product.id, product.name)}
+                            onClick={() => selectProduct(product.id, product.name)}
                             aria-label={`Remove ${product.name}`}
                             className="flex h-4 w-4 items-center justify-center rounded-full text-[#2F8F6A] transition-colors hover:bg-[#C8EDD9] hover:text-[#0E4D3A]"
                           >

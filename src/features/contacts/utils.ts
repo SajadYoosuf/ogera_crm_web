@@ -36,7 +36,7 @@ export interface ContactForm {
   address: string; district: string; houseStage: string; tankType: string; tankCapacity: string; tankAge: string;
   partnerType: string; workArea: string; referredByContactId: number | null; assignedTo: string;
   dealerOwnerName: string; dealerEmail: string;
-  /** Products this contact is interested in, as {id, name} objects for display. */
+  /** The product this contact is interested in, as a one-item array for API compatibility. */
   interestedProducts: { id: number; name: string }[];
   /** Optional free-text note about this contact. */
   note: string;
@@ -64,6 +64,7 @@ export const fromApi = (contact: ApiContact): Contact => ({
 export const FIELD_LABELS: Record<string, string> = {
   name: "Name", phone: "Phone number", district: "District", address: "Address", lead_source: "Lead source",
   location: "GPS location", created_by: "Added by", house_stage: "House stage", work_area: "Work area",
+  interested_product: "Interested product",
 };
 export const displayLocation = (contact: Contact) => contact.address || contact.district || "Location not added";
 export const toForm = (contact: Contact): ContactForm => ({

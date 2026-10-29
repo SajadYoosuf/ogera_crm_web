@@ -10,6 +10,8 @@ export type Sale = {
   address: string | null;
   purchased_product: string | null;
   created_at: string;
+  created_by_employee_id: number | null;
+  created_by: { id: number; name: string; branch: string | null } | null;
 };
 
 export type SaleList = { items: Sale[]; total: number; skip: number; limit: number };
@@ -21,6 +23,7 @@ export type SaleInput = {
   alt_phone?: string | null;
   address?: string | null;
   purchased_product?: string | null;
+  created_by_employee_id?: number | null;
 };
 
 async function authed<T>(method: string, path: string, accessToken: string, body?: unknown): Promise<T> {
