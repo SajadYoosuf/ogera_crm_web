@@ -12,6 +12,8 @@ export type ApiContact = {
   contact_type: ApiContactType;
   name: string;
   phone: string;
+  /** Branch assigned to the contact record, e.g. "malappuram". */
+  branch: string | null;
   address: string | null;
   district: string;
   profession_type: string | null;

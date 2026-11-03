@@ -126,7 +126,7 @@ export default function ContactsView() {
   };
 
   // Created by / Assigned to are admin and manager columns, so they only show once the employee list loads.
-  const tableColumns = ["Contact", "Contact Type", "Contact Number", "Location", "Source", "Stage", ...(canAssign ? ["Created by", "Assigned to"] : []), "Status"];
+  const tableColumns = ["Contact", "Contact Type", "Contact Number", "Branch", "Location", "Source", "Stage", ...(canAssign ? ["Created by", "Assigned to"] : []), "Status"];
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
   const hasNonTypeFilters = Object.entries(filters).some(([k, v]) => k !== "type" && Boolean(v));
@@ -284,6 +284,7 @@ export default function ContactsView() {
                             <span className={`inline-block rounded-[6px] px-2.5 py-[3px] text-xs font-semibold ${typeTone(contact)}`}>{KIND_LABELS[contact.kind] ?? contact.kind}</span>
                           </td>
                           <td className="whitespace-nowrap px-3 tabular-nums text-[#1A1C21]">{contact.phone}</td>
+                          <td className="whitespace-nowrap px-3 capitalize text-[#3A3E4A]">{contact.branch || <span className="text-[#B4B8C2]">—</span>}</td>
                           <td className="px-3 text-[#6B7080]">
                             <span className="block max-w-[10rem] truncate">{contact.district || <span className="text-[#B4B8C2]">—</span>}</span>
                           </td>
@@ -292,10 +293,7 @@ export default function ContactsView() {
                           {canAssign && (
                             <td className="px-3 text-[#3A3E4A]">
                               {contact.createdBy ? (
-                                <>
-                                  <span className="block whitespace-nowrap">{contact.createdBy}</span>
-                                  {contact.createdByBranch && <span className="block text-xs capitalize text-[#8A8F9C]">{contact.createdByBranch}</span>}
-                                </>
+                                <span className="block whitespace-nowrap">{contact.createdBy}</span>
                               ) : <span className="text-[#B4B8C2]">—</span>}
                             </td>
                           )}
@@ -332,8 +330,9 @@ export default function ContactsView() {
                       </div>
                       <div className="mt-3 space-y-1.5 text-[12px] text-[#6B7080]">
                         <p className="truncate">{contact.district || "Location not added"}</p>
+                        {contact.branch && <p className="truncate capitalize">Branch: {contact.branch}</p>}
                         {contact.source && <p className="truncate">{contact.source}</p>}
-                        {canAssign && contact.createdBy && <p className="truncate">Created by {contact.createdBy}{contact.createdByBranch ? ` · ${contact.createdByBranch}` : ""}</p>}
+                        {canAssign && contact.createdBy && <p className="truncate">Created by {contact.createdBy}</p>}
                         {canAssign && <p className="truncate">Assigned to {contact.assignedTo || "nobody"}</p>}
                       </div>
                       <div className="mt-3 border-t border-[#EFEFF2] pt-2.5 text-[11px] font-medium text-[#8A8F9C]">

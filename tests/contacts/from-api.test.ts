@@ -4,7 +4,7 @@ import type { ApiContact } from "@/features/contacts/api/contacts";
 
 // fromApi turns one GET /contacts row into the Contact shape the table uses.
 const apiRow = (overrides: Partial<ApiContact> = {}): ApiContact => ({
-  id: 7, contact_type: "consumer", name: "Asha", phone: "+919000000007", address: null, district: "Malappuram",
+  id: 7, contact_type: "consumer", name: "Asha", phone: "+919000000007", branch: "malappuram", address: null, district: "Malappuram",
   profession_type: null, lead_stage: null, lead_source: null, assigned_to: null,
   created_by: { id: 3, name: "Anu Sales" }, created_by_branch: "kottakkal",
   created_at: "2026-10-01T09:00:00", is_verified: true, missing_fields: [], ...overrides,
@@ -13,6 +13,7 @@ const apiRow = (overrides: Partial<ApiContact> = {}): ApiContact => ({
 describe("fromApi creator fields", () => {
   it("maps created_by name and branch", () => {
     const contact = fromApi(apiRow());
+    expect(contact.branch).toBe("malappuram");
     expect(contact.createdBy).toBe("Anu Sales");
     expect(contact.createdByBranch).toBe("kottakkal");
   });
