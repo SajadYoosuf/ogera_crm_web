@@ -30,8 +30,8 @@ const COPY = {
     offline: "You’re offline. Reconnect to sign in.",
     missingFields: "Enter your email and password to continue.",
     login: "Login",
-    signingIn: "Signing in...",
-    redirecting: "Redirecting...",
+    signingIn: "Signing in…",
+    redirecting: "Redirecting…",
     tryAgain: "Try again",
     forgotPrefix: "Forgot password?",
     resetLink: "Reset here",
@@ -53,8 +53,8 @@ const COPY = {
     offline: "നിങ്ങൾ ഓഫ്‌ലൈനിലാണ്. സൈൻ ഇൻ ചെയ്യാൻ വീണ്ടും കണക്ട് ചെയ്യുക.",
     missingFields: "തുടരാൻ ഇമെയിലും പാസ്‌വേഡും നൽകുക.",
     login: "ലോഗിൻ",
-    signingIn: "സൈൻ ഇൻ ചെയ്യുന്നു...",
-    redirecting: "തിരിച്ചുവിടുന്നു...",
+    signingIn: "സൈൻ ഇൻ ചെയ്യുന്നു…",
+    redirecting: "തിരിച്ചുവിടുന്നു…",
     tryAgain: "വീണ്ടും ശ്രമിക്കുക",
     forgotPrefix: "പാസ്‌വേഡ് മറന്നോ?",
     resetLink: "ഇവിടെ പുനഃസജ്ജമാക്കുക",
@@ -175,7 +175,7 @@ export default function Home() {
       <section className="login-side" ref={sideRef}>
         <div className="login-card">
           <div className="login-topbar">
-            <div className="login-brandname">Ogera CRM</div>
+            <div className="login-brandname" translate="no">Ogera CRM</div>
             <div className="login-lang" role="group" aria-label="Language">
               <button type="button" onClick={() => setLanguage("en")} aria-pressed={language === "en"}>English</button>
               <button type="button" lang="ml" onClick={() => setLanguage("ml")} aria-pressed={language === "ml"}>മലയാളം</button>
@@ -216,7 +216,8 @@ export default function Home() {
                 type="email"
                 inputMode="email"
                 autoComplete="email"
-                placeholder="you@shop.com"
+                spellCheck={false}
+                placeholder="you@example.com…"
                 value={email}
                 onChange={(event) => { setEmail(event.target.value); clearErrors(); }}
                 aria-describedby={message ? "login-message" : undefined}

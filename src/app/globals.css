@@ -347,7 +347,12 @@ button, input, select, textarea { font: inherit; }
   color: #8a9099;
 }
 .login-input:focus {
-  outline: none;
+  outline: none; /* removed by :focus-visible below */
+}
+/* Show a visible ring for keyboard navigation; mouse clicks don't trigger :focus-visible */
+.login-input:focus-visible {
+  outline: 2px solid #111418;
+  outline-offset: 3px;
   border-bottom-color: #111418;
 }
 .login-input:-webkit-autofill {
