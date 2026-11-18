@@ -1,0 +1,166 @@
+"use client";
+
+/**
+ * AuthContext — single source of truth for the signed-in user and their token.
+ *
+ * WHY this exists:
+ *   Before this, every page and component called `sessionStorage.getItem("ogera_access_token")`
+ *   directly. That means 27+ files each read storage independently, and there is no central
+ *   place to hold user data or react to sign-outs. For multi-tenant support we need to know
+ *   the user's branch/org in one place, not scattered everywhere.
+ *
+ * HOW it works:
+ *   - `AuthProvider` wraps the whole app (in the root layout).
+ *   - On mount it reads the token and user from sessionStorage once.
+ *   - `setSession()` is called after login to store both in sessionStorage AND in React state.
+ *   - `clearSession()` is called on sign-out.
+ *   - Any component calls `useAuth()` to get the current token, user, or trigger sign-out.
+ *
+ * MIGRATION:
+ *   Pages can still read sessionStorage directly for now — the keys are unchanged.
+ *   Gradually replace `sessionStorage.getItem("ogera_access_token")` with `useAuth().token`.
+ */
+
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/**
+ * The shape of the user object we keep in memory (and in sessionStorage).
+ * `branch` is included now for multi-tenant support — it identifies which
+ * office/location this employee belongs to.
+ */
+export type SessionUser = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  phone: string | null;
+  branch: string | null;
+};
+
+type AuthState =
+  | { status: "loading" }              // reading sessionStorage on first mount
+  | { status: "authenticated"; token: string; user: SessionUser }
+  | { status: "unauthenticated" };
+
+type AuthContextValue = {
+  /** Raw JWT access token, or null if not signed in. */
+  token: string | null;
+  /** Signed-in user, or null. */
+  user: SessionUser | null;
+  /** True while reading sessionStorage on the first render. */
+  isLoading: boolean;
+  /**
+   * Call this after a successful login. Saves the token and user to
+   * sessionStorage and updates React state so every consumer re-renders.
+   */
+  setSession: (token: string, user: SessionUser) => void;
+  /**
+   * Call this to sign out. Clears sessionStorage and resets React state.
+   */
+  clearSession: () => void;
+};
+
+// ---------------------------------------------------------------------------
+// Storage helpers
+// ---------------------------------------------------------------------------
+
+const TOKEN_KEY = "ogera_access_token";
+const USER_KEY = "ogera_user";
+
+function readStorage(): { token: string; user: SessionUser } | null {
+  try {
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    const raw = sessionStorage.getItem(USER_KEY);
+    if (!token || !raw) return null;
+    const user = JSON.parse(raw) as SessionUser;
+    return { token, user };
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(token: string, user: SessionUser) {
+  try {
+    sessionStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch {
+    // Storage blocked (private window, restricted context) — session won't
+    // survive a refresh but the current tab still works.
+  }
+}
+
+function clearStorage() {
+  try {
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Context
+// ---------------------------------------------------------------------------
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<AuthState>({ status: "loading" });
+
+  // Read sessionStorage once after the first render (browser-only).
+  useEffect(() => {
+    const stored = readStorage();
+    if (stored) {
+      setState({ status: "authenticated", token: stored.token, user: stored.user });
+    } else {
+      setState({ status: "unauthenticated" });
+    }
+  }, []);
+
+  const setSession = useCallback((token: string, user: SessionUser) => {
+    writeStorage(token, user);
+    setState({ status: "authenticated", token, user });
+  }, []);
+
+  const clearSession = useCallback(() => {
+    clearStorage();
+    setState({ status: "unauthenticated" });
+  }, []);
+
+  const value: AuthContextValue = {
+    token: state.status === "authenticated" ? state.token : null,
+    user: state.status === "authenticated" ? state.user : null,
+    isLoading: state.status === "loading",
+    setSession,
+    clearSession,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the current auth state.
+ *
+ * Usage:
+ *   const { token, user, clearSession } = useAuth();
+ *
+ * - `token`  — the JWT to pass to API calls, or null if not signed in
+ * - `user`   — signed-in employee (id, name, role, branch, …), or null
+ * - `isLoading` — true during the first render while sessionStorage is read
+ * - `clearSession` — call this to sign out
+ */
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used inside <AuthProvider>. Wrap your root layout with <AuthProvider>.");
+  }
+  return ctx;
+}
