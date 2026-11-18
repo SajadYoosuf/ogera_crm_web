@@ -13,13 +13,13 @@ export type LoginState =
 /**
  * Runs the login request and, on success, stores the session via AuthContext.
  *
- * Previously this wrote directly to sessionStorage. Now it calls
- * `setSession()` from AuthContext, which both writes sessionStorage (so
- * existing pages that still read it directly keep working) and updates
- * React state so any component using `useAuth()` re-renders immediately.
+ * The API returns both `employee` (the signed-in person) and `company`
+ * (the tenant they belong to). Both are saved into the session so any
+ * component can read the company name via `useAuth().user.company.name`
+ * without an extra round-trip.
  *
- * Also stores `branch` now — needed for multi-tenant support so the app
- * knows which office/location the signed-in employee belongs to.
+ * `role` in the session is mapped from the API's `role_slug` field so
+ * existing code that checks `user.role` keeps working unchanged.
  */
 export function useLogin() {
   const { setSession } = useAuth();
@@ -28,14 +28,20 @@ export function useLogin() {
   const submit = useCallback(async (email: string, password: string): Promise<boolean> => {
     setState({ status: "loading" });
     try {
-      const { access_token, employee } = await login(email.trim(), password);
+      const { access_token, employee, company } = await login(email.trim(), password);
       setSession(access_token, {
         id: employee.id,
         name: employee.name,
         email: employee.email,
-        role: employee.role,
+        // API returns role_slug; we store it as `role` for backward compat.
+        role: employee.role_slug,
         phone: employee.phone,
-        branch: employee.branch,
+        company: {
+          id: company.id,
+          name: company.name,
+          logo_url: company.logo_url,
+          status: company.status,
+        },
       });
       setState({ status: "success" });
       return true;

@@ -28,17 +28,34 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 // ---------------------------------------------------------------------------
 
 /**
+ * The company (tenant) stored alongside the signed-in employee.
+ * Keeping it here means any component can call `useAuth()` to show the
+ * company name in a header or sidebar without an extra API call.
+ */
+export type SessionCompany = {
+  id: number;
+  /** The tenant's display name, e.g. "Ventino Homes". */
+  name: string;
+  logo_url: string | null;
+  status: string;
+};
+
+/**
  * The shape of the user object we keep in memory (and in sessionStorage).
- * `branch` is included now for multi-tenant support — it identifies which
- * office/location this employee belongs to.
+ *
+ * `role` holds the string role slug (e.g. "admin") — it comes from
+ * `role_slug` in the API response. `company` is the tenant the employee
+ * belongs to and is the canonical way to display the organisation name.
  */
 export type SessionUser = {
   id: number;
   name: string;
   email: string;
+  /** The employee's role slug, e.g. "admin" or "manager". */
   role: string;
   phone: string | null;
-  branch: string | null;
+  /** The tenant/company the employee belongs to. */
+  company: SessionCompany;
 };
 
 type AuthState =
@@ -77,6 +94,10 @@ function readStorage(): { token: string; user: SessionUser } | null {
     const raw = sessionStorage.getItem(USER_KEY);
     if (!token || !raw) return null;
     const user = JSON.parse(raw) as SessionUser;
+    // Guard against old sessions (before company was added) that lack the
+    // company field. If the stored object is incomplete, discard it so the
+    // user is prompted to log in again and gets a full session written.
+    if (!user.company || typeof user.company.name !== "string") return null;
     return { token, user };
   } catch {
     return null;

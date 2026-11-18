@@ -33,6 +33,22 @@ if (typeof window !== "undefined") {
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
+/**
+ * The company (tenant) the signed-in employee belongs to.
+ * Returned by POST /auth/login.
+ */
+export type Company = {
+  id: number;
+  /** Display name shown in the app header — this is the "tenant name". */
+  name: string;
+  logo_url: string | null;
+  status: string;
+};
+
+/**
+ * Employee profile as returned by the employees list / detail endpoints.
+ * Uses `role` (a string slug), `branch`, and `is_field_staff`.
+ */
 export type Employee = {
   id: number;
   name: string;
@@ -47,10 +63,29 @@ export type Employee = {
   deleted_at: string | null;
 };
 
+/**
+ * Employee profile as returned specifically by POST /auth/login.
+ * The login response uses `role_slug` / `role_id` instead of `role`,
+ * and does not include `branch` or `is_field_staff`.
+ */
+export type LoginEmployee = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  role_id: number;
+  role_slug: string;
+  is_active: 0 | 1;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 export type LoginResponse = {
   access_token: string;
   token_type: string;
-  employee: Employee;
+  company: Company;
+  employee: LoginEmployee;
 };
 
 export type ApiErrorKind =
