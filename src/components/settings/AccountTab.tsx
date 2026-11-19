@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { changePassword, updateMe, type MyProfile } from "@/lib/api/settings";
-import { Icon, Panel, Toast, accentButton, errorText, getToken, icons } from "./ui";
+import { Icon, Panel, Toast, accentButton, errorText, icons } from "./ui";
 
 // Same rule as the server: 6 to 15 characters with at least one letter and one digit.
 const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d).{6,15}$/;
@@ -34,6 +35,7 @@ const STRENGTH_COLOR = ["#C2410C", "#B45309", "#17703F", "#17703F"] as const;
 const labelClass = "text-xs font-semibold text-[#4B5060]";
 
 export default function AccountTab({ profile, onSaved }: { profile: MyProfile; onSaved?: (next: MyProfile) => void }) {
+  const { token } = useAuth();
   const [name, setName] = useState(profile.name);
   const [email, setEmail] = useState(profile.email);
   const [emailEditing, setEmailEditing] = useState(false);
@@ -66,7 +68,6 @@ export default function AccountTab({ profile, onSaved }: { profile: MyProfile; o
 
   async function saveDetails(event: FormEvent) {
     event.preventDefault();
-    const token = getToken();
     if (!token) { setDetailsNotice({ text: "Sign in again before saving.", tone: "error" }); return; }
     setDetailsSaving(true); setDetailsNotice(null);
     try {
@@ -87,7 +88,6 @@ export default function AccountTab({ profile, onSaved }: { profile: MyProfile; o
   async function savePassword(event: FormEvent) {
     event.preventDefault();
     if (!canUpdatePassword) return;
-    const token = getToken();
     if (!token) { setPasswordNotice({ text: "Sign in again before saving.", tone: "error" }); return; }
     setPasswordSaving(true); setPasswordNotice(null);
     try {

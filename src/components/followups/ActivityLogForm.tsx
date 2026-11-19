@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { ActivityTypeIcon } from "./ActivityIcons";
 import ModalShell from "./ModalShell";
 import { ACTIVITY_TILE, ACTIVITY_TILE_DEFAULT, COLOR, MODAL_CANCEL, MODAL_FIELD_CLASS, MODAL_FIELD_LABEL, MODAL_INPUT, MODAL_SAVE, TYPE } from "./designTokens";
@@ -27,6 +28,7 @@ function currentPosition(): Promise<{ lat: number; lng: number } | null> {
 export default function ActivityLogForm({ contactId, contactName, onSaved, onCancel }: {
   contactId: number; contactName: string; onSaved: () => Promise<void>; onCancel: () => void;
 }) {
+  const { token } = useAuth();
   const { types: activityTypes, loaded: typesLoaded, error: typesError } = useActivityTypes();
   const [type, setType] = useState("phone_call");
   const [title, setTitle] = useState("");
@@ -37,12 +39,11 @@ export default function ActivityLogForm({ contactId, contactName, onSaved, onCan
 
   async function save() {
     if (!notes.trim()) { setNotesError("Write what happened."); return; }
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setError("Sign in again to continue."); return; }
+    if (!token) { setError("Sign in again to continue."); return; }
     setIsSaving(true); setError(""); setNotesError("");
     try {
       const coordinates = type === "field_visit" ? await currentPosition() : null;
-      await logActivity(accessToken, contactId, { activity_type: type, notes: notes.trim(), ...(coordinates ? { coordinates } : {}) });
+      await logActivity(token, contactId, { activity_type: type, notes: notes.trim(), ...(coordinates ? { coordinates } : {}) });
       await onSaved();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "The activity could not be saved. Please try again.");

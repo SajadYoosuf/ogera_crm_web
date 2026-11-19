@@ -1,6 +1,7 @@
 "use client";
 
 import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { istToday } from "@/components/DatePicker";
 import { ApiError } from "@/lib/api/auth";
 import { listAllEmployees } from "@/lib/api/employees";
@@ -68,13 +69,6 @@ function BoardDropdown({ label, value, onChange, options, icon }: {
   );
 }
 
-function currentUserId(): number | null {
-  try {
-    const id = (JSON.parse(sessionStorage.getItem("ogera_user") ?? "null") as { id?: number } | null)?.id;
-    return typeof id === "number" ? id : null;
-  } catch { return null; }
-}
-
 const PERIOD_TABS: { value: PeriodMode; label: string }[] = [
   { value: "day", label: "Day" }, { value: "week", label: "Week" },
   { value: "month", label: "Month" }, { value: "year", label: "Year" }, { value: "custom", label: "Custom" },
@@ -87,6 +81,8 @@ const TYPE_COLORS: Record<LeadKind, { activeBg: string; activeFg: string }> = {
 };
 
 export default function FollowupBoard() {
+  const { token, user } = useAuth();
+  const userId = user?.id ?? null;
   const [kind, setKind] = useState<LeadKind>("consumer");
   const [leads, setLeads] = useState<ApiContact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,7 +102,6 @@ export default function FollowupBoard() {
   const [showPicker, setShowPicker] = useState(false);
   const [blocked, setBlocked] = useState<{ leadName: string; stageLabel: string; missing: string[] } | null>(null);
   const [panel, setPanel] = useState<{ id: number; targetId?: number } | null>(null);
-  const [userId] = useState(currentUserId);
   const [staff, setStaff] = useState<{ id: number; name: string; role: string }[] | null>(null);
 
   // ── Add Lead modal state ──
@@ -123,14 +118,13 @@ export default function FollowupBoard() {
   const { stages, isLoading: stagesLoading } = useStageTypes(kind);
 
   const load = useCallback(async () => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setError("Sign in to load your leads."); setIsLoading(false); return; }
+    if (!token) { setError("Sign in to load your leads."); setIsLoading(false); return; }
     setError("");
     try {
       const [leadRows, staffRows, sourceNames] = await Promise.all([
-        listLeads(accessToken, kind, dateFrom || undefined, dateTo || undefined),
-        listAllEmployees(accessToken).catch(() => null),
-        listLeadSources(accessToken).then((items) => items.map((item) => item.name)).catch(() => null),
+        listLeads(token, kind, dateFrom || undefined, dateTo || undefined),
+        listAllEmployees(token).catch(() => null),
+        listLeadSources(token).then((items) => items.map((item) => item.name)).catch(() => null),
       ]);
       setLeads(leadRows);
       if (sourceNames) setAllSources(sourceNames);
@@ -138,7 +132,7 @@ export default function FollowupBoard() {
     } catch (caught) {
       setError(errorText(caught));
     } finally { setIsLoading(false); }
-  }, [kind, dateFrom, dateTo]);
+  }, [kind, dateFrom, dateTo, token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
@@ -174,14 +168,13 @@ export default function FollowupBoard() {
 
   // ── Add Lead modal helpers ──
   const searchAddLeadContacts = useCallback(async (q: string) => {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
     setAddLeadSearching(true);
     try {
       const res = await listContacts(token, { search: q || undefined, contact_type: kind, limit: 20 });
       setAddLeadResults(res.items);
     } catch { /* silent */ } finally { setAddLeadSearching(false); }
-  }, [kind]);
+  }, [kind, token]);
 
   const closeAddLead = () => {
     setAddLeadOpen(false); setAddLeadSearch(""); setAddLeadResults([]);
@@ -190,7 +183,6 @@ export default function FollowupBoard() {
 
   const submitAddLead = async () => {
     if (!addLeadContact || !addLeadStageId || userId === null) return;
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) { setAddLeadError("Sign in again to continue."); return; }
     setAddLeadSaving(true); setAddLeadError("");
     try {
@@ -240,11 +232,10 @@ export default function FollowupBoard() {
     const currentId = lead.lead_stage?.stage_id;
     if (currentId === stageId) return;
     if (stageSlug === "lost" || stageSlug === "aware") { setPanel({ id: lead.id, targetId: stageId }); return; }
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken || userId === null) { setError("Sign in again to continue."); return; }
+    if (!token || userId === null) { setError("Sign in again to continue."); return; }
     setError("");
     try {
-      await changeStage(accessToken, lead.id, userId, { stage_id: stageId });
+      await changeStage(token, lead.id, userId, { stage_id: stageId });
       await load();
     } catch (caught) {
       if (caught instanceof ApiError && caught.missingFields) {

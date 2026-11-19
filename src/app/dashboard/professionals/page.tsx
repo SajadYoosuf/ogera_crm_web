@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 // Must stay in step with the `professionals.type` enum and the API's own list.
 const PROFESSIONAL_TYPES = ["Engineer", "Plumber", "Contractor", "Interior Designer", "Electrician", "Other"] as const;
@@ -51,6 +52,7 @@ function TypeIcon({ type }: { type: ProfessionalType }) {
 }
 
 export default function ProfessionalsPage() {
+  const { token } = useAuth();
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [total, setTotal] = useState(0);
   const [type, setType] = useState<ProfessionalType>("Engineer");
@@ -65,19 +67,18 @@ export default function ProfessionalsPage() {
   const [formError, setFormError] = useState("");
 
   const loadProfessionals = useCallback(async () => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setProfessionals([]); setTotal(0); setError("Sign in to load professionals."); setIsLoading(false); return; }
+    if (!token) { setProfessionals([]); setTotal(0); setError("Sign in to load professionals."); setIsLoading(false); return; }
     setIsLoading(true); setError("");
     const parameters = new URLSearchParams({ type });
     if (submittedSearch) parameters.set("query", submittedSearch);
     try {
-      const response = await fetch(`/api/professionals?${parameters}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const response = await fetch(`/api/professionals?${parameters}`, { headers: { Authorization: `Bearer ${token}` } });
       const result = await response.json() as ProfessionalsResponse;
       if (!response.ok || !result.success || !result.data) { setProfessionals([]); setTotal(0); setError(result.error?.message || "Professionals could not be loaded. Please try again."); return; }
       setProfessionals(result.data.professionals); setTotal(result.data.total);
     } catch { setProfessionals([]); setTotal(0); setError("Professionals could not be loaded. Please check your connection and try again."); }
     finally { setIsLoading(false); }
-  }, [type, submittedSearch]);
+  }, [type, submittedSearch, token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadProfessionals(); }, 0);
@@ -90,8 +91,7 @@ export default function ProfessionalsPage() {
   async function saveProfessional(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editor) return;
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setFormError("Sign in again before saving this professional."); return; }
+    if (!token) { setFormError("Sign in again before saving this professional."); return; }
     setIsSaving(true); setFormError("");
     const body = {
       ...editor.values,
@@ -106,7 +106,7 @@ export default function ProfessionalsPage() {
     try {
       const response = await fetch(editor.professional ? `/api/professionals/${editor.professional.id}` : "/api/professionals", {
         method: editor.professional ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       });
       const result = await response.json() as { success: boolean; error?: { message?: string } };
@@ -118,11 +118,10 @@ export default function ProfessionalsPage() {
 
   async function deleteProfessional() {
     if (!deleteTarget) return;
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setFormError("Sign in again before deleting this professional."); return; }
+    if (!token) { setFormError("Sign in again before deleting this professional."); return; }
     setIsSaving(true); setFormError("");
     try {
-      const response = await fetch(`/api/professionals/${deleteTarget.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } });
+      const response = await fetch(`/api/professionals/${deleteTarget.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       const result = await response.json() as { success: boolean; error?: { message?: string } };
       if (!response.ok || !result.success) { setFormError(result.error?.message || "Professional could not be deleted. Please try again."); return; }
       setDeleteTarget(null); await loadProfessionals();

@@ -20,6 +20,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { ApiError, type Employee } from "@/lib/api/auth";
 import { listAllEmployees } from "@/lib/api/employees";
 import {
@@ -68,12 +69,8 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(date);
 }
 
-/** Reads the login token saved when the user signed in. Returns "" when it is missing. */
-function readToken(): string {
-  return sessionStorage.getItem("ogera_access_token") || "";
-}
-
 export default function ExpensesPage() {
+  const { token: authToken } = useAuth();
   // Filters. Each change goes back to page 1.
   const [statusFilter, setStatusFilter] = useState<ExpenseStatus | "all">("all");
   const [employeeId, setEmployeeId] = useState<string>("");
@@ -102,8 +99,7 @@ export default function ExpensesPage() {
   // Fetch one page whenever a filter, the page number or the reload counter changes.
   // A request number guards against an old, slower response overwriting a newer one.
   const load = useCallback(() => {
-    const token = readToken();
-    if (!token) {
+    if (!authToken) {
       setLoadError("Sign in to see expense claims.");
       setIsLoading(false);
       return;
@@ -111,7 +107,7 @@ export default function ExpensesPage() {
     const requestId = ++latestRequest.current;
     setIsLoading(true);
     setLoadError(null);
-    listExpenses(token, {
+    listExpenses(authToken, {
       status: statusFilter === "all" ? undefined : statusFilter,
       employee_id: employeeId ? Number(employeeId) : undefined,
       date_from: dateFrom || undefined,
@@ -133,7 +129,7 @@ export default function ExpensesPage() {
       .finally(() => {
         if (requestId === latestRequest.current) setIsLoading(false);
       });
-  }, [statusFilter, employeeId, dateFrom, dateTo, page]);
+  }, [statusFilter, employeeId, dateFrom, dateTo, page, authToken]);
 
   useEffect(() => {
     // The timer moves the fetch out of the effect body, the same way the sales page does.
@@ -143,9 +139,8 @@ export default function ExpensesPage() {
 
   // The employee dropdown is filled once. The team is small, so all employees fit in one list.
   useEffect(() => {
-    const token = readToken();
-    if (!token) return;
-    listAllEmployees(token)
+    if (!authToken) return;
+    listAllEmployees(authToken)
       .then((result) => setEmployees(result.employees))
       .catch(() => setEmployees([]));
   }, []);
@@ -165,7 +160,7 @@ export default function ExpensesPage() {
     setActingId(expense.id);
     setActionError(null);
     try {
-      await approveExpense(readToken(), expense.id);
+      await approveExpense(authToken ?? "", expense.id);
       setReloadKey((key) => key + 1);
     } catch (caught: unknown) {
       setActionError(caught instanceof ApiError ? caught.message : "Could not approve this claim. Please try again.");
@@ -191,7 +186,7 @@ export default function ExpensesPage() {
     setIsRejecting(true);
     setRejectError(null);
     try {
-      await rejectExpense(readToken(), rejectTarget.id, note);
+      await rejectExpense(authToken ?? "", rejectTarget.id, note);
       setRejectTarget(null);
       setReloadKey((key) => key + 1);
     } catch (caught: unknown) {

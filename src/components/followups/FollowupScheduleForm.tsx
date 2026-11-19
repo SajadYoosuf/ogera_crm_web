@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import ModalShell from "./ModalShell";
 import { ApiError } from "@/lib/api/auth";
 import { NOT_SCHEDULABLE, scheduleFollowup } from "@/lib/api/activities";
@@ -16,6 +17,7 @@ export default function FollowupScheduleForm({ contactId, contactName, staff, de
   contactId: number; contactName: string; staff: { id: number; name: string }[]; defaultAssignee: number | null;
   onSaved: () => Promise<void>; onCancel: () => void;
 }) {
+  const { token } = useAuth();
   const { types: activityTypes, loaded: typesLoaded, error: typesError } = useActivityTypes();
   const schedulable = activityTypes.filter((item) => !(NOT_SCHEDULABLE as readonly string[]).includes(item.value));
 
@@ -56,11 +58,10 @@ export default function FollowupScheduleForm({ contactId, contactName, staff, de
     setErrors(found);
     if (found.date || found.time || found.assignee) return;
 
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setError("Sign in again to continue."); return; }
+    if (!token) { setError("Sign in again to continue."); return; }
     setIsSaving(true); setError("");
     try {
-      await scheduleFollowup(accessToken, contactId, {
+      await scheduleFollowup(token, contactId, {
         title: title.trim() || undefined, type, priority, scheduled_date: date, assigned_to: Number(assignee),
         ...(time ? { scheduled_time: time } : {}), ...(note.trim() ? { notes: note.trim() } : {}),
       });

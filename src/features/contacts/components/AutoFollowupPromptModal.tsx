@@ -20,6 +20,7 @@
  */
 
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import { request } from "@/lib/api/auth";
 import { COLOR, MODAL_FIELD_CLASS, MODAL_FIELD_LABEL, MODAL_INPUT } from "@/components/followups/designTokens";
@@ -40,6 +41,7 @@ export default function AutoFollowupPromptModal({
   staff: { id: number; name: string }[];
   onDone: () => void;
 }) {
+  const { token } = useAuth();
   const [assignedTo, setAssignedTo] = useState(() => String(staff[0]?.id ?? ""));
   const [dueDate, setDueDate] = useState(() => isoDatePlus(2)); // +48h
   const [isSaving, setIsSaving] = useState(false);
@@ -49,13 +51,12 @@ export default function AutoFollowupPromptModal({
   async function schedule() {
     if (!assignedTo) { setError("Choose who to assign this follow-up to."); return; }
     if (!dueDate || dueDate < today) { setError("Pick a valid due date."); return; }
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setError("Sign in again to continue."); return; }
+    if (!token) { setError("Sign in again to continue."); return; }
     setIsSaving(true); setError("");
     try {
       await request(`/contacts/${contactId}/followups`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           title: "First Contact",
           channel: "phone_call",

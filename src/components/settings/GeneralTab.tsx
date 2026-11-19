@@ -2,12 +2,14 @@
 
 /* eslint-disable @next/next/no-img-element -- the logo comes from the API server, not the Next image optimiser */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { getCompany, logoSrc, updateCompany, uploadLogo, type Company } from "@/lib/api/settings";
-import { ErrorBlock, Icon, Panel, Spinner, Toast, accentButton, errorText, getToken, icons, secondaryButton } from "./ui";
+import { ErrorBlock, Icon, Panel, Spinner, Toast, accentButton, errorText, icons, secondaryButton } from "./ui";
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
 export default function GeneralTab() {
+  const { token } = useAuth();
   const [company, setCompany] = useState<Company | null>(null);
   const [name, setName] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -16,14 +18,13 @@ export default function GeneralTab() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const token = getToken();
     if (!token) { setLoadError("Sign in again to view settings."); return; }
     setLoadError("");
     try {
       const data = await getCompany(token);
       setCompany(data); setName(data.company_name);
     } catch (caught) { setLoadError(errorText(caught, "Company details could not be loaded.")); }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
@@ -31,7 +32,6 @@ export default function GeneralTab() {
   }, [load]);
 
   async function run(action: (token: string) => Promise<Company>, done: string) {
-    const token = getToken();
     if (!token) { setNotice({ text: "Sign in again before saving.", tone: "error" }); return; }
     setBusy(true); setNotice(null);
     try {

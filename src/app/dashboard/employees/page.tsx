@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import {
   createEmployee, deleteEmployee, getEmployee,
@@ -202,6 +203,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
   employee?: Employee; viewer: Viewer; onClose: () => void; onSaved: (message: string) => void;
 }) {
   const router = useRouter();
+  const { token } = useAuth();
   const isEdit = !!employee;
   const isSelf = employee?.id === viewer.id;
   // Managers cannot assign the admin role when creating or editing employees.
@@ -226,7 +228,7 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const accessToken = sessionStorage.getItem("ogera_access_token");
+    const accessToken = token;
     if (!accessToken) { setError("Sign in again before saving."); return; }
     // Only an edited or newly entered number must be a valid Indian mobile; untouched legacy values don't block other edits.
     if (values.phone && values.phone !== toIndianLocal(employee?.phone) && !INDIAN_MOBILE.test(values.phone)) {
@@ -382,19 +384,15 @@ export default function EmployeesPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
-  // sessionStorage is a browser-only store, so it is read after hydration with a null server snapshot.
-  const storedUser = useSyncExternalStore(() => () => {}, () => sessionStorage.getItem("ogera_user"), () => null);
+  const { token, user } = useAuth();
   const viewer = useMemo<Viewer | null>(() => {
-    if (!storedUser) return null;
-    try {
-      const parsed = JSON.parse(storedUser) as { id?: number; role?: string };
-      return typeof parsed.id === "number" && parsed.role ? { id: parsed.id, role: parsed.role } : null;
-    } catch { return null; }
-  }, [storedUser]);
+    if (!user) return null;
+    return { id: user.id, role: user.role };
+  }, [user]);
 
   const load = useCallback(async (reason: string) => {
     logEvent(`load triggered: ${reason}`, { path: window.location.pathname, online: navigator.onLine });
-    const accessToken = sessionStorage.getItem("ogera_access_token");
+    const accessToken = token;
     if (!accessToken) { setState({ status: "error", error: { kind: "auth", message: "Sign in to view your team." } }); return; }
     setState({ status: "loading" });
     try {
@@ -403,7 +401,7 @@ export default function EmployeesPage() {
     } catch (error) {
       setState({ status: "error", error: error instanceof ApiError ? error : new ApiError("unknown", "Something went wrong. Please try again.") });
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load("page opened"); }, 0);
@@ -437,15 +435,13 @@ export default function EmployeesPage() {
   // Refresh the opened employee from GET /employees/{id} so the dialog is never stale.
   const selectedId = selected?.id;
   useEffect(() => {
-    if (selectedId === undefined) return;
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) return;
+    if (selectedId === undefined || !token) return;
     let cancelled = false;
-    getEmployee(accessToken, selectedId)
+    getEmployee(token, selectedId)
       .then((fresh) => { if (!cancelled) setSelected(fresh); })
       .catch(() => { /* keep the list data; the list view surfaces errors */ });
     return () => { cancelled = true; };
-  }, [selectedId]);
+  }, [selectedId, token]);
 
   // Admin-role accounts are never shown to any viewer (hidden server-side; filtered here for defense-in-depth).
   // Managers additionally cannot see manager-role employees.
@@ -487,12 +483,10 @@ export default function EmployeesPage() {
   }
 
   async function confirmDelete() {
-    if (!deleteTarget) return;
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setDeleteError("Sign in again before deleting."); return; }
+    if (!deleteTarget || !token) { setDeleteError("Sign in again before deleting."); return; }
     setIsDeleting(true); setDeleteError("");
     try {
-      await deleteEmployee(accessToken, deleteTarget.id);
+      await deleteEmployee(token, deleteTarget.id);
       setToast(`${deleteTarget.name} was removed.`);
       setDeleteTarget(null); setSelected(null); void load("employee deleted");
     } catch (error) {

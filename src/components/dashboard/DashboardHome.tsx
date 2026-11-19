@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useAuth } from "@/context/AuthContext";
 import NotificationBell from "@/components/dashboard/NotificationBell";
 import { ApiError } from "@/lib/api/auth";
 import { getDashboardSummary, type DashboardLead, type DashboardRange, type DashboardSummary } from "@/lib/api/dashboard";
@@ -24,7 +25,6 @@ const LOAD_FAILED = "The dashboard could not be loaded. Please try again.";
 const STAGE_ROWS = 8;
 const TONE_CLASS: Record<Tone, string> = { up: "text-emerald-700", down: "text-red-600", muted: "text-[#8A8F9C]" };
 const card = "rounded-2xl border border-[#E5E7EA] bg-white";
-const noopSubscribe = () => () => {};
 
 const icon = (children: ReactNode) => (
   <svg className="size-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
@@ -35,23 +35,6 @@ const ICON_LEADS = icon(<><path d="M12 3v4M12 17v4M3 12h4M17 12h4" /><circle cx=
 const ICON_FOLLOWUPS = icon(<><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>);
 const ICON_WON = icon(<><path d="M3 17.5 9 11l4 4 7.5-7.5" /><path d="M15 7.5h5.5V13" /></>);
 
-function firstNameOf(stored: string | null): string {
-  try {
-    const name = (JSON.parse(stored ?? "null") as { name?: string } | null)?.name?.trim() ?? "";
-    return name.split(/\s+/)[0] ?? "";
-  } catch {
-    return "";
-  }
-}
-
-// Only managers and admins see the notification bell. Reads the role saved at login.
-function roleOf(stored: string | null): string {
-  try {
-    return (JSON.parse(stored ?? "null") as { role?: string } | null)?.role ?? "";
-  } catch {
-    return "";
-  }
-}
 
 function KpiCard({ label, glyph, tone, value, line }: { label: string; glyph: ReactNode; tone: string; value: number; line: { text: string; tone: Tone } }) {
   return (
@@ -99,28 +82,26 @@ function LeadRow({ lead }: { lead: DashboardLead }) {
 }
 
 export default function DashboardHome() {
+  const { token, user } = useAuth();
   const [range, setRange] = useState<DashboardRange>("month");
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  // sessionStorage is browser-only, so it is read after hydration with a null server snapshot.
-  const storedUser = useSyncExternalStore(noopSubscribe, () => sessionStorage.getItem("ogera_user"), () => null);
-  const firstName = firstNameOf(storedUser);
-  const role = roleOf(storedUser);
-  const canSeeNotifications = role === "manager" || role === "admin";
+
+  const firstName = user?.name?.trim().split(/\s+/)[0] ?? "";
+  const canSeeNotifications = user?.role === "manager" || user?.role === "admin";
 
   useEffect(() => {
     let active = true; // a slower response for a range the user has left must not overwrite the current one
     (async () => {
-      const accessToken = sessionStorage.getItem("ogera_access_token");
-      if (!accessToken) {
+      if (!token) {
         if (active) setError(SIGN_IN);
         return;
       }
       try {
-        const summary = await getDashboardSummary(accessToken, range);
+        const summary = await getDashboardSummary(token, range);
         if (active) {
           setData(summary);
           setError("");
@@ -132,7 +113,7 @@ export default function DashboardHome() {
     return () => {
       active = false;
     };
-  }, [range, attempt]);
+  }, [range, attempt, token]);
 
   useEffect(() => {
     if (!menuOpen) return;

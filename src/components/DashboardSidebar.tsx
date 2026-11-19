@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 interface SessionUser { name: string; email: string; role: string; }
 
@@ -131,6 +132,7 @@ function setCollapsed(value: boolean) {
 }
 
 export default function DashboardSidebar() {
+  const { user, clearSession } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // Desktop only: collapsed shows an icon rail. Mobile always uses the full drawer.
   const collapsed = useSyncExternalStore(subscribeSidebar, readCollapsed, () => false);
@@ -145,22 +147,10 @@ export default function DashboardSidebar() {
     return () => window.removeEventListener("toggleMobileMenu", handleToggleMobileMenu);
   }, []);
 
-  // sessionStorage is a browser-only store, so it is read after hydration with a null server snapshot.
-  const storedUser = useSyncExternalStore(
-    () => () => {},
-    () => sessionStorage.getItem("ogera_user"),
-    () => null,
-  );
-  const user = useMemo<SessionUser | null>(() => {
-    if (!storedUser) return null;
-    try { return JSON.parse(storedUser) as SessionUser; } catch { return null; }
-  }, [storedUser]);
-
   const visibleMenuItems = menuItems;
 
   function logout() {
-    sessionStorage.clear();
-    localStorage.removeItem("ogera_access_token");
+    clearSession();
     router.push("/");
   }
 

@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { listAllEmployees, updateEmployee, type Employee, type EmployeeRole } from "@/lib/api/employees";
 import { listRoles, type RoleSummary } from "@/lib/api/settings";
-import { ErrorBlock, Icon, Panel, Spinner, Toast, errorText, getToken, icons } from "./ui";
+import { ErrorBlock, Icon, Panel, Spinner, Toast, errorText, icons } from "./ui";
 
 export default function TeamTab({ viewerId }: { viewerId: number | null }) {
+  const { token } = useAuth();
   const [staff, setStaff] = useState<Employee[] | null>(null);
   const [roles, setRoles] = useState<RoleSummary[]>([]);
   const [loadError, setLoadError] = useState("");
@@ -13,14 +15,13 @@ export default function TeamTab({ viewerId }: { viewerId: number | null }) {
   const [notice, setNotice] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
 
   const load = useCallback(async () => {
-    const token = getToken();
     if (!token) { setLoadError("Sign in again to view the team."); return; }
     setLoadError("");
     try {
       const [people, list] = await Promise.all([listAllEmployees(token), listRoles(token)]);
       setStaff(people.employees.filter((person) => !person.deleted_at)); setRoles(list.items);
     } catch (caught) { setLoadError(errorText(caught, "The team could not be loaded.")); }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
@@ -28,7 +29,6 @@ export default function TeamTab({ viewerId }: { viewerId: number | null }) {
   }, [load]);
 
   async function changeRole(person: Employee, role: string) {
-    const token = getToken();
     if (!token) { setNotice({ text: "Sign in again before saving.", tone: "error" }); return; }
     setBusyId(person.id); setNotice(null);
     try {

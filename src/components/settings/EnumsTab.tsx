@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { invalidateEnumOptions } from "@/hooks/useEnumOptions";
 import { ENUM_CATEGORIES, createEnum, deleteEnum, listAllEnums, reorderEnum, updateEnum, type EnumCategory, type EnumValue } from "@/lib/api/settings";
-import { ErrorBlock, Icon, Panel, Spinner, Toast, accentButton, errorText, getToken, icons, iconButton, secondaryButton } from "./ui";
+import { ErrorBlock, Icon, Panel, Spinner, Toast, accentButton, errorText, icons, iconButton, secondaryButton } from "./ui";
 
 type Grouped = Record<EnumCategory, EnumValue[]>;
 type Confirm = { row: EnumValue; mode: "deactivate" | "remove" };
@@ -23,6 +24,7 @@ const STAGE_TYPES = [
 ] as const;
 
 export default function EnumsTab() {
+  const { token } = useAuth();
   const [category, setCategory] = useState<EnumCategory>("lead_source");
   const [stageType, setStageType] = useState<string>("consumer");
   const [data, setData] = useState<Grouped | null>(null);
@@ -38,11 +40,10 @@ export default function EnumsTab() {
   const skipSave = useRef(false);
 
   const load = useCallback(async () => {
-    const token = getToken();
     if (!token) { setLoadError("Sign in again to view settings."); return; }
     setLoadError("");
     try { setData(await listAllEnums(token)); } catch (caught) { setLoadError(errorText(caught, "Options could not be loaded.")); }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
@@ -59,7 +60,6 @@ export default function EnumsTab() {
 
   /** Runs one change against the API, keeps the list in sync, and clears the dropdown cache. */
   async function mutate(id: number | null, action: (token: string) => Promise<void>, done?: string) {
-    const token = getToken();
     if (!token) { setNotice({ text: "Sign in again before saving.", tone: "error" }); return false; }
     setBusyId(id); setNotice(null);
     try { await action(token); invalidateEnumOptions(category); if (done) setNotice({ text: done, tone: "ok" }); return true; }

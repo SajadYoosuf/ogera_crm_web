@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import DateRangePicker from "@/components/DateRangePicker";
 import SelectField from "@/components/SelectField";
 import { ApiError } from "@/lib/api/auth";
@@ -16,6 +17,7 @@ const TYPES = [{ value: "", label: "All types" }, { value: "consumer", label: "C
 
 /** Export dialog. `initial` is the filter set already applied on the contacts page; the user can adjust the date range, type and source here. */
 export default function ContactExportModal({ initial, extraFilterCount, leadSources, onClose }: { initial: ExportFilters; extraFilterCount: number; leadSources: LeadSource[]; onClose: () => void }) {
+  const { token } = useAuth();
   const [filters, setFilters] = useState<ExportFilters>(initial);
   const [format, setFormat] = useState<ExportFormat>("xlsx");
   // The count remembers which filters it was fetched for, so "counting" is derived and never set from an effect.
@@ -29,17 +31,16 @@ export default function ContactExportModal({ initial, extraFilterCount, leadSour
 
   // "N contacts will be exported" follows the filters, so nobody downloads a surprise.
   useEffect(() => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) return;
+    if (!token) return;
     let cancelled = false;
-    listContacts(accessToken, {
+    listContacts(token, {
       limit: 1, contact_type: filters.contact_type, profession_type: filters.profession_type, search: filters.search, lead_source_id: filters.lead_source_id,
       district: filters.district, assigned_to: filters.assigned_to, created_by: filters.created_by, verified: filters.verified,
       created_from: filters.created_from, created_to: filters.created_to,
     }).then((result) => { if (!cancelled) setCounted({ key: filterKey, total: result.total }); })
       .catch(() => { if (!cancelled) setCounted({ key: filterKey, total: null }); });
     return () => { cancelled = true; };
-  }, [filters, filterKey]);
+  }, [filters, filterKey, token]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape" && !isDownloading) onClose(); };
@@ -52,12 +53,11 @@ export default function ContactExportModal({ initial, extraFilterCount, leadSour
   const tooMany = count !== null && count > limit;
 
   const download = async () => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setError("Your session has expired. Please sign in again."); return; }
+    if (!token) { setError("Your session has expired. Please sign in again."); return; }
     setIsDownloading(true);
     setError("");
     try {
-      await downloadContactsExport(accessToken, format, filters);
+      await downloadContactsExport(token, format, filters);
       onClose();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "The download failed. Please try again.");

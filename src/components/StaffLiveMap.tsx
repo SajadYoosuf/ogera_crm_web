@@ -2,6 +2,7 @@
 
 import "leaflet/dist/leaflet.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { CircleMarker, MapContainer, Polyline, TileLayer, useMap } from "react-leaflet";
 import { ApiError } from "@/lib/api/auth";
 import { getStaffRoute, listLiveStaff, type StaffLocation, type StaffRoute } from "@/lib/api/staff-locations";
@@ -28,6 +29,7 @@ function FitMap({ points }: { points: [number, number][] }) {
 }
 
 export default function StaffLiveMap() {
+  const { token } = useAuth();
   const [staff, setStaff] = useState<StaffLocation[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [route, setRoute] = useState<StaffRoute | null>(null);
@@ -42,18 +44,16 @@ export default function StaffLiveMap() {
   const [routeError, setRouteError] = useState<string | null>(null);
 
   const loadLive = useCallback(async (silent = false) => {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) { setError("Your session has expired. Please sign in again."); setLoading(false); return; }
     silent ? setRefreshing(true) : setLoading(true);
     try { setStaff(await listLiveStaff(token)); setError(null); } catch (caught) { setError(caught instanceof ApiError ? caught.message : "Unable to load staff locations."); } finally { setLoading(false); setRefreshing(false); }
-  }, []);
+  }, [token]);
 
   const loadRoute = useCallback(async (userId: number, routeDate: string) => {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
     setRouteLoading(true); setRouteError(null); setSelectedPointIndex(null);
     try { setRoute(await getStaffRoute(token, userId, routeDate)); } catch (caught) { setRoute(null); setRouteError(caught instanceof ApiError ? caught.message : "Unable to load route history."); } finally { setRouteLoading(false); }
-  }, []);
+  }, [token]);
 
   useEffect(() => { void loadLive(); const timer = window.setInterval(() => void loadLive(true), 20_000); return () => window.clearInterval(timer); }, [loadLive]);
   useEffect(() => { if (selectedId !== null) void loadRoute(selectedId, date); else setRoute(null); }, [date, loadRoute, selectedId]);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import type { ApiContactType, LeadSource } from "@/features/contacts/api/contacts";
 import { listAllEmployees, type Employee } from "@/lib/api/employees";
@@ -22,7 +23,6 @@ const ROW_STATUS = {
 const STEP_LABELS = { 1: "Step 1 of 3 — Choose a file", 2: "Step 2 of 3 — Match your columns", 3: "Step 3 of 3 — Import complete" } as const;
 
 const messageOf = (error: unknown) => (error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
-const token = () => sessionStorage.getItem("ogera_access_token");
 const formatSize = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
 type Rules = { mapping?: Record<number, string>; defaultType: ApiContactType; sourceId: string; duplicates: "skip" | "update_blank"; assignedTo: string };
@@ -34,6 +34,7 @@ const toOptions = (rules: Rules): ImportOptions => ({
 
 /** Import dialog: choose a file, match its columns and review problem rows, then import. Nothing is written until the last import step. */
 export default function ContactImportModal({ leadSources, onClose, onImported }: { leadSources: LeadSource[]; onClose: () => void; onImported: () => void }) {
+  const { token } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
@@ -48,17 +49,15 @@ export default function ContactImportModal({ leadSources, onClose, onImported }:
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const accessToken = token();
-    if (!accessToken) return;
-    listAllEmployees(accessToken).then((list) => setEmployees(list.employees.filter((employee) => employee.is_active))).catch(() => setEmployees([]));
+    if (!token) return;
+    listAllEmployees(token).then((list) => setEmployees(list.employees.filter((employee) => employee.is_active))).catch(() => setEmployees([]));
   }, []);
 
   const latestCheck = useRef(0);
   const checkController = useRef<AbortController | null>(null);
   // Checks the sheet; only the newest answer is kept, so quick changes never show stale results.
   const check = (nextFile: File, nextRules: Rules) => {
-    const accessToken = token();
-    if (!accessToken) { setError("Your session has expired. Please sign in again."); return; }
+    if (!token) { setError("Your session has expired. Please sign in again."); return; }
     checkController.current?.abort();
     const controller = new AbortController();
     checkController.current = controller;
@@ -66,7 +65,7 @@ export default function ContactImportModal({ leadSources, onClose, onImported }:
     setIsChecking(true);
     setError("");
     setUpload({ loaded: 0, total: nextFile.size });
-    analyzeImport(accessToken, nextFile, toOptions(nextRules), {
+    analyzeImport(token, nextFile, toOptions(nextRules), {
       signal: controller.signal,
       onProgress: (progress) => { if (id === latestCheck.current) setUpload(progress); },
     })
@@ -139,12 +138,11 @@ export default function ContactImportModal({ leadSources, onClose, onImported }:
   const canImport = canContinue && report.missing_required.length === 0 && importable > 0;
 
   const runImport = async () => {
-    const accessToken = token();
-    if (!file || !report || !accessToken) return;
+    if (!file || !report || !token) return;
     setIsImporting(true);
     setError("");
     try {
-      setResult(await commitImport(accessToken, file, { ...toOptions(rules), mapping }));
+      setResult(await commitImport(token, file, { ...toOptions(rules), mapping }));
       setStep(3);
       onImported();
     } catch (caught) {
@@ -165,9 +163,8 @@ export default function ContactImportModal({ leadSources, onClose, onImported }:
   };
 
   const getTemplate = async () => {
-    const accessToken = token();
-    if (!accessToken) return;
-    try { await downloadImportTemplate(accessToken); } catch (caught) { setError(messageOf(caught)); }
+    if (!token) return;
+    try { await downloadImportTemplate(token); } catch (caught) { setError(messageOf(caught)); }
   };
 
   const notImported = report ? report.rows.filter((row) => row.status !== "warning").length : 0;

@@ -1,6 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import { updateContact, type ApiContact } from "@/features/contacts/api/contacts";
 import { listActivities, markFollowupDone, rescheduleFollowup, type ActivityItem } from "@/lib/api/activities";
@@ -89,6 +90,7 @@ export default function LeadPanel({ lead, kind = "consumer", stages, userId, own
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const { token } = useAuth();
   const currentSlug = lead.lead_stage?.stage_slug ?? "new_lead";
   const currentId = lead.lead_stage?.stage_id;
   const kindPill = KIND_PILL[kind];
@@ -112,13 +114,12 @@ export default function LeadPanel({ lead, kind = "consumer", stages, userId, own
   const [historyTab, setHistoryTab] = useState<"log" | "followups" | "stages">("log");
 
   const loadActivities = useCallback(async () => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setActivityError("Sign in again to continue."); return; }
+    if (!token) { setActivityError("Sign in again to continue."); return; }
     try {
-      setActivities(await listActivities(accessToken, lead.id));
+      setActivities(await listActivities(token, lead.id));
       setActivityError("");
     } catch (caught) { setActivityError(errorText(caught)); }
-  }, [lead.id]);
+  }, [lead.id, token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadActivities(); }, 0);
@@ -126,18 +127,16 @@ export default function LeadPanel({ lead, kind = "consumer", stages, userId, own
   }, [loadActivities]);
 
   async function markDone(item: ActivityItem, outcome: string) {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) throw new Error("Sign in again to continue.");
-    await markFollowupDone(accessToken, lead.id, item.id, outcome);
+    if (!token) throw new Error("Sign in again to continue.");
+    await markFollowupDone(token, lead.id, item.id, outcome);
     await loadActivities();
     setActivityForm(null);
     setPrompt("Follow-up marked done");
   }
 
   async function reschedule(item: ActivityItem, date: string, time: string) {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) throw new Error("Sign in again to continue.");
-    await rescheduleFollowup(accessToken, lead.id, item.id, date, time || undefined);
+    if (!token) throw new Error("Sign in again to continue.");
+    await rescheduleFollowup(token, lead.id, item.id, date, time || undefined);
     await loadActivities();
   }
 
@@ -147,14 +146,13 @@ export default function LeadPanel({ lead, kind = "consumer", stages, userId, own
   const closeForm = useCallback(() => setActivityForm(null), []);
 
   useEffect(() => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) return;
+    if (!token) return;
     let cancelled = false;
-    getLeadHistory(accessToken, lead.id)
+    getLeadHistory(token, lead.id)
       .then((rows) => { if (!cancelled) { setHistory(rows); setHistoryError(""); } })
       .catch((caught) => { if (!cancelled) setHistoryError(errorText(caught)); });
     return () => { cancelled = true; };
-  }, [lead.id, lead.lead_stage?.stage_id, lead.lead_stage?.changed_at, activities]);
+  }, [lead.id, lead.lead_stage?.stage_id, lead.lead_stage?.changed_at, activities, token]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape" && activityForm === null) onClose(); };
@@ -163,13 +161,12 @@ export default function LeadPanel({ lead, kind = "consumer", stages, userId, own
   }, [onClose, activityForm]);
 
   async function submit(stageItem: StageTypeItem, withDetails: boolean) {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken || userId === null) { setError("Sign in again to continue."); return; }
+    if (!token || userId === null) { setError("Sign in again to continue."); return; }
     if (stageItem.slug === "lost" && !lossReason) { setError("Choose why this lead was lost."); return; }
     setIsSaving(true); setError("");
     const text = withDetails ? note.trim() : "";
     try {
-      await changeStage(accessToken, lead.id, userId, {
+      await changeStage(token, lead.id, userId, {
         stage_id: stageItem.id,
         ...(stageItem.slug === "lost" ? { loss_reason: lossReason, ...(text ? { loss_notes: text } : {}) } : {}),
         ...(stageItem.slug === "aware" && text ? { awareness_note: text } : {}),
@@ -191,11 +188,10 @@ export default function LeadPanel({ lead, kind = "consumer", stages, userId, own
   };
 
   async function changeOwner(value: string) {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setOwnerError("Sign in again to continue."); return; }
+    if (!token) { setOwnerError("Sign in again to continue."); return; }
     setIsChangingOwner(true); setOwnerError("");
     try {
-      await updateContact(accessToken, lead.id, { assigned_to: Number(value) });
+      await updateContact(token, lead.id, { assigned_to: Number(value) });
       await onChanged();
     } catch (caught) { setOwnerError(errorText(caught)); } finally { setIsChangingOwner(false); }
   }

@@ -31,10 +31,6 @@ export const icons = {
 /** What a person sees when a request fails: the API's own sentence, never a stack trace. */
 export const errorText = (caught: unknown, fallback = "Something went wrong. Please try again.") => (caught instanceof ApiError ? caught.message : fallback);
 
-export function getToken() {
-  return typeof window === "undefined" ? null : sessionStorage.getItem("ogera_access_token");
-}
-
 export function Spinner() {
   return <div className="space-y-3 animate-pulse" role="status" aria-label="Loading">{[0, 1, 2, 3].map((i) => <div key={i} className="h-14 rounded-xl bg-gray-100" />)}</div>;
 }

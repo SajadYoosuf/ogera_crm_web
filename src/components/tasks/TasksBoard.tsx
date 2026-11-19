@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { isoDate } from "@/components/followups/activities";
 import { useEnumOptions } from "@/hooks/useEnumOptions";
 import { ApiError } from "@/lib/api/auth";
@@ -27,6 +28,7 @@ const optionClass = (on: boolean) => `flex w-full items-center rounded-md px-2.5
 const groupLabel = "px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.02em] text-[#9AA0AC]";
 
 export default function TasksBoard() {
+  const { token } = useAuth();
   const { options: activityTypes } = useEnumOptions("activity_type"); // also re-renders task cards once labels load
   const [today] = useState(() => isoDate());
   const date = today; // the list covers ranges from today, so there is no day stepping
@@ -57,12 +59,11 @@ export default function TasksBoard() {
 
   const load = useCallback(async (silent = false) => {
     if (awaitingRange) return;
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setError("Sign in to see your tasks."); setIsLoading(false); return; }
+    if (!token) { setError("Sign in to see your tasks."); setIsLoading(false); return; }
     const ticket = ++latest.current; // a slower, older response must not overwrite a newer one
     if (!silent) setIsLoading(true);
     try {
-      const result = await listTasks(accessToken, { dateFrom: from, dateTo: to, status, type: type || undefined, contactType: leadType || undefined, q: query, assignedTo: assignee ? Number(assignee) : undefined, includeOverdue });
+      const result = await listTasks(token, { dateFrom: from, dateTo: to, status, type: type || undefined, contactType: leadType || undefined, q: query, assignedTo: assignee ? Number(assignee) : undefined, includeOverdue });
       if (ticket !== latest.current) return;
       setData(result);
       setError("");
@@ -71,7 +72,7 @@ export default function TasksBoard() {
     } finally {
       if (ticket === latest.current) setIsLoading(false);
     }
-  }, [awaitingRange, from, to, status, type, leadType, query, assignee, includeOverdue]);
+  }, [awaitingRange, from, to, status, type, leadType, query, assignee, includeOverdue, token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
@@ -84,12 +85,11 @@ export default function TasksBoard() {
   }, [search]);
 
   useEffect(() => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) return;
-    listAllEmployees(accessToken)
+    if (!token) return;
+    listAllEmployees(token)
       .then(({ employees }) => setStaff(employees.filter((employee) => employee.is_active).map(({ id, name }) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))))
       .catch(() => setStaff([])); // the employee filter just stays empty
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (!notice) return;
@@ -109,17 +109,15 @@ export default function TasksBoard() {
   const [dialog, setDialog] = useState<{ step: "schedule" | "reschedule"; task: TaskItem } | null>(null);
 
   function accessTokenOrThrow() {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) throw new Error("Sign in again to continue.");
-    return accessToken;
+    if (!token) throw new Error("Sign in again to continue.");
+    return token;
   }
 
   async function handleStatusChange(task: TaskItem, status: TaskFollowupStatus) {
     if (task.contact_id === null) { setNotice("This task has no linked lead — status cannot be changed here."); return; }
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) { setNotice("Sign in again to continue."); return; }
+    if (!token) { setNotice("Sign in again to continue."); return; }
     try {
-      await changeTaskStatus(accessToken, task.contact_id, task.id, status);
+      await changeTaskStatus(token, task.contact_id, task.id, status);
       await load(true);
       if (status === "completed") setNotice(`Marked done — ${task.contact_name}.`);
     } catch (caught) {
