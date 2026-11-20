@@ -12,7 +12,7 @@ const ok = (data: unknown, status = 200) => ({ ok: true, status, json: async () 
 const fail = (status: number, detail: unknown) => ({ ok: false, status, json: async () => ({ detail }) });
 
 const lead = {
-  id: 1, contact_type: "consumer", name: "Asha", phone: "9800000001", branch: null, address: "Street", district: "Malappuram", profession_type: null,
+  id: 1, contact_type: "consumer", name: "Asha", phone: "9800000001", branch: null, address: "Street", district: "Malappuram", partner_type: null,
   lead_stage: { stage_id: 1, stage_slug: "new_lead", stage_name: "New Lead", changed_at: "2026-10-05T10:00:00" }, lead_source: { id: 1, name: "Meta" },
   assigned_to: { id: 7, name: "Sajad" }, created_by: null, created_by_branch: null, created_at: "2026-10-01T09:00:00", is_verified: true, missing_fields: [],
 } as ApiContact;

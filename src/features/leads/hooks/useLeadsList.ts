@@ -23,9 +23,12 @@ export type LeadFilters = {
   status: LeadStatus | "";
   source_id: number | "";
   assigned_to: string;
+  /** YYYY-MM-DD, or "" for open-ended — passed to GET /leads as created_from/created_to. */
+  date_from: string;
+  date_to: string;
 };
 
-export const NO_FILTERS: LeadFilters = { status: "", source_id: "", assigned_to: "" };
+export const NO_FILTERS: LeadFilters = { status: "", source_id: "", assigned_to: "", date_from: "", date_to: "" };
 
 export function useLeadsList() {
   const [leads, setLeads] = useState<LeadListItem[]>([]);
@@ -58,6 +61,8 @@ export function useLeadsList() {
         status: filters.status || undefined,
         source_id: filters.source_id !== "" ? filters.source_id : undefined,
         assigned_to: filters.assigned_to ? Number(filters.assigned_to) : undefined,
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
         search: submittedSearch || undefined,
       });
       setLeads(result.items);
@@ -88,11 +93,17 @@ export function useLeadsList() {
     setPage(1);
   };
 
+  /** Sets date_from and date_to together — a date range is one filter, not two independent changes. */
+  const setDateRange = (from: string, to: string) => {
+    setFilters((f) => ({ ...f, date_from: from, date_to: to }));
+    setPage(1);
+  };
+
   const clearFilters = () => { setFilters(NO_FILTERS); setPage(1); };
 
   return {
     leads, total, totalPages, page, setPage,
     search, setSearch, filters, hasFilters,
-    isLoading, error, loadLeads, changeFilter, clearFilters,
+    isLoading, error, loadLeads, changeFilter, setDateRange, clearFilters,
   };
 }

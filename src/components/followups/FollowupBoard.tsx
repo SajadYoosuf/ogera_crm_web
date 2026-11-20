@@ -171,7 +171,7 @@ export default function FollowupBoard() {
     if (!token) return;
     setAddLeadSearching(true);
     try {
-      const res = await listContacts(token, { search: q || undefined, contact_type: kind, limit: 20 });
+      const res = await listContacts(token, { search: q || undefined, contact_type: kind as "consumer" | "partner", limit: 20 });
       setAddLeadResults(res.items);
     } catch { /* silent */ } finally { setAddLeadSearching(false); }
   }, [kind, token]);

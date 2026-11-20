@@ -14,7 +14,19 @@ import { request } from "@/lib/api/auth";
 
 // ── Enum types ───────────────────────────────────────────────────────────────
 
-export type LeadStatus = "new" | "contacted" | "qualified" | "converted" | "lost";
+/**
+ * A lead's status slug. Valid values come from GET /leads/statuses (the
+ * lead_statuses table) plus "converted" — the terminal value POST
+ * /leads/{id}/convert sets. Kept as `string` (not a hardcoded union) because
+ * the backend is the single source of truth for which slugs exist.
+ */
+export type LeadStatus = string;
+
+/** One row from GET /leads/statuses — populates the status dropdown. */
+export type LeadStatusOption = {
+  value: LeadStatus;
+  label: string;
+};
 
 /** A row from lead_sources (id + name + slug). */
 export type LeadSourceItem = {
@@ -49,6 +61,9 @@ export type Lead = {
   assigned_to: number | null;
   assigned_name: string | null;
   created_by: number | null;
+  created_by_name: string | null;
+  branch_id: number | null;
+  branch_name: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -69,6 +84,10 @@ export type LeadListItem = {
   whatsapp_sent: boolean;
   assigned_to: number | null;
   assigned_name: string | null;
+  created_by: number | null;
+  created_by_name: string | null;
+  branch_id: number | null;
+  branch_name: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -86,12 +105,14 @@ export type LeadListResponse = {
 export type LeadCreate = {
   first_name: string;
   last_name?: string;
-  phone?: string;
-  email?: string;
+  /** Required — send the full number with country code, e.g. "+919876543210". */
+  phone: string;
   source_id?: number;
   notes?: string;
   address?: string;
   tags?: string[];
+  /** Omit to default to the creating employee's own branch; send a different id to pick another. */
+  branch_id?: number | null;
   /** ISO datetime override — set when importing historical leads to preserve the original date */
   created_at?: string;
 };
@@ -103,6 +124,7 @@ export type LeadUpdate = Partial<{
   email: string;
   status: LeadStatus;
   source_id: number;
+  branch_id: number | null;
   notes: string;
   address: string;
   tags: string[];
@@ -183,8 +205,9 @@ export function listLeads(
     source_id?: number;
     assigned_to?: number;
     search?: string;
-    created_from?: string;
-    created_to?: string;
+    /** Matches the backend's GET /leads query params exactly — date_from/date_to, NOT created_from/created_to (that's the unrelated Contacts API's naming). */
+    date_from?: string;
+    date_to?: string;
   } = {},
 ): Promise<LeadListResponse> {
   const q = new URLSearchParams({ skip: String(params.skip ?? 0), limit: String(params.limit ?? 20) });
@@ -192,14 +215,19 @@ export function listLeads(
   if (params.source_id != null) q.set("source_id", String(params.source_id));
   if (params.assigned_to != null) q.set("assigned_to", String(params.assigned_to));
   if (params.search) q.set("search", params.search);
-  if (params.created_from) q.set("created_from", params.created_from);
-  if (params.created_to) q.set("created_to", params.created_to);
+  if (params.date_from) q.set("date_from", params.date_from);
+  if (params.date_to) q.set("date_to", params.date_to);
   return request<LeadListResponse>(`/leads?${q}`, { headers: authHeaders(token) });
 }
 
 /** GET /leads/stats — counts by status and source. */
 export function getLeadStats(token: string): Promise<LeadStatsResponse> {
   return request<LeadStatsResponse>("/leads/stats", { headers: authHeaders(token) });
+}
+
+/** GET /leads/statuses — active lead_statuses rows, in dropdown order. */
+export function listLeadStatuses(token: string): Promise<LeadStatusOption[]> {
+  return request<LeadStatusOption[]>("/leads/statuses", { headers: authHeaders(token) });
 }
 
 /** GET /leads/{id} — single lead detail. */

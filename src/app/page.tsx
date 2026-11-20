@@ -83,7 +83,8 @@ export default function Home() {
     if (!brand || !side) return;
     const sync = () => {
       const topbar = side.querySelector<HTMLElement>(".login-topbar");
-      if (!topbar || window.matchMedia("(max-width: 900px)").matches) {
+      const wrappedBelow = side.getBoundingClientRect().top > brand.getBoundingClientRect().top + 40;
+      if (!topbar || wrappedBelow || window.matchMedia("(max-width: 900px)").matches) {
         brand.style.removeProperty("--brand-top");
         return;
       }

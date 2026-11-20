@@ -21,24 +21,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getLeadStats, bulkAssignLeads, type BulkAssignRule } from "@/lib/api/leads-module";
 import { listEmployees, type Employee } from "@/lib/api/employees";
-
-// ── Source config ─────────────────────────────────────────────────────────────
-
-const SOURCE_OPTIONS: { value: number | null; label: string }[] = [
-  { value: null, label: "Any source" },
-  { value: 1,   label: "Walk-in" },
-  { value: 2,   label: "Referral" },
-  { value: 3,   label: "Meta Ads" },
-  { value: 4,   label: "Website" },
-  { value: 5,   label: "WhatsApp" },
-  { value: 6,   label: "JustDial" },
-  { value: 7,   label: "GMB" },
-  { value: 8,   label: "Field Visit" },
-];
-
-function sourceLabel(id: number | null): string {
-  return SOURCE_OPTIONS.find((s) => s.value === id)?.label ?? "Unknown";
-}
+import type { LeadSource } from "@/features/contacts/api/contacts";
 
 // ── Pending rule — accumulates before the final submit ───────────────────────
 
@@ -53,11 +36,19 @@ type PendingRule = {
 
 type Props = {
   isOpen: boolean;
+  /** From GET /lead-sources — the same endpoint and data the Contacts source picker uses. */
+  leadSources: LeadSource[];
   onClose: () => void;
   onDone: () => void;
 };
 
-export default function BulkAssignModal({ isOpen, onClose, onDone }: Props) {
+export default function BulkAssignModal({ isOpen, leadSources, onClose, onDone }: Props) {
+  const sourceOptions: { value: number | null; label: string }[] = [
+    { value: null, label: "Any source" },
+    ...leadSources.map((s) => ({ value: s.id, label: s.name })),
+  ];
+  const sourceLabel = (id: number | null): string => sourceOptions.find((s) => s.value === id)?.label ?? "Unknown";
+
   // ── Data loading ─────────────────────────────────────────────────────────────
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [unassignedBySource, setUnassignedBySource] = useState<Record<string, number>>({});
@@ -113,7 +104,7 @@ export default function BulkAssignModal({ isOpen, onClose, onDone }: Props) {
   // ── Derived: unassigned count for the currently selected source ───────────────
   function unassignedForSelected(): number {
     if (selectedSourceId === null) return totalUnassigned;
-    const name = SOURCE_OPTIONS.find((s) => s.value === selectedSourceId)?.label ?? "";
+    const name = sourceOptions.find((s) => s.value === selectedSourceId)?.label ?? "";
     return unassignedBySource[name] ?? 0;
   }
 
@@ -241,7 +232,7 @@ export default function BulkAssignModal({ isOpen, onClose, onDone }: Props) {
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Unassigned by source</p>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(unassignedBySource).map(([name, cnt]) => {
-                      const srcOpt = SOURCE_OPTIONS.find((s) => s.label === name);
+                      const srcOpt = sourceOptions.find((s) => s.label === name);
                       return (
                         <button
                           key={name}
@@ -276,7 +267,7 @@ export default function BulkAssignModal({ isOpen, onClose, onDone }: Props) {
                     }}
                     className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   >
-                    {SOURCE_OPTIONS.map((opt) => (
+                    {sourceOptions.map((opt) => (
                       <option key={String(opt.value)} value={String(opt.value)}>{opt.label}</option>
                     ))}
                   </select>

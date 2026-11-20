@@ -100,7 +100,13 @@ export default function DateRangePicker({ label, from, to, onChange, className =
   const summary = !hasValue ? emptyLabel : from && to ? (from === to ? short(from, true) : `${short(from, parse(from).y !== parse(to).y)} – ${short(to, true)}`) : from ? `From ${short(from, true)}` : `Until ${short(to, true)}`;
 
   function toggle() {
-    if (!open) { setTop((rootRef.current?.getBoundingClientRect().bottom ?? 0) + 8); setView(allowFuture && from ? { y: parse(from).y, m: parse(from).m } : leftMonthFor(from, today)); setAnchor(null); setHover(null); }
+    if (!open) {
+      setTop((rootRef.current?.getBoundingClientRect().bottom ?? 0) + 8);
+      // Phones show one month only, so with no range yet they open on the current month instead of last month.
+      const phoneWithoutRange = !from && window.matchMedia("(max-width: 639px)").matches;
+      setView(allowFuture && from ? { y: parse(from).y, m: parse(from).m } : phoneWithoutRange ? { y: parse(today).y, m: parse(today).m } : leftMonthFor(from, today));
+      setAnchor(null); setHover(null);
+    }
     setOpen((current) => !current);
   }
 

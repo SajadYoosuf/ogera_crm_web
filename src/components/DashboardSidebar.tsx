@@ -149,6 +149,13 @@ export default function DashboardSidebar() {
   const router = useRouter();
 
   useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setIsMobileMenuOpen(false); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isMobileMenuOpen]);
+
+  useEffect(() => {
     const handleToggleMobileMenu = () => {
       setIsMobileMenuOpen((prev) => !prev);
     };
@@ -215,7 +222,7 @@ export default function DashboardSidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-screen w-[248px] ${collapsed ? "lg:w-[72px]" : "lg:w-[248px]"} bg-white/55 text-[#4B5060] backdrop-blur-2xl backdrop-saturate-150 z-[1001] flex flex-col border-r border-white/70 shadow-[0_8px_32px_rgba(31,38,135,0.10)] lg:shadow-[6px_0_32px_rgba(31,38,135,0.06)] transition-[transform,width] duration-300 lg:translate-x-0 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed top-0 left-0 h-screen w-[248px] ${collapsed ? "lg:w-[72px]" : "lg:w-[248px]"} bg-white text-[#4B5060] z-[1001] flex flex-col border-r border-gray-200 shadow-[0_8px_32px_rgba(31,38,135,0.10)] lg:shadow-none transition-[transform,width] duration-300 lg:translate-x-0 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* Brand row: Ogera logo with the CRM label, centred. The mobile close button sits in the corner. */}
         <div className={`relative flex shrink-0 items-center px-4 pb-2.5 pt-5 ${collapsed ? "lg:px-2" : ""}`}>

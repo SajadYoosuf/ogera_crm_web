@@ -11,6 +11,7 @@
  */
 
 import { useState } from "react";
+import { validatePhone } from "@/components/PhoneField";
 import { ApiError } from "@/lib/api/auth";
 import {
   createLead,
@@ -24,9 +25,9 @@ export type LeadFormState = {
   first_name: string;
   last_name: string;
   phone: string;
-  email: string;
   address: string;
   source_id: number;
+  branch_id: number | null;
   status: LeadStatus;
   notes: string;
   tags: string;
@@ -34,17 +35,18 @@ export type LeadFormState = {
   lead_date: string;
 };
 
-function todayDate(): string {
-  return new Date().toISOString().slice(0, 10);
+/** Today's calendar date in India, as YYYY-MM-DD. toISOString() would give the UTC date, which is a day behind before 05:30 IST. */
+export function todayDate(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
 }
 
 const BLANK: LeadFormState = {
   first_name: "",
   last_name: "",
   phone: "",
-  email: "",
   address: "",
   source_id: 1,  // Walk-in default
+  branch_id: null,  // blank -> backend defaults to the creating employee's own branch
   status: "new",
   notes: "",
   tags: "",
@@ -65,9 +67,9 @@ export function useLeadEditor(onSuccess: () => void) {
         first_name: lead.first_name ?? "",
         last_name: lead.last_name ?? "",
         phone: lead.phone ?? "",
-        email: lead.email ?? "",
         address: lead.address ?? "",
         source_id: lead.source_id ?? 1,
+        branch_id: lead.branch_id,
         status: lead.status,
         notes: lead.notes ?? "",
         tags: lead.tags?.join(", ") ?? "",
@@ -100,6 +102,9 @@ export function useLeadEditor(onSuccess: () => void) {
     const token = sessionStorage.getItem("ogera_access_token");
     if (!token) { setSaveError("Not signed in."); return; }
 
+    const phoneCheck = validatePhone(form.phone);
+    if (!phoneCheck.valid) { setSaveError(phoneCheck.message || "Enter a valid phone number."); return; }
+
     const tags = form.tags
       .split(",")
       .map((t) => t.trim())
@@ -113,24 +118,24 @@ export function useLeadEditor(onSuccess: () => void) {
           first_name: form.first_name || undefined,
           last_name: form.last_name || undefined,
           phone: form.phone || undefined,
-          email: form.email || undefined,
           status: form.status,
+          branch_id: form.branch_id,
           notes: form.notes || undefined,
           tags: tags.length ? tags : undefined,
         });
       } else {
         const body: LeadCreate = {
           first_name: form.first_name,
+          phone: form.phone,
           source_id: form.source_id,
           // Always send created_at so the date the user entered is used,
           // not the moment the API call lands on the server.
           created_at: form.lead_date + "T00:00:00Z",
         };
         if (form.last_name) body.last_name = form.last_name;
-        if (form.phone) body.phone = form.phone;
-        if (form.email) body.email = form.email;
         if (form.address) body.address = form.address;
         if (form.notes) body.notes = form.notes;
+        if (form.branch_id != null) body.branch_id = form.branch_id;
         if (tags.length) body.tags = tags;
         await createLead(token, body);
       }

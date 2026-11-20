@@ -3,36 +3,23 @@
 /**
  * LeadForm — shared form for creating and editing leads.
  *
- * Renders inside LeadDrawer. The parent (useLeadEditor) owns all state;
+ * Renders inside the lead modal. The parent (useLeadEditor) owns all state;
  * this component is pure UI that calls setField on each change.
  */
 
-import type { LeadFormState } from "@/features/leads/hooks/useLeadEditor";
-import type { LeadStatus } from "@/lib/api/leads-module";
-
-// Hardcoded from seed data in lead_sources table
-const SOURCES: { value: number; label: string }[] = [
-  { value: 1, label: "Walk-in" },
-  { value: 2, label: "Referral" },
-  { value: 3, label: "Meta Ads" },
-  { value: 4, label: "Website" },
-  { value: 5, label: "WhatsApp" },
-  { value: 6, label: "JustDial" },
-  { value: 7, label: "GMB" },
-  { value: 8, label: "Field Visit" },
-];
-
-const STATUSES: { value: LeadStatus; label: string }[] = [
-  { value: "new",       label: "New" },
-  { value: "contacted", label: "Contacted" },
-  { value: "qualified", label: "Qualified" },
-  { value: "converted", label: "Converted" },
-  { value: "lost",      label: "Lost" },
-];
+import PhoneField from "@/components/PhoneField";
+import SelectField from "@/components/SelectField";
+import { todayDate, type LeadFormState } from "@/features/leads/hooks/useLeadEditor";
+import type { LeadStatusOption } from "@/lib/api/leads-module";
+import type { BranchOption, LeadSource } from "@/features/contacts/api/contacts";
 
 type Props = {
   form: LeadFormState;
   isEdit: boolean;
+  statuses: LeadStatusOption[];
+  branches: BranchOption[];
+  /** From GET /lead-sources — the same endpoint and data the Contacts source picker uses. */
+  leadSources: LeadSource[];
   setField: <K extends keyof LeadFormState>(key: K, value: LeadFormState[K]) => void;
 };
 
@@ -41,7 +28,7 @@ const inputClass =
 
 const labelClass = "mb-1 block text-xs font-medium text-gray-600";
 
-export default function LeadForm({ form, isEdit, setField }: Props) {
+export default function LeadForm({ form, isEdit, statuses, branches, leadSources, setField }: Props) {
   return (
     <div className="space-y-4">
       {/* Name row — always 2-col */}
@@ -73,37 +60,8 @@ export default function LeadForm({ form, isEdit, setField }: Props) {
         </div>
       </div>
 
-      {/* Phone + Email — 2-col on wider modal */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="lead-phone" className={labelClass}>Phone</label>
-          <input
-            id="lead-phone"
-            className={inputClass}
-            type="tel"
-            name="tel"
-            autoComplete="tel"
-            inputMode="tel"
-            value={form.phone}
-            onChange={(e) => setField("phone", e.target.value)}
-            placeholder="e.g. 9876543210"
-          />
-        </div>
-        <div>
-          <label htmlFor="lead-email" className={labelClass}>Email</label>
-          <input
-            id="lead-email"
-            className={inputClass}
-            type="email"
-            name="email"
-            autoComplete="email"
-            spellCheck={false}
-            value={form.email}
-            onChange={(e) => setField("email", e.target.value)}
-            placeholder="optional"
-          />
-        </div>
-      </div>
+      {/* Phone — required, with country code */}
+      <PhoneField key={isEdit ? "edit" : "new"} value={form.phone} onChange={(value) => setField("phone", value)} />
 
       {/* Address + Source — 2-col on wider modal */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -119,36 +77,38 @@ export default function LeadForm({ form, isEdit, setField }: Props) {
             placeholder="e.g. Calicut, Kerala"
           />
         </div>
-        <div>
-          <label htmlFor="lead-source" className={labelClass}>Source</label>
-          <select
-            id="lead-source"
-            className={inputClass}
-            value={form.source_id}
-            onChange={(e) => setField("source_id", Number(e.target.value))}
-          >
-            {SOURCES.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
-        </div>
+        <SelectField
+          label="Source"
+          value={String(form.source_id)}
+          onChange={(value) => setField("source_id", Number(value))}
+          options={leadSources.map((s) => ({ value: String(s.id), label: s.name }))}
+        />
       </div>
 
-      {/* Status — edit mode only, full width */}
-      {isEdit && (
-        <div>
-          <label htmlFor="lead-status" className={labelClass}>Status</label>
-          <select
-            id="lead-status"
-            className={inputClass}
-            value={form.status}
-            onChange={(e) => setField("status", e.target.value as LeadStatus)}
-          >
-            {STATUSES.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
-        </div>
+      {/* Branch — optional; blank means "default to my own branch" (set server-side) */}
+      {branches.length > 0 && (
+        <SelectField
+          label="Branch"
+          value={form.branch_id != null ? String(form.branch_id) : ""}
+          onChange={(value) => setField("branch_id", value ? Number(value) : null)}
+          placeholder={isEdit ? "Not assigned" : "Your branch (default)"}
+          options={branches.map((b) => ({ value: String(b.id), label: b.name }))}
+        />
+      )}
+
+      {/* Status — edit mode only, full width. Options come from GET /leads/statuses. */}
+      {isEdit && statuses.length > 0 && (
+        <SelectField
+          label="Status"
+          value={form.status}
+          onChange={(value) => setField("status", value)}
+          options={[
+            ...statuses.map((s) => ({ value: s.value, label: s.label })),
+            // "converted" isn't in lead_statuses (it's set by the Convert action), but an
+            // already-converted lead must still show its current status in this list.
+            ...(form.status === "converted" ? [{ value: "converted", label: "Converted" }] : []),
+          ]}
+        />
       )}
 
       <div>
@@ -185,7 +145,7 @@ export default function LeadForm({ form, isEdit, setField }: Props) {
               type="date"
               className={inputClass}
               value={form.lead_date}
-              max={new Date().toISOString().slice(0, 10)}
+              max={todayDate()}
               onChange={(e) => setField("lead_date", e.target.value)}
             />
           </div>

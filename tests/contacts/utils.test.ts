@@ -14,11 +14,6 @@ describe("blankContact", () => {
     expect(blankContact.contactType).toBe("consumer");
   });
 
-  it("has empty dealer fields", () => {
-    expect(blankContact.dealerOwnerName).toBe("");
-    expect(blankContact.dealerEmail).toBe("");
-  });
-
   it("has empty partner type and house stage", () => {
     expect(blankContact.partnerType).toBe("");
     expect(blankContact.houseStage).toBe("");
@@ -36,15 +31,8 @@ describe("toForm", () => {
     expect(form.contactType).toBe("consumer");
   });
 
-  it("always initialises dealer fields to empty strings (dealer detail is loaded async)", () => {
-    const form = toForm(baseContact({ kind: "dealer" }));
-    expect(form.contactType).toBe("dealer");
-    expect(form.dealerOwnerName).toBe("");
-    expect(form.dealerEmail).toBe("");
-  });
-
   it("maps a partner contact and preserves partner type from the list row", () => {
-    const form = toForm(baseContact({ kind: "partner", profession: "plumber" }));
+    const form = toForm(baseContact({ kind: "partner", partnerType: "plumber" }));
     expect(form.contactType).toBe("partner");
     expect(form.partnerType).toBe("plumber");
   });
@@ -72,8 +60,8 @@ describe("toForm", () => {
 });
 
 describe("TYPE_TABS", () => {
-  it("has four tabs in order: all, consumer, partner, dealer", () => {
-    expect(TYPE_TABS.map((tab) => tab.value)).toEqual(["", "consumer", "partner", "dealer"]);
+  it("has three tabs in order: all, consumer, partner", () => {
+    expect(TYPE_TABS.map((tab) => tab.value)).toEqual(["", "consumer", "partner"]);
   });
 
   it("labels each tab correctly", () => {
@@ -81,14 +69,12 @@ describe("TYPE_TABS", () => {
     expect(labels).toContain("All Contacts");
     expect(labels).toContain("Consumer");
     expect(labels).toContain("Partner");
-    expect(labels).toContain("Dealer");
   });
 });
 
 describe("KIND_LABELS", () => {
-  it("names all three contact types", () => {
+  it("names both contact types", () => {
     expect(KIND_LABELS.consumer).toBe("Consumer");
     expect(KIND_LABELS.partner).toBe("Partner");
-    expect(KIND_LABELS.dealer).toBe("Dealer");
   });
 });

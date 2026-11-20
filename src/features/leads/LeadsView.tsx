@@ -3,63 +3,40 @@
 /**
  * LeadsView — the main client component for the /leads route.
  *
- * REDESIGN (2026-11):
- *   - Single-row filter bar: search + source (left) | status + assigned + Bulk Assign (right)
- *   - Table: added WhatsApp column (tick/dash), inline assignee dropdown
- *   - Removed inner table overflow-auto (double scroll fix); single page-level scroll remains
- *   - BulkAssignModal: source-based lead distribution to staff
+ * Styling matches the Contacts screen (same header, card and table language):
+ * white sticky header, rounded-14px card, #F7F7F9 table head, sticky Action
+ * column. The lead detail view is a single centered modal (LeadModal) that is
+ * always editable — no separate side-drawer or read-only step.
  *
  * DATA FLOW:
- *   useLeadsList()  — paginated list from GET /leads
- *   useLeadEditor() — create/edit form state → POST or PUT /leads
- *   useLeadConvert()— confirmation modal → POST /leads/{id}/convert
- *   updateLead()    — inline status and assignee changes in table rows
- *   listEmployees() — fetched once on mount for assignee dropdowns
+ *   useLeadsList()     — paginated list from GET /leads
+ *   useLeadConvert()   — confirmation modal → POST /leads/{id}/convert
+ *   updateLead()       — inline status and assignee changes in table rows
+ *   listEmployees()    — fetched once on mount for assignee dropdowns
+ *   listLeadStatuses() — fetched once on mount; the status dropdown's only source of truth
+ *   listBranches()     — fetched once on mount; shared with the Contacts branch dropdown
+ *   listLeadSources()  — fetched once on mount; shared with the Contacts source dropdown
+ *                        (same GET /lead-sources endpoint — nothing here is hardcoded)
  */
 
 import { useState, useEffect, useRef } from "react";
-import { useLeadsList } from "@/features/leads/hooks/useLeadsList";
-import { useLeadEditor } from "@/features/leads/hooks/useLeadEditor";
+import { useLeadsList, type LeadFilters } from "@/features/leads/hooks/useLeadsList";
 import { useLeadConvert } from "@/features/leads/hooks/useLeadConvert";
-import LeadDrawer from "@/features/leads/components/LeadDrawer";
+import LeadModal from "@/features/leads/components/LeadModal";
 import ConvertLeadModal from "@/features/leads/components/ConvertLeadModal";
 import LeadScoreBar from "@/features/leads/components/LeadScoreBar";
-import LeadForm from "@/features/leads/components/LeadForm";
+import LeadStatusSelect from "@/features/leads/components/LeadStatusSelect";
 import BulkAssignModal from "@/features/leads/components/BulkAssignModal";
-import { updateLead, type LeadStatus } from "@/lib/api/leads-module";
+import LeadsFilterMenu from "@/features/leads/components/LeadsFilterMenu";
+import LeadsMoreMenu from "@/features/leads/components/LeadsMoreMenu";
+import LeadImportModal from "@/features/leads/components/LeadImportModal";
+import LeadExportModal from "@/features/leads/components/LeadExportModal";
+import FilterSelect from "@/components/FilterSelect";
+import DateRangePicker from "@/components/DateRangePicker";
+import type { FilterGroup } from "@/components/FilterPanel";
+import { updateLead, listLeadStatuses, type LeadStatus, type LeadStatusOption } from "@/lib/api/leads-module";
 import { listEmployees, type Employee } from "@/lib/api/employees";
-
-// ── Status config ─────────────────────────────────────────────────────────────
-
-const STATUS_OPTIONS: { value: LeadStatus | ""; label: string }[] = [
-  { value: "",          label: "All statuses" },
-  { value: "new",       label: "New" },
-  { value: "contacted", label: "Contacted" },
-  { value: "qualified", label: "Qualified" },
-  { value: "converted", label: "Converted" },
-  { value: "lost",      label: "Lost" },
-];
-
-/** Tailwind classes for each status pill/select. */
-const STATUS_COLOR: Record<LeadStatus, string> = {
-  new:       "bg-blue-100 text-blue-700",
-  contacted: "bg-yellow-100 text-yellow-700",
-  qualified: "bg-green-100 text-green-700",
-  converted: "bg-teal-100 text-teal-700",
-  lost:      "bg-gray-100 text-gray-500",
-};
-
-const SOURCE_OPTIONS: { value: number | ""; label: string }[] = [
-  { value: "",  label: "All sources" },
-  { value: 1,   label: "Walk-in" },
-  { value: 2,   label: "Referral" },
-  { value: 3,   label: "Meta Ads" },
-  { value: 4,   label: "Website" },
-  { value: 5,   label: "WhatsApp" },
-  { value: 6,   label: "JustDial" },
-  { value: 7,   label: "GMB" },
-  { value: 8,   label: "Field Visit" },
-];
+import { listBranches, listLeadSources, type BranchOption, type LeadSource } from "@/features/contacts/api/contacts";
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -87,142 +64,81 @@ function formatCreatedAt(iso: string): string {
  *   else  → muted
  */
 function createdAtClass(iso: string, status: LeadStatus): string {
-  if (status !== "new") return "text-gray-500";
+  if (status !== "new") return "text-[#6B7080]";
   const utc = iso.endsWith("Z") || iso.includes("+") ? iso : iso + "Z";
   const ageHrs = (Date.now() - new Date(utc).getTime()) / 3_600_000;
   if (ageHrs > 48) return "text-red-500 font-semibold";
   if (ageHrs > 24) return "text-amber-500 font-medium";
-  return "text-gray-500";
+  return "text-[#6B7080]";
 }
 
-// ── WhatsApp icon ─────────────────────────────────────────────────────────────
+// ── WhatsApp cell: phone number + sent/not-sent icon (not a full text requirement) ──
 
-function WhatsAppIcon({ sent }: { sent: boolean }) {
-  if (sent) {
-    return (
-      <span title="WhatsApp sent" className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100">
-        <svg className="h-3 w-3 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="m5 12 5 5L20 7" />
-        </svg>
-      </span>
-    );
-  }
+function WhatsAppCell({ phone, sent }: { phone: string | null; sent: boolean }) {
   return (
-    <span title="WhatsApp not sent" className="inline-block h-1.5 w-4 rounded bg-gray-200" aria-label="Not sent" />
+    <div className="flex items-center gap-1.5">
+      <span className="truncate tabular-nums text-[#3A3E4A]">{phone || <span className="text-[#B4B8C2]">—</span>}</span>
+      {sent ? (
+        <span title="WhatsApp sent" className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-100">
+          <svg className="h-2.5 w-2.5 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="m5 12 5 5L20 7" />
+          </svg>
+        </span>
+      ) : (
+        <span title="WhatsApp not sent" className="inline-block h-1.5 w-3 shrink-0 rounded bg-gray-200" aria-label="Not sent" />
+      )}
+    </div>
   );
 }
 
 // ── Skeleton loading rows ─────────────────────────────────────────────────────
 
-/**
- * Animated placeholder rows shown while leads are loading.
- * Matches the table's column layout so there's no layout shift on load.
- */
-function SkeletonRows() {
+function SkeletonRows({ columns }: { columns: number }) {
   return (
     <>
       {Array.from({ length: 8 }).map((_, i) => (
-        <tr key={i} className="border-b border-gray-100">
-          <td className="px-4 py-3">
-            <div className="h-3.5 w-28 rounded-md bg-gray-100 animate-pulse" />
-            <div className="mt-1.5 h-3 w-20 rounded-md bg-gray-100 animate-pulse" />
-          </td>
-          <td className="px-4 py-3 hidden sm:table-cell">
-            <div className="h-5 w-16 rounded-full bg-gray-100 animate-pulse" />
-          </td>
-          <td className="px-4 py-3 hidden md:table-cell">
-            <div className="h-5 w-5 rounded-full bg-gray-100 animate-pulse" />
-          </td>
-          <td className="px-4 py-3">
-            <div className="h-5 w-20 rounded-full bg-gray-100 animate-pulse" />
-          </td>
-          <td className="px-4 py-3 hidden lg:table-cell">
-            <div className="h-6 w-28 rounded-lg bg-gray-100 animate-pulse" />
-          </td>
-          <td className="px-4 py-3 hidden md:table-cell">
-            <div className="h-3 w-16 rounded-md bg-gray-100 animate-pulse" />
-          </td>
-          <td className="px-4 py-3 hidden md:table-cell">
-            <div className="h-3 w-14 rounded-md bg-gray-100 animate-pulse" />
-          </td>
-          <td className="px-4 py-3">
-            <div className="h-6 w-14 rounded-lg bg-gray-100 animate-pulse" />
-          </td>
+        <tr key={i} className="border-t border-[#EFEFF2]">
+          {Array.from({ length: columns }).map((__, col) => (
+            <td key={col} className="px-3 py-3.5">
+              <div className="h-3.5 w-20 rounded-md bg-[#ECECF0] animate-pulse" />
+            </td>
+          ))}
         </tr>
       ))}
     </>
   );
 }
 
-// ── Error state ───────────────────────────────────────────────────────────────
+// ── Error / empty states ──────────────────────────────────────────────────────
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
-        <svg className="h-6 w-6 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 8v4M12 16h.01" />
-        </svg>
-      </div>
-      <div>
-        <p className="font-semibold text-gray-800">Failed to load leads</p>
-        <p className="mt-1 text-sm text-gray-500">{message}</p>
-      </div>
-      <button
-        onClick={onRetry}
-        className="rounded-xl bg-[#0E4D3A] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0a3a2b] motion-safe:transition-colors"
-      >
-        Try Again
-      </button>
+    <div role="status" className="flex flex-col items-center px-6 py-14 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-500">
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </span>
+      <h2 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A1C21]">Unable to load leads</h2>
+      <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-[#6B7080]">{message}</p>
+      <button type="button" onClick={onRetry} className="mt-5 inline-flex h-9 items-center justify-center rounded-lg border border-[#E1E1E6] bg-white px-4 text-[13px] font-semibold text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5]">Try again</button>
     </div>
   );
 }
 
-// ── Empty state ───────────────────────────────────────────────────────────────
-
 function EmptyState({ hasFilters, onClear, onCreate }: { hasFilters: boolean; onClear: () => void; onCreate: () => void }) {
-  if (hasFilters) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-          <svg className="h-6 w-6 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-          </svg>
-        </div>
-        <div>
-          <p className="font-semibold text-gray-800">No results found</p>
-          <p className="mt-1 text-sm text-gray-500">No leads match the current filters.</p>
-        </div>
-        <button
-          onClick={onClear}
-          className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 motion-safe:transition-colors"
-        >
-          Clear Filters
-        </button>
-      </div>
-    );
-  }
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-50">
-        <svg className="h-6 w-6 text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
+    <div role="status" className="flex flex-col items-center px-6 py-14 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#E7F5EE] text-[#0E4D3A]">
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+      </span>
+      <h2 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A1C21]">{hasFilters ? "No matches found" : "No leads yet"}</h2>
+      <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-[#6B7080]">
+        {hasFilters ? "Try a different search term or adjust your filters." : "Add your first lead to get started."}
+      </p>
+      <div className="mt-5 flex flex-wrap justify-center gap-2.5">
+        {hasFilters
+          ? <button type="button" onClick={onClear} className="inline-flex h-9 items-center justify-center rounded-lg border border-[#E1E1E6] bg-white px-4 text-[13px] font-semibold text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5]">Clear filters</button>
+          : <button type="button" onClick={onCreate} className="inline-flex h-9 items-center justify-center rounded-lg bg-[#0E4D3A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#0B3E2F]">Add your first lead</button>}
       </div>
-      <div>
-        <p className="font-semibold text-gray-800">No leads yet</p>
-        <p className="mt-1 text-sm text-gray-500">Add your first lead to get started.</p>
-      </div>
-      <button
-        onClick={onCreate}
-        className="inline-flex items-center gap-2 rounded-xl bg-[#0E4D3A] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0a3a2b] motion-safe:transition-colors"
-      >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-        Add First Lead
-      </button>
     </div>
   );
 }
@@ -232,11 +148,16 @@ function EmptyState({ hasFilters, onClear, onCreate }: { hasFilters: boolean; on
 export default function LeadsView() {
   const list = useLeadsList();
   const [openLeadId, setOpenLeadId] = useState<number | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
+  const [ioDialog, setIoDialog] = useState<"import" | "export" | null>(null);
 
-  // Inline update tracking
+  // Inline update tracking: which row is mid-request, and which one just
+  // succeeded (briefly shows a checkmark instead of the spinner).
   const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null);
+  const [justUpdatedStatusId, setJustUpdatedStatusId] = useState<number | null>(null);
   const [updatingAssigneeId, setUpdatingAssigneeId] = useState<number | null>(null);
+  const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Toast for inline update failures — auto-dismisses after 4 s
   const [updateError, setUpdateError] = useState<string | null>(null);
@@ -248,36 +169,40 @@ export default function LeadsView() {
     toastTimer.current = setTimeout(() => setUpdateError(null), 4000);
   }
 
-  // Employees for assignee dropdowns — fetched once on mount
+  // Reference data, fetched once on mount — nothing here is hardcoded in the frontend;
+  // every dropdown's options come from the backend table that owns them.
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [statuses, setStatuses] = useState<LeadStatusOption[]>([]);
+  const [branches, setBranches] = useState<BranchOption[]>([]);
+  const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   useEffect(() => {
     const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
-    listEmployees(token, { is_active: true, limit: 100 })
-      .then((res) => setEmployees(res.items))
-      .catch(() => {});
+    listEmployees(token, { is_active: true, limit: 100 }).then((res) => setEmployees(res.items)).catch(() => {});
+    listLeadStatuses(token).then(setStatuses).catch(() => {});
+    listBranches(token).then(setBranches).catch(() => {});
+    listLeadSources(token).then(setLeadSources).catch(() => {});
   }, []);
 
-  // Create lead modal
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const editor = useLeadEditor(() => {
-    setIsCreateOpen(false);
-    void list.loadLeads();
-  });
+  // Source / Status / Assigned, grouped for the single "Filter" button (LeadsFilterMenu)
+  // instead of three separate dropdowns competing for space in the toolbar row.
+  const filterGroups: FilterGroup[] = [
+    { key: "source_id", label: "Source", value: list.filters.source_id === "" ? "" : String(list.filters.source_id), options: leadSources.map((s) => ({ value: String(s.id), label: s.name })) },
+    {
+      key: "status", label: "Status", value: list.filters.status,
+      options: [...statuses.map((s) => ({ value: s.value, label: s.label })), { value: "converted", label: "Converted" }],
+    },
+    { key: "assigned_to", label: "Assigned to", value: list.filters.assigned_to, options: employees.map((emp) => ({ value: String(emp.id), label: emp.name })) },
+  ];
 
-  const converter = useLeadConvert(() => {
-    void list.loadLeads();
-  });
-
-  function openCreate() {
-    setIsCreateOpen(true);
-    editor.open();
+  function handleFilterMenuChange(key: string, value: string) {
+    if (key === "source_id") list.changeFilter("source_id", value ? Number(value) : "");
+    else list.changeFilter(key as keyof LeadFilters, value);
   }
 
-  /**
-   * Called when user changes the status dropdown inline in a table row.
-   * Shows a toast if the server call fails so the user knows to retry.
-   */
+  const converter = useLeadConvert(() => { void list.loadLeads(); });
+
+  /** Called when the user changes the status dropdown inline in a table row. */
   async function handleStatusChange(leadId: number, newStatus: LeadStatus) {
     const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
@@ -285,6 +210,9 @@ export default function LeadsView() {
     try {
       await updateLead(token, leadId, { status: newStatus });
       void list.loadLeads();
+      if (successTimer.current) clearTimeout(successTimer.current);
+      setJustUpdatedStatusId(leadId);
+      successTimer.current = setTimeout(() => setJustUpdatedStatusId(null), 1500);
     } catch {
       showToast("Status update failed. Please try again.");
     } finally {
@@ -292,9 +220,7 @@ export default function LeadsView() {
     }
   }
 
-  /**
-   * Called when user changes the assignee dropdown inline in a table row.
-   */
+  /** Called when the user changes the assignee dropdown inline in a table row. */
   async function handleAssignChange(leadId: number, value: string) {
     const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
@@ -310,379 +236,252 @@ export default function LeadsView() {
     }
   }
 
+  const tableColumns = ["Name", "Source", "Branch", "Tags", "WhatsApp", "Status", "Assigned", "Created by", "Score", "Created"];
+
   return (
-    <div className="flex flex-col">
+    <div className="flex min-h-full flex-col bg-[#F4FBF7]">
       {/* aria-live region — announces async feedback to screen readers */}
-      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-        {updateError}
-      </div>
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{updateError}</div>
 
       {/* Toast banner for inline update failures */}
       {updateError && (
-        <div
-          role="alert"
-          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-xl bg-[#0a192f] px-4 py-3 text-sm text-white shadow-xl motion-safe:animate-fade-in"
-        >
+        <div role="alert" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-xl bg-[#0a192f] px-4 py-3 text-sm text-white shadow-xl">
           <svg className="h-4 w-4 shrink-0 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
           </svg>
           <span>{updateError}</span>
-          <button
-            onClick={() => setUpdateError(null)}
-            className="ml-2 rounded-md p-0.5 opacity-70 hover:opacity-100 motion-safe:transition-opacity"
-            aria-label="Dismiss"
-          >
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
+          <button onClick={() => setUpdateError(null)} className="ml-2 rounded-md p-0.5 opacity-70 hover:opacity-100" aria-label="Dismiss">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
         </div>
       )}
 
-      {/* Page header */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+      <header className="sticky top-0 z-20 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b border-[#E7E7EA] bg-white pl-16 pr-3 sm:gap-4 sm:pr-7 lg:pl-7">
         <div>
-          <h1 className="text-2xl font-extrabold text-[#0a192f]" style={{ textWrap: "balance" } as React.CSSProperties}>Leads</h1>
-          <p className="mt-0.5 text-sm text-[#64748b] tabular-nums">
-            {list.isLoading ? <span className="inline-block h-3.5 w-16 rounded-md bg-gray-100 animate-pulse align-middle" /> : `${list.total} total`}
-          </p>
+          <h1 className="truncate text-[22px] font-bold tracking-[-0.01em] text-[#1A1C21] sm:text-[26px]">Leads</h1>
         </div>
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#0E4D3A] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0a3a2b] motion-safe:transition-colors shadow-sm"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          New Lead
-        </button>
-      </div>
-
-      {/* ── Single-row filter bar ─────────────────────────────────────────────── */}
-      <div className="shrink-0 border-b border-gray-200 bg-[#f8fafc] px-4 py-3 sm:px-6">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* LEFT: search + source */}
-          <div className="relative min-w-[160px] flex-1">
-            <label htmlFor="leads-search" className="sr-only">Search leads</label>
-            <svg className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-            </svg>
-            <input
-              id="leads-search"
-              type="search"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="Search by name, phone, email…"
-              value={list.search}
-              onChange={(e) => list.setSearch(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white pl-8 pr-3 py-1.5 text-sm text-gray-700 placeholder-gray-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-            />
-          </div>
-
-          <label htmlFor="leads-source-filter" className="sr-only">Filter by source</label>
-          <select
-            id="leads-source-filter"
-            value={list.filters.source_id}
-            onChange={(e) => list.changeFilter("source_id", e.target.value ? Number(e.target.value) : "")}
-            className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+        <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
+          <LeadsMoreMenu onImport={() => setIoDialog("import")} onExport={() => setIoDialog("export")} />
+          <button
+            type="button" onClick={() => setIsBulkAssignOpen(true)}
+            className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#0E4D3A] px-3 text-sm font-medium text-[#0E4D3A] hover:bg-[#0E4D3A]/5 transition-colors sm:px-4"
           >
-            {SOURCE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-
-          {/* RIGHT: status + assigned + Bulk Assign */}
-          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-            <label htmlFor="leads-status-filter" className="sr-only">Filter by status</label>
-            <select
-              id="leads-status-filter"
-              value={list.filters.status}
-              onChange={(e) => list.changeFilter("status", e.target.value as LeadStatus | "")}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-
-            <label htmlFor="leads-assigned-filter" className="sr-only">Filter by assignee</label>
-            <select
-              id="leads-assigned-filter"
-              value={list.filters.assigned_to ?? ""}
-              onChange={(e) => list.changeFilter("assigned_to", e.target.value ? Number(e.target.value) : "")}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-            >
-              <option value="">All staff</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>{emp.name}</option>
-              ))}
-            </select>
-
-            <button
-              onClick={() => setIsBulkAssignOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-700 motion-safe:transition-colors shadow-sm"
-            >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              Bulk Assign
-            </button>
-
-            {list.hasFilters && (
-              <button
-                onClick={list.clearFilters}
-                className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 motion-safe:transition-colors"
-              >
-                × Clear
-              </button>
-            )}
-          </div>
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span className="hidden sm:inline">Bulk Assign</span>
+          </button>
+          <button type="button" aria-label="Add Lead" onClick={() => setIsCreateOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#0E4D3A] px-3 text-sm font-semibold text-white transition-colors hover:bg-[#0E4D3A] sm:px-4">
+            <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            <span className="hidden sm:inline">Add Lead</span>
+          </button>
         </div>
-      </div>
+      </header>
 
-      {/* Table */}
-      <div className="px-4 py-4 sm:px-6">
-        {list.error ? (
-          <ErrorState message={list.error} onRetry={() => void list.loadLeads()} />
-        ) : (
-          <>
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 bg-[#f8fafc] text-left">
-                      <th scope="col" className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-[#64748b]">Name</th>
-                      <th scope="col" className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-[#64748b] hidden sm:table-cell">Source</th>
-                      <th scope="col" className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-[#64748b] hidden md:table-cell">WA</th>
-                      <th scope="col" className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-[#64748b]">Status</th>
-                      <th scope="col" className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-[#64748b] hidden lg:table-cell">Assigned</th>
-                      <th scope="col" className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-[#64748b] hidden md:table-cell">Score</th>
-                      <th scope="col" className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-[#64748b] hidden md:table-cell">Created</th>
-                      <th scope="col" className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-[#64748b]">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {list.isLoading ? (
-                      <SkeletonRows />
-                    ) : list.leads.length === 0 ? (
-                      <tr>
-                        <td colSpan={8}>
-                          <EmptyState
-                            hasFilters={list.hasFilters || !!list.search}
-                            onClear={list.clearFilters}
-                            onCreate={openCreate}
-                          />
-                        </td>
-                      </tr>
-                    ) : (
-                      list.leads.map((lead) => (
-                        <tr
-                          key={lead.id}
-                          className="hover:bg-gray-50 motion-safe:transition-colors cursor-pointer touch-manipulation select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-500 focus-visible:outline-offset-[-2px]"
-                          onClick={() => setOpenLeadId(lead.id)}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenLeadId(lead.id); } }}
-                          tabIndex={0}
-                          role="button"
-                          aria-label={`View lead ${`${lead.first_name ?? ""}${lead.last_name ? " " + lead.last_name : ""}`.trim() || "unnamed"}`}
-                        >
-                          {/* Name + phone */}
-                          <td className="px-4 py-3">
-                            <div className="min-w-0">
-                              <div className="truncate font-medium text-[#0a192f]">
-                                {`${lead.first_name ?? ""}${lead.last_name ? " " + lead.last_name : ""}`.trim() || "—"}
-                              </div>
-                              {lead.phone && (
-                                <div className="mt-0.5 truncate text-xs text-[#64748b] tabular-nums">{lead.phone}</div>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* Source badge */}
-                          <td className="px-4 py-3 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
-                            {lead.source_name ? (
-                              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-                                {lead.source_name}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-300">—</span>
-                            )}
-                          </td>
-
-                          {/* WhatsApp column */}
-                          <td className="px-4 py-3 hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
-                            <WhatsAppIcon sent={lead.whatsapp_sent} />
-                          </td>
-
-                          {/* Status — inline select */}
-                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                            <label htmlFor={`status-${lead.id}`} className="sr-only">
-                              Change status for {lead.first_name ?? `lead ${lead.id}`}
-                            </label>
-                            <select
-                              id={`status-${lead.id}`}
-                              value={lead.status}
-                              disabled={updatingStatusId === lead.id}
-                              onChange={(e) => void handleStatusChange(lead.id, e.target.value as LeadStatus)}
-                              className={`cursor-pointer rounded-full border-0 px-2.5 py-0.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30 disabled:opacity-60 disabled:cursor-wait appearance-none ${STATUS_COLOR[lead.status]}`}
-                            >
-                              {STATUS_OPTIONS.filter((t) => t.value !== "").map((s) => (
-                                <option key={s.value} value={s.value}>{s.label}</option>
-                              ))}
-                            </select>
-                          </td>
-
-                          {/* Assigned — inline dropdown */}
-                          <td className="px-4 py-3 hidden lg:table-cell" onClick={(e) => e.stopPropagation()}>
-                            <label htmlFor={`assign-${lead.id}`} className="sr-only">
-                              Assign {lead.first_name ?? `lead ${lead.id}`}
-                            </label>
-                            <select
-                              id={`assign-${lead.id}`}
-                              value={lead.assigned_to ?? ""}
-                              disabled={updatingAssigneeId === lead.id}
-                              onChange={(e) => void handleAssignChange(lead.id, e.target.value)}
-                              className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 focus:border-teal-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/20 disabled:opacity-60 disabled:cursor-wait max-w-[140px]"
-                            >
-                              <option value="">Unassigned</option>
-                              {employees.map((emp) => (
-                                <option key={emp.id} value={emp.id}>{emp.name}</option>
-                              ))}
-                            </select>
-                          </td>
-
-                          {/* Score */}
-                          <td className="px-4 py-3 hidden md:table-cell">
-                            <LeadScoreBar score={lead.score} />
-                          </td>
-
-                          {/* Created At — urgency colour for ageing new leads */}
-                          <td className="px-4 py-3 hidden md:table-cell">
-                            <span
-                              className={`text-xs tabular-nums ${createdAtClass(lead.created_at, lead.status)}`}
-                              title={new Date(lead.created_at).toLocaleString("en-IN")}
-                            >
-                              {formatCreatedAt(lead.created_at)}
-                            </span>
-                          </td>
-
-                          {/* Actions */}
-                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                            {lead.status !== "converted" && lead.status !== "lost" && (
-                              <button
-                                onClick={() => converter.openModal(lead.id)}
-                                className="rounded-lg bg-teal-50 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-100 motion-safe:transition-colors"
-                              >
-                                Convert
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+      <div className="min-w-0 space-y-4 p-4 sm:px-7 sm:py-6">
+        <section aria-label="Lead list" className="flex flex-col rounded-[14px] border border-[#E7E7EA] bg-white">
+          {/* Toolbar: search + filters — same row structure as the Contacts screen */}
+          <div className="flex flex-col gap-3 border-b border-[#EFEFF2] p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+              <form onSubmit={(e) => e.preventDefault()} className="relative flex w-full sm:w-auto">
+                <label className="sr-only" htmlFor="leads-search">Search leads</label>
+                <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8F9C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.25" /><path d="m16 16 4.25 4.25" /></svg>
+                <input
+                  id="leads-search" value={list.search} onChange={(e) => list.setSearch(e.target.value)}
+                  placeholder="Search by name, phone…"
+                  className="h-[38px] w-full rounded-[8px] border border-[#E1E1E6] bg-white pl-9 pr-3 text-sm text-[#1A1C21] outline-none focus:outline-2 focus:outline-[#7EE2A8] sm:w-[260px]"
+                />
+              </form>
             </div>
 
-            {/* Pagination */}
-            {!list.isLoading && list.totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-xs text-gray-500 tabular-nums">
-                  Page {list.page} of {list.totalPages}
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => list.setPage(list.page - 1)}
-                    disabled={list.page === 1}
-                    aria-label="Previous page"
-                    className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs disabled:opacity-40 hover:bg-gray-50 motion-safe:transition-colors"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => list.setPage(list.page + 1)}
-                    disabled={list.page === list.totalPages}
-                    aria-label="Next page"
-                    className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs disabled:opacity-40 hover:bg-gray-50 motion-safe:transition-colors"
-                  >
-                    Next
-                  </button>
+            <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
+              <DateRangePicker
+                label="Created" bare
+                from={list.filters.date_from} to={list.filters.date_to}
+                onChange={list.setDateRange}
+                emptyLabel="All time"
+                className="w-auto"
+              />
+              <LeadsFilterMenu groups={filterGroups} onChange={handleFilterMenuChange} onClear={list.clearFilters} />
+            </div>
+          </div>
+
+          <div className="min-w-0 overflow-hidden rounded-b-[14px]">
+            {list.error ? (
+              <ErrorState message={list.error} onRetry={() => void list.loadLeads()} />
+            ) : (
+              <>
+                <div className="w-full min-w-0 overflow-x-auto">
+                  <table className="w-max min-w-full border-collapse text-sm">
+                    <thead className="bg-[#F7F7F9] text-left text-[13px] font-medium text-[#4B5060]">
+                      <tr>
+                        {tableColumns.map((column) => (
+                          <th key={column} scope="col" className="px-3 py-3 font-medium whitespace-nowrap">{column}</th>
+                        ))}
+                        <th scope="col" className="sticky right-0 z-10 bg-[#F7F7F9] px-4 py-3 text-center font-medium shadow-[-8px_0_8px_-8px_rgba(16,24,40,0.18)]">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.isLoading ? (
+                        <SkeletonRows columns={tableColumns.length} />
+                      ) : list.leads.length === 0 ? (
+                        <tr>
+                          <td colSpan={tableColumns.length + 1}>
+                            <EmptyState hasFilters={list.hasFilters || !!list.search} onClear={list.clearFilters} onCreate={() => setIsCreateOpen(true)} />
+                          </td>
+                        </tr>
+                      ) : (
+                        list.leads.map((lead) => (
+                          <tr
+                            key={lead.id}
+                            onClick={() => setOpenLeadId(lead.id)}
+                            className="group cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB] [&_td]:py-3.5"
+                          >
+                            {/* Name — the row's own cursor-pointer isn't obvious enough on its own, so the
+                                name itself looks like a link (teal + underline on hover) to show where to click */}
+                            <td className="px-3">
+                              <div className="min-w-0 truncate font-semibold text-[#1A1C21] underline decoration-transparent decoration-2 underline-offset-2 transition-colors group-hover:text-[#0E4D3A] group-hover:decoration-[#0E4D3A]">
+                                {`${lead.first_name ?? ""}${lead.last_name ? " " + lead.last_name : ""}`.trim() || "—"}
+                              </div>
+                            </td>
+
+                            {/* Source */}
+                            <td className="px-3">
+                              {lead.source_name
+                                ? <span className="inline-flex items-center rounded-[6px] bg-[#EEF4FF] px-2.5 py-[3px] text-xs font-semibold text-[#1D5BBF]">{lead.source_name}</span>
+                                : <span className="text-[#B4B8C2]">—</span>}
+                            </td>
+
+                            {/* Branch */}
+                            <td className="whitespace-nowrap px-3 capitalize text-[#3A3E4A]">{lead.branch_name || <span className="text-[#B4B8C2]">—</span>}</td>
+
+                            {/* Tags — e.g. Meta Ads campaign/ad set labels. Display only, no editing here. */}
+                            <td className="px-3">
+                              {lead.tags && lead.tags.length > 0 ? (
+                                <div className="flex max-w-[180px] flex-wrap gap-1">
+                                  {lead.tags.slice(0, 2).map((tag) => (
+                                    <span key={tag} className="inline-flex items-center truncate rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-[#4B5060]">{tag}</span>
+                                  ))}
+                                  {lead.tags.length > 2 && (
+                                    <span title={lead.tags.slice(2).join(", ")} className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-[#8A8F9C]">+{lead.tags.length - 2}</span>
+                                  )}
+                                </div>
+                              ) : <span className="text-[#B4B8C2]">—</span>}
+                            </td>
+
+                            {/* WhatsApp: number + icon */}
+                            <td className="px-3" onClick={(e) => e.stopPropagation()}>
+                              <WhatsAppCell phone={lead.phone} sent={lead.whatsapp_sent} />
+                            </td>
+
+                            {/* Status — one colour-coded control, loading → success state, options from the API */}
+                            <td className="px-3" onClick={(e) => e.stopPropagation()}>
+                              <LeadStatusSelect
+                                status={lead.status}
+                                statuses={statuses}
+                                onChange={(value) => void handleStatusChange(lead.id, value)}
+                                isUpdating={updatingStatusId === lead.id}
+                                justUpdated={justUpdatedStatusId === lead.id}
+                                label={lead.first_name ?? `lead ${lead.id}`}
+                              />
+                            </td>
+
+                            {/* Assigned — inline dropdown */}
+                            <td className="px-3" onClick={(e) => e.stopPropagation()}>
+                              <span className={updatingAssigneeId === lead.id ? "pointer-events-none inline-block opacity-50" : "inline-block"}>
+                                <FilterSelect
+                                  fit clearable label="Assign" className="w-auto"
+                                  value={lead.assigned_to != null ? String(lead.assigned_to) : ""}
+                                  onChange={(value) => void handleAssignChange(lead.id, value)}
+                                  options={employees.map((emp) => ({ value: String(emp.id), label: emp.name }))}
+                                />
+                              </span>
+                            </td>
+
+                            {/* Created by */}
+                            <td className="whitespace-nowrap px-3 text-[#3A3E4A]">{lead.created_by_name || <span className="text-[#B4B8C2]">—</span>}</td>
+
+                            {/* Score */}
+                            <td className="px-3"><LeadScoreBar score={lead.score} /></td>
+
+                            {/* Created At — urgency colour for ageing new leads */}
+                            <td className="px-3">
+                              <span className={`text-xs tabular-nums ${createdAtClass(lead.created_at, lead.status)}`} title={new Date(lead.created_at).toLocaleString("en-IN")}>
+                                {formatCreatedAt(lead.created_at)}
+                              </span>
+                            </td>
+
+                            {/* Action */}
+                            <td className="sticky right-0 z-10 bg-white px-4 text-center transition-colors group-hover:bg-[#FAFAFB] shadow-[-8px_0_8px_-8px_rgba(16,24,40,0.18)]" onClick={(e) => e.stopPropagation()}>
+                              {lead.status !== "converted" && lead.status !== "lost_lead" && (
+                                <button
+                                  onClick={() => converter.openModal(lead.id)}
+                                  className="rounded-lg bg-teal-50 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-100 transition-colors"
+                                >
+                                  Convert
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
+
+                {!list.isLoading && list.total > 0 && (
+                  <nav className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEFF2] px-3 py-3 sm:px-4 sm:py-3.5" aria-label="Leads pagination">
+                    <p className="text-sm text-[#3A3E4A]">Page {list.page} of {list.totalPages} · {list.total.toLocaleString()} leads</p>
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => list.setPage(list.page - 1)} disabled={list.page === 1} className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#E1E1E6] bg-white px-3 text-[13px] font-medium text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] disabled:cursor-not-allowed disabled:opacity-40">
+                        Previous
+                      </button>
+                      <button onClick={() => list.setPage(list.page + 1)} disabled={list.page === list.totalPages} className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#0E4D3A] px-3.5 text-[13px] font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40">
+                        Next
+                      </button>
+                    </div>
+                  </nav>
+                )}
+              </>
             )}
-          </>
-        )}
+          </div>
+        </section>
       </div>
 
-      {/* Lead detail drawer */}
-      <LeadDrawer
+      {/* Lead detail / create modal — one modal, always editable */}
+      <LeadModal
         leadId={openLeadId}
-        onClose={() => setOpenLeadId(null)}
-        onConverted={(id) => { setOpenLeadId(null); converter.openModal(id); }}
+        isCreateOpen={isCreateOpen}
+        statuses={statuses}
+        branches={branches}
+        leadSources={leadSources}
+        onClose={() => { setOpenLeadId(null); setIsCreateOpen(false); }}
+        onConverted={(id) => { setOpenLeadId(null); setIsCreateOpen(false); converter.openModal(id); }}
         onDeleted={() => { void list.loadLeads(); }}
         onSaved={() => { void list.loadLeads(); }}
       />
 
-      {/* Convert modal */}
       <ConvertLeadModal converter={converter} />
+      <BulkAssignModal isOpen={isBulkAssignOpen} leadSources={leadSources} onClose={() => setIsBulkAssignOpen(false)} onDone={() => { void list.loadLeads(); }} />
 
-      {/* Bulk assign modal */}
-      <BulkAssignModal
-        isOpen={isBulkAssignOpen}
-        onClose={() => setIsBulkAssignOpen(false)}
-        onDone={() => { void list.loadLeads(); }}
-      />
-
-      {/* Create lead modal */}
-      {isCreateOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-          onClick={() => setIsCreateOpen(false)}
-        >
-          <div
-            className="w-full max-w-md sm:max-w-xl rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Sticky header */}
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 shrink-0">
-              <h2 className="text-lg font-semibold text-gray-900">New Lead</h2>
-              <button
-                onClick={() => setIsCreateOpen(false)}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 motion-safe:transition-colors"
-                aria-label="Close"
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Scrollable form body */}
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              <LeadForm form={editor.form} isEdit={false} setField={editor.setField} />
-              {editor.saveError && (
-                <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{editor.saveError}</p>
-              )}
-            </div>
-
-            {/* Sticky footer */}
-            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
-              <button
-                onClick={() => void editor.submit()}
-                disabled={editor.isSaving || !editor.form.first_name}
-                className="flex-1 rounded-xl bg-[#0E4D3A] py-2.5 text-sm font-semibold text-white hover:bg-[#0a3a2b] disabled:opacity-50 motion-safe:transition-colors"
-              >
-                {editor.isSaving ? "Saving…" : "Create Lead"}
-              </button>
-              <button
-                onClick={() => setIsCreateOpen(false)}
-                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 motion-safe:transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+      {ioDialog === "import" && (
+        <LeadImportModal leadSources={leadSources} onClose={() => setIoDialog(null)} onImported={() => { list.setPage(1); void list.loadLeads(); }} />
+      )}
+      {ioDialog === "export" && (
+        <LeadExportModal
+          statuses={statuses}
+          sources={leadSources}
+          onClose={() => setIoDialog(null)}
+          initial={{
+            status: list.filters.status || undefined,
+            source_id: list.filters.source_id !== "" ? list.filters.source_id : undefined,
+            assigned_to: list.filters.assigned_to ? Number(list.filters.assigned_to) : undefined,
+            date_from: list.filters.date_from || undefined,
+            date_to: list.filters.date_to || undefined,
+            search: list.search || undefined,
+          }}
+          extraFilterCount={[list.filters.assigned_to, list.search].filter(Boolean).length}
+        />
       )}
     </div>
   );
