@@ -1,13 +1,13 @@
-import type { ApiContact, ApiContactType, ProfessionOption } from "@/features/contacts/api/contacts";
+import type { ApiContact, ApiContactType, PartnerTypeOption } from "@/features/contacts/api/contacts";
 
 export type Filters = { type: string; partnerType: string; source: string; district: string; assignedTo: string; createdBy: string; verified: string };
 export const NO_FILTERS: Filters = { type: "", partnerType: "", source: "", district: "", assignedTo: "", createdBy: "", verified: "" };
 export const PAGE_SIZE = 10;
-export const KIND_LABELS: Record<string, string> = { consumer: "Consumer", partner: "Partner", dealer: "Dealer" };
-export const TYPE_TABS = [{ value: "", label: "All Contacts" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }, { value: "dealer", label: "Dealer" }];
+export const KIND_LABELS: Record<string, string> = { consumer: "Consumer", partner: "Partner" };
+export const TYPE_TABS = [{ value: "", label: "All Contacts" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }];
 export const professionLabel = (value: string) => value.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
-// Fallback until GET /contacts/profession-types answers; the backend enum is the source of truth.
-export const DEFAULT_PARTNER_TYPES: ProfessionOption[] = ["plumber", "engineer", "interior_designer", "architect", "contractor", "electrician"]
+// Fallback until GET /contacts/partner-types answers; the backend reads these from contact_field_definitions.
+export const DEFAULT_PARTNER_TYPES: PartnerTypeOption[] = ["plumber", "engineer", "interior_designer", "architect", "contractor", "electrician"]
   .map((value) => ({ value, label: professionLabel(value) }));
 // House stages come from Settings > Lists & Options; this list shows until they load (the backend's defaults).
 export const DEFAULT_HOUSE_STAGES = [
@@ -25,7 +25,7 @@ export const DEFAULT_TANK_TYPES = [
 export type ContactSource = string;
 
 export interface Contact {
-  id: number; kind: ApiContactType; profession?: string; name: string; phone: string; stage?: string; source?: string;
+  id: number; kind: ApiContactType; partnerType?: string; name: string; phone: string; stage?: string; source?: string;
   branch?: string; address?: string; district?: string; assignedTo?: string; assignedToId?: number;
   /** Name of the employee who created the contact. */
   createdBy?: string; createdByBranch?: string; createdAt: string;
@@ -33,26 +33,23 @@ export interface Contact {
 }
 export interface ContactForm {
   name: string; phone: string; contactType: ApiContactType; source: ContactSource;
+  branchId: number | null;
   address: string; district: string; houseStage: string; tankType: string; tankCapacity: string; tankAge: string;
   partnerType: string; workArea: string; referredByContactId: number | null; assignedTo: string;
-  dealerOwnerName: string; dealerEmail: string;
-  /** The product this contact is interested in, as a one-item array for API compatibility. */
-  interestedProducts: { id: number; name: string }[];
   /** Optional free-text note about this contact. */
   note: string;
 }
 
 export const blankContact: ContactForm = {
   name: "", phone: "", contactType: "consumer", source: "",
+  branchId: null,
   address: "", district: "", houseStage: "", tankType: "", tankCapacity: "", tankAge: "",
   partnerType: "", workArea: "", referredByContactId: null, assignedTo: "",
-  dealerOwnerName: "", dealerEmail: "",
-  interestedProducts: [],
   note: "",
 };
 export const fromApi = (contact: ApiContact): Contact => ({
-  id: contact.id, name: contact.name, phone: contact.phone, kind: contact.contact_type, profession: contact.profession_type || undefined,
-  branch: contact.branch ?? undefined, source: contact.lead_source?.name, address: contact.address || undefined, district: contact.district,
+  id: contact.id, name: contact.name, phone: contact.phone, kind: contact.contact_type, partnerType: contact.partner_type || undefined,
+  branch: contact.branch?.name ?? undefined, source: contact.lead_source?.name, address: contact.address || undefined, district: contact.district,
   stage: contact.lead_stage?.stage_slug,
   assignedTo: contact.assigned_to?.name ?? undefined,
   assignedToId: contact.assigned_to?.id ?? undefined,
@@ -69,12 +66,11 @@ export const FIELD_LABELS: Record<string, string> = {
 export const displayLocation = (contact: Contact) => contact.address || contact.district || "Location not added";
 export const toForm = (contact: Contact): ContactForm => ({
   name: contact.name, phone: contact.phone, contactType: contact.kind, source: contact.source ?? "",
+  branchId: null,  // filled from detail load in useContactEditor (list rows don't carry branch_id)
   address: contact.address ?? "", district: contact.district ?? "", houseStage: "", tankType: "", tankCapacity: "", tankAge: "",
-  partnerType: contact.profession ?? "", workArea: "",
+  partnerType: contact.partnerType ?? "", workArea: "",
   referredByContactId: null,
   assignedTo: contact.assignedToId === undefined ? "" : String(contact.assignedToId),
-  dealerOwnerName: "", dealerEmail: "",
-  interestedProducts: [],  // filled from detail load in useContactEditor
   note: "",  // filled from detail load in useContactEditor
 });
 

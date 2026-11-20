@@ -29,7 +29,7 @@ export function useContactsList() {
     setIsLoading(true); setError("");
     try {
       const result = await listContacts(accessToken, { skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE, sort, contact_type: (filters.type || undefined) as ApiContactType | undefined,
-        profession_type: filters.type === "partner" ? filters.partnerType || undefined : undefined,
+        partner_type: filters.type === "partner" ? filters.partnerType || undefined : undefined,
         lead_source_id: filters.source ? Number(filters.source) : undefined,
         district: filters.district || undefined,
         assigned_to: filters.assignedTo ? Number(filters.assignedTo) : undefined,

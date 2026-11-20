@@ -2,7 +2,7 @@ import { API_BASE_URL, ApiError, request } from "@/lib/api/auth";
 import { trace } from "@/lib/api/devlog";
 
 /** Mirrors the Contacts section of the parent API.md. */
-export type ApiContactType = "consumer" | "partner" | "dealer";
+export type ApiContactType = "consumer" | "partner";
 
 type NameRef = { id: number; name: string };
 
@@ -12,12 +12,13 @@ export type ApiContact = {
   contact_type: ApiContactType;
   name: string;
   phone: string;
-  /** Branch assigned to the contact record, e.g. "malappuram". */
-  branch: string | null;
+  /** Branch object assigned to the contact; null when no branch is set. */
+  branch: BranchOption | null;
   address: string | null;
   district: string;
-  profession_type: string | null;
-  lead_stage: { stage_id: number; stage_slug: string; stage_name: string; changed_at: string } | null;
+  partner_type: string | null;
+  /** Not yet returned by the backend — reserved for a future pipeline stage feature. */
+  lead_stage?: { stage_id: number; stage_slug: string; stage_name: string; changed_at: string } | null;
   lead_source: NameRef | null;
   assigned_to: NameRef | null;
   created_by: NameRef | null;
@@ -34,11 +35,11 @@ export type ContactList = { items: ApiContact[]; total: number; skip: number; li
 /** GET /contacts — one page. */
 export type ContactSort = "newest" | "oldest" | "name_asc" | "name_desc";
 
-export async function listContacts(accessToken: string, params: { skip?: number; limit?: number; sort?: ContactSort; contact_type?: ApiContactType; profession_type?: string; search?: string; lead_source_id?: number; district?: string; assigned_to?: number; created_by?: number; verified?: boolean; created_from?: string; created_to?: string } = {}) {
+export async function listContacts(accessToken: string, params: { skip?: number; limit?: number; sort?: ContactSort; contact_type?: ApiContactType; partner_type?: string; search?: string; lead_source_id?: number; district?: string; assigned_to?: number; created_by?: number; verified?: boolean; created_from?: string; created_to?: string } = {}) {
   const query = new URLSearchParams({ skip: String(params.skip ?? 0), limit: String(params.limit ?? 10) });
   if (params.sort) query.set("sort", params.sort);
   if (params.contact_type) query.set("contact_type", params.contact_type);
-  if (params.profession_type) query.set("profession_type", params.profession_type);
+  if (params.partner_type) query.set("partner_type", params.partner_type);
   if (params.search) query.set("search", params.search);
   if (params.lead_source_id !== undefined) query.set("lead_source_id", String(params.lead_source_id));
   if (params.district) query.set("district", params.district);
@@ -62,19 +63,14 @@ export async function listContacts(accessToken: string, params: { skip?: number;
   }
 }
 
-export type ProfessionOption = { value: string; label: string };
+export type PartnerTypeOption = { value: string; label: string };
 
-/** GET /contacts/partner-types — the partner types the backend accepts. */
-export async function listProfessionTypes(accessToken: string): Promise<ProfessionOption[]> {
-  const label = "[contacts api] GET /contacts/partner-types";
-  trace("log", `${label} → request`, { url: `${API_BASE_URL}/contacts/partner-types`, headers: { Authorization: "Bearer ***" } });
+/** GET /contacts/partner-types — partner type options from contact_field_definitions. */
+export async function listPartnerTypes(accessToken: string): Promise<PartnerTypeOption[]> {
   try {
-    const options = await request<ProfessionOption[]>("/contacts/partner-types", { headers: { Authorization: `Bearer ${accessToken}` } });
-    trace("log", `${label} ← response`, options);
-    return options;
-  } catch (error) {
-    trace("error", `${label} ← error`, error);
-    throw error;
+    return await request<PartnerTypeOption[]>("/contacts/partner-types", { headers: { Authorization: `Bearer ${accessToken}` } });
+  } catch {
+    return [];
   }
 }
 
@@ -99,6 +95,8 @@ export async function listLeadSources(accessToken: string): Promise<LeadSource[]
   }
 }
 
+export type BranchOption = { id: number; name: string; code: string; is_active: boolean };
+
 export type ApiContactDetail = {
   id: number;
   contact_type: ApiContactType;
@@ -108,20 +106,20 @@ export type ApiContactDetail = {
   phone: string;
   district: string;
   address: string | null;
+  branch_id?: number | null;
+  branch?: BranchOption | null;
   referred_by_id: number | null;
   referred_by?: { id: number; name: string; phone?: string | null } | null;
   lead_source_id: number | null;
-  consumer_profile?: { house_stage: string | null; current_tank_type: string | null; current_tank_capacity: number | null; current_tank_age: number | null } | null;
-  partner_profile?: { profession_type: string; work_area?: string | null } | null;
-  dealer_profile?: { owner_name: string; email?: string | null } | null;
-  /** The single product this contact has expressed interest in. */
-  interested_products?: { id: number; name: string }[] | null;
+  consumer_profile?: { id: number; contact_id: number; data: Record<string, unknown> } | null;
+  partner_profile?: { id: number; contact_id: number; data: Record<string, unknown> } | null;
   /** Free-text note. Null when none has been entered. */
   notes?: string | null;
 };
 
 export type ContactInput = {
   contact_type?: ApiContactType;
+  branch_id?: number | null;
   name?: string;
   phone?: string;
   district?: string;
@@ -129,16 +127,65 @@ export type ContactInput = {
   referred_by_id?: number | null;
   lead_source_id?: number | null;
   assigned_to?: number;
-  latitude?: number;
-  longitude?: number;
-  consumer_profile?: { house_stage: string | null; current_tank_type?: string | null; current_tank_capacity?: number | null; current_tank_age?: number | null };
-  partner_profile?: { profession_type: string; work_area?: string | null };
-  dealer_profile?: { owner_name: string; email?: string | null };
-  /** Replace the interested product. Omit to keep unchanged, [] to clear, [id] to select one. */
-  interested_product_ids?: number[];
+  consumer_profile?: { data: Record<string, unknown> };
+  partner_profile?: { data: Record<string, unknown> };
   /** Free-text note. Omit to keep unchanged, null to clear, string to set. */
   notes?: string | null;
 };
+
+/** One field definition row from GET /contact-field-definitions. */
+export type ContactFieldDefinition = {
+  id: number;
+  entity_type: "consumer" | "partner";
+  field_name: string;       // key stored in profile data (e.g. "tank_type")
+  field_label: string | null; // display label (e.g. "Tank Type")
+  field_type: "text" | "dropdown" | "number" | "boolean";
+  options: string[] | null; // dropdown options; null for other types
+  is_required: boolean;
+  sort_order: number;
+  is_active: boolean;
+};
+
+/** GET /contact-field-definitions/{entity_type} — fields to render for consumer or partner profile. */
+export async function listContactFieldDefinitions(accessToken: string, entityType: "consumer" | "partner"): Promise<ContactFieldDefinition[]> {
+  try {
+    return await request<ContactFieldDefinition[]>(`/contact-field-definitions/${entityType}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  } catch {
+    return [];
+  }
+}
+
+// ── Bulk-assign ─────────────────────────────────────────────────────────────
+
+export type ContactBulkAssignRule = { source_id: number | null; assigned_to: number; count: number };
+
+export type ContactStatsResponse = {
+  total_unassigned: number;
+  unassigned_by_source: Record<string, number>;
+};
+
+/** GET /contacts/stats — unassigned counts total and by source, for the bulk-assign modal. */
+export function getContactStats(accessToken: string): Promise<ContactStatsResponse> {
+  return request<ContactStatsResponse>("/contacts/stats", { headers: { Authorization: `Bearer ${accessToken}` } });
+}
+
+/** POST /contacts/bulk-assign — assign batches of unassigned contacts by source to employees. */
+export function bulkAssignContacts(accessToken: string, assignments: ContactBulkAssignRule[]): Promise<{ assigned: number }> {
+  return request<{ assigned: number }>("/contacts/bulk-assign", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ assignments }),
+  });
+}
+
+/** GET /branches — active branches for the current tenant. Used to populate the Branch dropdown on the contact form. */
+export async function listBranches(accessToken: string): Promise<BranchOption[]> {
+  try {
+    return await request<BranchOption[]>("/branches", { headers: { Authorization: `Bearer ${accessToken}` } });
+  } catch {
+    return [];
+  }
+}
 
 /** Calls a protected /contacts route with request/response logging and session-aware errors. */
 async function authed<T>(method: string, path: string, accessToken: string, body?: unknown): Promise<T> {

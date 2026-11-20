@@ -13,11 +13,12 @@ import VerifiedBadge from "@/features/contacts/components/VerifiedBadge";
 import ContactsMoreMenu from "@/features/contacts/components/ContactsMoreMenu";
 import ContactsFilterMenu from "@/features/contacts/components/ContactsFilterMenu";
 import ContactsSortMenu from "@/features/contacts/components/ContactsSortMenu";
+import ContactsBulkAssignModal from "@/features/contacts/components/BulkAssignModal";
 import { useContactLookups } from "@/features/contacts/hooks/useContactLookups";
 import { useContactsList } from "@/features/contacts/hooks/useContactsList";
 import { useContactEditor } from "@/features/contacts/hooks/useContactEditor";
-import { type ApiContactType } from "@/features/contacts/api/contacts";
-import { KIND_LABELS, PAGE_SIZE, TYPE_TABS, professionLabel, type Contact, type ContactSource } from "@/features/contacts/utils";
+import { type ApiContactType, type ContactFieldDefinition } from "@/features/contacts/api/contacts";
+import { KIND_LABELS, PAGE_SIZE, TYPE_TABS, type Contact, type ContactForm, type ContactSource } from "@/features/contacts/utils";
 
 // Contacts design: purple accent, pastel avatars and a 1px-border table card.
 const ACCENT_BUTTON = "bg-[#0E4D3A] text-white transition-colors hover:bg-[#0E4D3A]";
@@ -30,7 +31,6 @@ const initialOf = (contact: Contact) => (contact.name || contact.phone).charAt(0
 const avatarTone = (contact: Contact) => AVATAR_TONES[contact.id % AVATAR_TONES.length];
 const typeTone = (contact: Contact) =>
   contact.kind === "partner" ? "bg-[#E7F5EE] text-[#0E4D3A]" :
-  contact.kind === "dealer" ? "bg-[#FFF3E0] text-[#C45C00]" :
   "bg-[#EEF4FF] text-[#1D5BBF]";
 
 // Page buttons with ellipses (1 2 3 … 57), so long lists keep a short pager.
@@ -46,7 +46,7 @@ function pageItems(page: number, totalPages: number): (number | "…")[] {
 
 /** Contacts screen: layout and derived options. State and API calls live in the contacts hooks. */
 export default function ContactsView() {
-  const { leadSources, partnerTypes, districtNames, houseStages, houseStageLabel, tankTypes, tankTypeLabel, employees, canAssign, products } = useContactLookups();
+  const { leadSources, partnerTypes, consumerFields, partnerFields, districtNames, employees, canAssign, branches } = useContactLookups();
   const {
     contacts, total, totalPages, typeCounts, page, setPage, search, setSearch, submittedSearch, filters, hasFilters, sort,
     isLoading, error, loadContacts, changeFilter, changeType, changeSort, clearFilters, clearSearchAndFilters,
@@ -57,17 +57,12 @@ export default function ContactsView() {
     pendingAutoFollowup, closePendingFollowup,
   } = useContactEditor({ leadSources, onSaved: loadContacts });
   const [ioDialog, setIoDialog] = useState<"import" | "export" | null>(null);
-  const [productSearch, setProductSearch] = useState("");
-  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
-  const productInputRef = useRef<HTMLInputElement>(null);
-  // Reset the product search input whenever the editor opens or closes
-  const editorId = editor?.contact?.id ?? (editor ? "new" : null);
-  useEffect(() => { setProductSearch(""); setProductDropdownOpen(false); }, [editorId]);
+  const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
   const submitSearch = (event: FormEvent<HTMLFormElement>) => event.preventDefault();
   const goToPage = (next: number) => { setPage(next); };
 
   const assigneeOptions = useMemo(() => {
-    const options = employees.filter((employee) => employee.is_active).map((employee) => ({ value: String(employee.id), label: `${employee.name} · ${employee.role.replaceAll("_", " ")}` }));
+    const options = employees.filter((employee) => employee.is_active).map((employee) => ({ value: String(employee.id), label: `${employee.name} · ${(employee.role ?? "").replaceAll("_", " ")}` }));
     const currentId = editor?.contact?.assignedToId;
     if (currentId !== undefined && !options.some((option) => option.value === String(currentId))) options.unshift({ value: String(currentId), label: editor?.contact?.assignedTo ?? `Employee #${currentId}` });
     return options;
@@ -84,6 +79,48 @@ export default function ContactsView() {
       { key: "createdBy", label: "Created by", value: filters.createdBy, options: employeeFilterOptions },
     ] : []),
   ];
+
+  // Convert snake_case field_name to camelCase ContactForm key: "tank_type" → "tankType"
+  const toCamel = (s: string) => s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+  const INPUT_CLS = "h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]";
+
+  // Renders one field from contact_field_definitions dynamically.
+  // field_type drives the input: "dropdown" → SelectField, "number" → number input, "text" → text input.
+  const renderProfileField = (field: ContactFieldDefinition) => {
+    const formKey = toCamel(field.field_name) as keyof ContactForm;
+    const label = field.field_label ?? field.field_name;
+    const currentValue = String((editor?.values as unknown as Record<string, unknown>)?.[formKey] ?? "");
+    if (field.field_type === "dropdown") {
+      const opts = field.options ?? [];
+      return (
+        <SelectField
+          key={field.id}
+          label={label}
+          value={currentValue}
+          onChange={(value) => updateForm(formKey, value as ContactForm[typeof formKey])}
+          placeholder="Not recorded"
+          options={[
+            { value: "", label: "Not recorded" },
+            ...(currentValue && !opts.includes(currentValue) ? [{ value: currentValue, label: currentValue }] : []),
+            ...opts.map((o) => ({ value: o, label: o.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") })),
+          ]}
+        />
+      );
+    }
+    return (
+      <div key={field.id} className="flex flex-col gap-1.5">
+        <label className="text-[13px] font-semibold text-[#3A3F46]">{label}</label>
+        <input
+          type={field.field_type === "number" ? "number" : "text"}
+          min={field.field_type === "number" ? "0" : undefined}
+          autoComplete="off"
+          value={currentValue}
+          onChange={(e) => updateForm(formKey, e.target.value as ContactForm[typeof formKey])}
+          className={INPUT_CLS}
+        />
+      </div>
+    );
+  };
 
   // Type is a tab, so the panel holds the rest; partner type only appears for partners.
   const allFilterGroups: FilterGroup[] = [
@@ -106,25 +143,6 @@ export default function ContactsView() {
     return sourceValue && !names.includes(sourceValue) ? [sourceValue, ...names] : names;
   }, [leadSources, sourceValue, editor?.contact]);
 
-  // Filtered product list for the single interested-product picker dropdown.
-  // Shows up to 20 results matching the search term, or the first 20 active products when blank.
-  const filteredPickerProducts = useMemo(() => {
-    const q = productSearch.toLowerCase().trim();
-    // Keep already-selected products visible so you can deselect them even if they're archived
-    const candidatePool = q
-      ? products.filter((p) => p.name.toLowerCase().includes(q))
-      : products;
-    // Prepend already-selected items that aren't in the filtered pool (e.g. archived products)
-    const selected = (editor?.values.interestedProducts ?? []).filter((p) => !candidatePool.some((c) => c.id === p.id));
-    return [...selected.map((p) => ({ id: p.id, name: p.name, is_active: false })), ...candidatePool].slice(0, 20);
-  }, [products, productSearch, editor?.values.interestedProducts]);
-
-  const selectProduct = (id: number, name: string) => {
-    if (!editor) return;
-    const current = editor.values.interestedProducts;
-    updateForm("interestedProducts", current.some((p) => p.id === id) ? [] : [{ id, name }]);
-  };
-
   // Created by / Assigned to are admin and manager columns, so they only show once the employee list loads.
   const tableColumns = ["Contact", "Contact Type", "Contact Number", "Branch", "Location", "Source", "Stage", ...(canAssign ? ["Created by", "Assigned to"] : []), "Status"];
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -139,6 +157,16 @@ export default function ContactsView() {
         <h1 className="truncate text-[22px] font-bold tracking-[-0.01em] text-[#1A1C21] sm:text-[26px]">Contacts</h1>
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
           <ContactsMoreMenu onImport={() => setIoDialog("import")} onExport={() => setIoDialog("export")} />
+          <button
+            type="button"
+            onClick={() => setIsBulkAssignOpen(true)}
+            className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#0E4D3A] px-3 text-sm font-medium text-[#0E4D3A] hover:bg-[#0E4D3A]/5 transition-colors sm:px-4"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span className="hidden sm:inline">Bulk Assign</span>
+          </button>
           <button type="button" aria-label="Add Contact" onClick={() => openEditor(undefined, filters.type || undefined)} className={`inline-flex h-10 items-center gap-2 rounded-[8px] px-3 text-sm font-semibold sm:px-4 ${ACCENT_BUTTON}`}>
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             <span className="hidden sm:inline" aria-hidden="true">Add Contact</span>
@@ -329,8 +357,8 @@ export default function ContactsView() {
                         <VerifiedBadge contact={contact} />
                       </div>
                       <div className="mt-3 space-y-1.5 text-[12px] text-[#6B7080]">
-                        <p className="truncate">{contact.district || "Location not added"}</p>
-                        {contact.branch && <p className="truncate capitalize">Branch: {contact.branch}</p>}
+                        {contact.branch && <p className="truncate capitalize font-medium text-[#3A3E4A]">{contact.branch}</p>}
+                        <p className="truncate">{contact.address || contact.district || <span className="text-[#B4B8C2]">Location not added</span>}</p>
                         {contact.source && <p className="truncate">{contact.source}</p>}
                         {canAssign && contact.createdBy && <p className="truncate">Created by {contact.createdBy}</p>}
                         {canAssign && <p className="truncate">Assigned to {contact.assignedTo || "nobody"}</p>}
@@ -417,9 +445,9 @@ export default function ContactsView() {
                 {/* Type tabs — new contacts only; badge for edit */}
                 {!editor.contact ? (
                   <div role="tablist" aria-label="Contact type" className="flex gap-0.5 rounded-[9px] bg-[#F3F3F5] p-[3px]">
-                    {(["consumer", "partner", "dealer"] as const).map((type) => {
+                    {(["consumer", "partner"] as const).map((type) => {
                       const active = editor.values.contactType === type;
-                      const labels = { consumer: "Consumer", partner: "Partner", dealer: "Dealer" } as const;
+                      const labels = { consumer: "Consumer", partner: "Partner" } as const;
                       return (
                         <button
                           key={type} type="button" role="tab" aria-selected={active}
@@ -442,13 +470,13 @@ export default function ContactsView() {
                 {/* Name */}
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="ac-name" className="text-[13px] font-semibold text-[#3A3F46]">
-                    {editor.values.contactType === "dealer" ? "Shop / dealer name" : "Full name"}
+                    Full name
                   </label>
                   <input
                     id="ac-name" type="text" autoComplete="off"
                     value={editor.values.name}
                     onChange={(e) => updateForm("name", e.target.value)}
-                    placeholder={editor.values.contactType === "dealer" ? "e.g. Kerala Pipes & Fittings" : "e.g. Mujeeb Rahman"}
+                    placeholder="e.g. Mujeeb Rahman"
                     className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
                   />
                 </div>
@@ -456,59 +484,11 @@ export default function ContactsView() {
                 {/* Phone */}
                 <PhoneField key={editor.contact?.id ?? "new"} value={editor.values.phone} onChange={(value) => updateForm("phone", value)} />
 
-                {/* Partner-specific: profession + work area */}
-                {editor.values.contactType === "partner" && (
-                  <>
-                    <SelectField
-                      label="Partner type"
-                      value={editor.values.partnerType}
-                      onChange={(value) => updateForm("partnerType", value)}
-                      placeholder="Select partner type"
-                      options={[...(editor.values.partnerType && !partnerTypes.some((opt) => opt.value === editor.values.partnerType) ? [{ value: editor.values.partnerType, label: professionLabel(editor.values.partnerType) }] : []), ...partnerTypes]}
-                    />
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="ac-work-area" className="text-[13px] font-semibold text-[#3A3F46]">Work area</label>
-                      <input
-                        id="ac-work-area" type="text" autoComplete="off" maxLength={120}
-                        value={editor.values.workArea}
-                        onChange={(e) => updateForm("workArea", e.target.value)}
-                        placeholder="Town or area they mainly work in"
-                        className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
-                      />
-                    </div>
-                  </>
+                {/* Partner-specific: rendered dynamically from contact_field_definitions */}
+                {editor.values.contactType === "partner" && partnerFields.length > 0 && (
+                  <>{partnerFields.map(renderProfileField)}</>
                 )}
 
-                {/* Dealer-specific: owner name + email */}
-                {editor.values.contactType === "dealer" && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="ac-owner" className="text-[13px] font-semibold text-[#3A3F46]">
-                        Owner name <span aria-hidden="true" className="text-rose-500">*</span>
-                      </label>
-                      <input
-                        id="ac-owner" type="text"
-                        value={editor.values.dealerOwnerName}
-                        onChange={(e) => updateForm("dealerOwnerName", e.target.value)}
-                        placeholder="Owner's full name"
-                        className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="ac-dealer-email" className="text-[13px] font-semibold text-[#3A3F46]">Email</label>
-                      <input
-                        id="ac-dealer-email" type="email"
-                        value={editor.values.dealerEmail}
-                        onChange={(e) => updateForm("dealerEmail", e.target.value)}
-                        placeholder="owner@business.com"
-                        className={`h-[42px] w-full rounded-[8px] border bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:ring-[3px] ${editor.values.dealerEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editor.values.dealerEmail.trim()) ? "border-rose-400 focus:border-rose-400 focus:ring-rose-100" : "border-[#DEE1E5] focus:border-[#0E7A4F] focus:ring-[rgba(14,122,79,0.12)]"}`}
-                      />
-                      {editor.values.dealerEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editor.values.dealerEmail.trim()) && (
-                        <p className="text-[12px] text-rose-500">Enter a valid email (e.g. owner@business.com)</p>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 {/* Source + District */}
                 <div className="grid grid-cols-2 gap-3">
@@ -528,6 +508,17 @@ export default function ContactsView() {
                   />
                 </div>
 
+                {/* Branch */}
+                {branches.length > 0 && (
+                  <SelectField
+                    label="Branch"
+                    value={editor.values.branchId ? String(editor.values.branchId) : ""}
+                    onChange={(value) => updateForm("branchId", value ? Number(value) : null)}
+                    placeholder="Not assigned"
+                    options={[{ value: "", label: "Not assigned" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))]}
+                  />
+                )}
+
                 {/* Address */}
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="ac-address" className="text-[13px] font-semibold text-[#3A3F46]">Address</label>
@@ -540,56 +531,11 @@ export default function ContactsView() {
                   />
                 </div>
 
-                {/* Consumer-specific fields: house stage, tank type, litres, age. All from Settings > Lists & Options where applicable. A hidden option stays selectable on its own record. */}
-                {editor.values.contactType === "consumer" && (
-                  <>
-                    <div className="grid grid-cols-2 gap-3">
-                      <SelectField
-                        label="House stage"
-                        value={editor.values.houseStage}
-                        onChange={(value) => updateForm("houseStage", value)}
-                        placeholder="Not recorded"
-                        options={[
-                          { value: "", label: "Not recorded" },
-                          ...(editor.values.houseStage && !houseStages.some((opt) => opt.value === editor.values.houseStage) ? [{ value: editor.values.houseStage, label: houseStageLabel(editor.values.houseStage) }] : []),
-                          ...houseStages,
-                        ]}
-                      />
-                      <SelectField
-                        label="Tank type"
-                        value={editor.values.tankType}
-                        onChange={(value) => updateForm("tankType", value)}
-                        placeholder="Not recorded"
-                        options={[
-                          { value: "", label: "Not recorded" },
-                          ...(editor.values.tankType && !tankTypes.some((opt) => opt.value === editor.values.tankType) ? [{ value: editor.values.tankType, label: tankTypeLabel(editor.values.tankType) }] : []),
-                          ...tankTypes,
-                        ]}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="flex flex-col gap-1.5">
-                        <label htmlFor="ac-tank-capacity" className="text-[13px] font-semibold text-[#3A3F46]">Tank capacity (litres)</label>
-                        <input
-                          id="ac-tank-capacity" type="number" min="0"
-                          value={editor.values.tankCapacity}
-                          onChange={(e) => updateForm("tankCapacity", e.target.value)}
-                          placeholder="e.g. 1000"
-                          className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label htmlFor="ac-tank-age" className="text-[13px] font-semibold text-[#3A3F46]">Tank age (years)</label>
-                        <input
-                          id="ac-tank-age" type="number" min="0"
-                          value={editor.values.tankAge}
-                          onChange={(e) => updateForm("tankAge", e.target.value)}
-                          placeholder="e.g. 3"
-                          className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
-                        />
-                      </div>
-                    </div>
-                  </>
+                {/* Consumer-specific fields: rendered dynamically from contact_field_definitions */}
+                {editor.values.contactType === "consumer" && consumerFields.length > 0 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {consumerFields.map(renderProfileField)}
+                  </div>
                 )}
 
                 {/* Assigned to — shown on Edit only; new contacts start unassigned and the manager assigns them */}
@@ -625,71 +571,6 @@ export default function ContactsView() {
                   }}
                 />
 
-                {/* Products interested — consumer only; partners and dealers don't track product interest */}
-                {editor.values.contactType === "consumer" && (
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[13px] font-semibold text-[#3A3F46]">Product interested in</label>
-                  <div className="relative">
-                    <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8F9C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.25" /><path d="m16 16 4.25 4.25" /></svg>
-                    <input
-                      ref={productInputRef}
-                      type="text"
-                      value={productSearch}
-                      onChange={(e) => { setProductSearch(e.target.value); setProductDropdownOpen(true); }}
-                      onFocus={() => setProductDropdownOpen(true)}
-                      onBlur={() => setTimeout(() => setProductDropdownOpen(false), 150)}
-                      placeholder={products.length === 0 ? "Loading products…" : "Search products to add…"}
-                      autoComplete="off"
-                      className="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white pl-9 pr-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
-                    />
-                    {productDropdownOpen && filteredPickerProducts.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-[8px] border border-[#DEE1E5] bg-white shadow-lg">
-                        {filteredPickerProducts.map((product) => {
-                          const selected = editor?.values.interestedProducts.some((p) => p.id === product.id) ?? false;
-                          return (
-                            <button
-                              key={product.id}
-                              type="button"
-                              onMouseDown={(e) => e.preventDefault()} // prevent input blur before click fires
-                              onClick={() => { selectProduct(product.id, product.name); setProductSearch(""); setProductDropdownOpen(false); }}
-                              className={`flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-[#F7FBF9] ${selected ? "text-[#0E4D3A]" : "text-[#1A1C21]"}`}
-                            >
-                              <span className="truncate">{product.name}</span>
-                              {selected && (
-                                <svg className="h-4 w-4 shrink-0 text-[#0E4D3A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M5 12l5 5L19 7" /></svg>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {productDropdownOpen && filteredPickerProducts.length === 0 && productSearch.trim() && (
-                      <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-[8px] border border-[#DEE1E5] bg-white px-3 py-3 text-[13px] text-[#8A8F9C] shadow-lg">
-                        No products match "{productSearch}"
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Selected product */}
-                  {(editor?.values.interestedProducts.length ?? 0) > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {editor!.values.interestedProducts.map((product) => (
-                        <span key={product.id} className="inline-flex items-center gap-1 rounded-full bg-[#E7F5EE] pl-3 pr-1.5 py-1 text-[12px] font-semibold text-[#0E4D3A]">
-                          {product.name}
-                          <button
-                            type="button"
-                            onClick={() => selectProduct(product.id, product.name)}
-                            aria-label={`Remove ${product.name}`}
-                            className="flex h-4 w-4 items-center justify-center rounded-full text-[#2F8F6A] transition-colors hover:bg-[#C8EDD9] hover:text-[#0E4D3A]"
-                          >
-                            <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                )}
 
                 {/* Note — optional, all contact types */}
                 <div className="flex flex-col gap-1.5">
@@ -756,7 +637,7 @@ export default function ContactsView() {
         <ContactExportModal leadSources={leadSources} onClose={() => setIoDialog(null)}
           initial={{
             contact_type: (filters.type || undefined) as ApiContactType | undefined,
-            profession_type: filters.type === "partner" ? filters.partnerType || undefined : undefined,
+            partner_type: filters.type === "partner" ? filters.partnerType || undefined : undefined,
             lead_source_id: filters.source ? Number(filters.source) : undefined,
             district: filters.district || undefined,
             assigned_to: filters.assignedTo ? Number(filters.assignedTo) : undefined,
@@ -767,6 +648,11 @@ export default function ContactsView() {
           extraFilterCount={[filters.partnerType && filters.type === "partner", filters.district, filters.assignedTo, filters.createdBy, filters.verified, submittedSearch].filter(Boolean).length} />
       )}
       {ioDialog === "import" && <ContactImportModal leadSources={leadSources} onClose={() => setIoDialog(null)} onImported={() => { setPage(1); void loadContacts(); }} />}
+      <ContactsBulkAssignModal
+        isOpen={isBulkAssignOpen}
+        onClose={() => setIsBulkAssignOpen(false)}
+        onDone={() => { setPage(1); void loadContacts(); }}
+      />
       {pendingAutoFollowup && (
         <AutoFollowupPromptModal
           contactId={pendingAutoFollowup.contactId}

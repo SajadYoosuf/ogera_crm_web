@@ -2,61 +2,65 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { listAllEmployees, type Employee } from "@/lib/api/employees";
-import { staticOptions, useEnumOptions } from "@/hooks/useEnumOptions";
-import { listLeadSources, listProfessionTypes, type LeadSource, type ProfessionOption } from "@/features/contacts/api/contacts";
-import { listProducts, type ProductListItem } from "@/lib/api/products";
-import { DEFAULT_HOUSE_STAGES, DEFAULT_PARTNER_TYPES, DEFAULT_TANK_TYPES, KERALA_DISTRICTS } from "@/features/contacts/utils";
+import { KERALA_DISTRICTS } from "@/features/contacts/utils";
+import { listLeadSources, listPartnerTypes, listContactFieldDefinitions, listBranches, type LeadSource, type PartnerTypeOption, type ContactFieldDefinition, type BranchOption } from "@/features/contacts/api/contacts";
 
-/** Reference data the contacts screens need: lead sources, partner types, districts, house stages, and the employee list. */
+/*
+ * useContactLookups — loads all reference data the contacts screens need.
+ *
+ * WHAT IT LOADS:
+ *   - consumerFields / partnerFields: field definitions from GET /contact-field-definitions
+ *     These tell the form which fields to render, what type they are (dropdown/number/text),
+ *     and what dropdown options are valid. This replaces the old hardcoded DEFAULT_HOUSE_STAGES
+ *     and DEFAULT_TANK_TYPES approach.
+ *   - leadSources: for the Source picker on the contact form
+ *   - partnerTypes: for the partner type dropdown (from GET /contacts/partner-types)
+ *   - districtNames: Kerala districts for the district filter
+ *   - employees: for the Assigned To picker
+ *
+ * HOW FIELD DEFINITIONS WORK:
+ *   Each ContactFieldDefinition has:
+ *     field_name  → the key in the JSONB data dict (e.g. "tank_type")
+ *     field_label → what to show in the UI (e.g. "Tank Type")
+ *     field_type  → "dropdown" | "number" | "text" | "boolean"
+ *     options     → for dropdowns: ["plastic", "steel", "fiber", ...]
+ *     is_required → whether the form should mark it required
+ *
+ *   The form iterates over the returned definitions and renders the right input type for each.
+ */
+
 export function useContactLookups() {
-  // Districts are managed in Settings; the built-in Kerala list shows until they load.
-  const { options: districtRows } = useEnumOptions("district", staticOptions(KERALA_DISTRICTS.map((name) => ({ value: name, label: name }))));
-  const districtNames = useMemo(() => districtRows.map((row) => row.label), [districtRows]);
-  // House stages are managed in Settings too. The form sends the stored value (e.g. "under_construction"), not the label.
-  const { options: houseStageRows, labelOf: houseStageLabel } = useEnumOptions("house_stage", staticOptions(DEFAULT_HOUSE_STAGES));
-  const houseStages = useMemo(() => houseStageRows.map((row) => ({ value: row.value, label: row.label })), [houseStageRows]);
-  // Tank types from Settings > Lists & Options.
-  const { options: tankTypeRows, labelOf: tankTypeLabel } = useEnumOptions("tank_type", staticOptions(DEFAULT_TANK_TYPES));
-  const tankTypes = useMemo(() => tankTypeRows.map((row) => ({ value: row.value, label: row.label })), [tankTypeRows]);
-
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
-  const [partnerTypes, setPartnerTypes] = useState<ProfessionOption[]>(DEFAULT_PARTNER_TYPES);
-  const [products, setProducts] = useState<ProductListItem[]>([]);
-
-  // Sources are loaded once on page open; both the filters and the form use them.
-  useEffect(() => {
-    if (leadSources.length > 0) return;
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) return;
-    listLeadSources(accessToken).then(setLeadSources).catch(() => { /* the dropdown falls back to the current value only */ });
-  }, [leadSources.length]);
-
-  useEffect(() => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) return;
-    listProfessionTypes(accessToken).then(setPartnerTypes).catch(() => { /* keeps the built-in list */ });
-  }, []);
-
-  // Active products for the "interested products" picker in the contact form.
-  // A limit of 200 covers all typical catalogues; archived products are excluded here
-  // but existing interested products from a contact's detail are shown regardless.
-  useEffect(() => {
-    if (products.length > 0) return;
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) return;
-    listProducts(accessToken, { isActive: true, limit: 200 }).then((result) => setProducts(result.items)).catch(() => {});
-  }, [products.length]);
-
-  // The owner picker needs the employee list; if it fails to load, the picker is hidden.
+  const [partnerTypes, setPartnerTypes] = useState<PartnerTypeOption[]>([]);
+  const [consumerFields, setConsumerFields] = useState<ContactFieldDefinition[]>([]);
+  const [partnerFields, setPartnerFields] = useState<ContactFieldDefinition[]>([]);
+  const [branches, setBranches] = useState<BranchOption[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employeesFailed, setEmployeesFailed] = useState(false);
   const canAssign = !employeesFailed;
+
+  useEffect(() => {
+    const accessToken = sessionStorage.getItem("ogera_access_token");
+    if (!accessToken) return;
+
+    listLeadSources(accessToken).then(setLeadSources).catch(() => {});
+    listPartnerTypes(accessToken).then(setPartnerTypes).catch(() => {});
+    listContactFieldDefinitions(accessToken, "consumer").then(setConsumerFields).catch(() => {});
+    listContactFieldDefinitions(accessToken, "partner").then(setPartnerFields).catch(() => {});
+    listBranches(accessToken).then(setBranches).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!canAssign || employees.length > 0) return;
     const accessToken = sessionStorage.getItem("ogera_access_token");
     if (!accessToken) return;
-    listAllEmployees(accessToken).then((result) => setEmployees(result.employees)).catch(() => setEmployeesFailed(true));
+    listAllEmployees(accessToken)
+      .then((result) => setEmployees(result.employees))
+      .catch(() => setEmployeesFailed(true));
   }, [canAssign, employees.length]);
 
-  return { leadSources, partnerTypes, districtNames, houseStages, houseStageLabel, tankTypes, tankTypeLabel, employees, canAssign, products };
+  // Kerala districts are the standard list; not managed via field definitions.
+  const districtNames = useMemo(() => KERALA_DISTRICTS, []);
+
+  return { leadSources, partnerTypes, consumerFields, partnerFields, branches, districtNames, employees, canAssign };
 }

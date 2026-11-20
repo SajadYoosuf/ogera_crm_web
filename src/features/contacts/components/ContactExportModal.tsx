@@ -34,7 +34,7 @@ export default function ContactExportModal({ initial, extraFilterCount, leadSour
     if (!token) return;
     let cancelled = false;
     listContacts(token, {
-      limit: 1, contact_type: filters.contact_type, profession_type: filters.profession_type, search: filters.search, lead_source_id: filters.lead_source_id,
+      limit: 1, contact_type: filters.contact_type, partner_type: filters.partner_type, search: filters.search, lead_source_id: filters.lead_source_id,
       district: filters.district, assigned_to: filters.assigned_to, created_by: filters.created_by, verified: filters.verified,
       created_from: filters.created_from, created_to: filters.created_to,
     }).then((result) => { if (!cancelled) setCounted({ key: filterKey, total: result.total }); })
@@ -81,7 +81,7 @@ export default function ContactExportModal({ initial, extraFilterCount, leadSour
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <SelectField label="Type" value={filters.contact_type ?? ""} options={TYPES}
-                onChange={(value) => change({ contact_type: (value || undefined) as ApiContactType | undefined, profession_type: value === "partner" ? filters.profession_type : undefined })} />
+                onChange={(value) => change({ contact_type: (value || undefined) as ApiContactType | undefined, partner_type: value === "partner" ? filters.partner_type : undefined })} />
               <SelectField label="Lead source" value={filters.lead_source_id ? String(filters.lead_source_id) : ""}
                 options={[{ value: "", label: "All sources" }, ...leadSources.map((item) => ({ value: String(item.id), label: item.name }))]}
                 onChange={(value) => change({ lead_source_id: value ? Number(value) : undefined })} />

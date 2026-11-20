@@ -5,7 +5,7 @@ import type { ApiContactType } from "@/features/contacts/api/contacts";
 export type ExportFormat = "csv" | "xlsx" | "pdf";
 export type ExportFilters = {
   contact_type?: ApiContactType; lead_source_id?: number; district?: string; search?: string; assigned_to?: number;
-  created_by?: number; verified?: boolean; profession_type?: string; created_from?: string; created_to?: string;
+  created_by?: number; verified?: boolean; partner_type?: string; created_from?: string; created_to?: string;
 };
 
 export type ImportColumn = { index: number; header: string; field: string | null; sample: string[] };

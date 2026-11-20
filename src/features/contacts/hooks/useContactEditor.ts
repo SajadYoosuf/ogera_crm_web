@@ -59,17 +59,15 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
           ...current, loading: false,
           values: {
             ...current.values,
-            partnerType: detail.partner_profile?.profession_type ?? current.values.partnerType,
-            workArea: detail.partner_profile?.work_area ?? "",
+            branchId: detail.branch_id ?? null,
+            partnerType: (detail.partner_profile?.data?.partner_type as string) ?? current.values.partnerType,
+            workArea: (detail.partner_profile?.data?.work_area as string) ?? "",
             district: detail.district, address: detail.address ?? "",
-            houseStage: detail.consumer_profile?.house_stage ?? "",
-            tankType: detail.consumer_profile?.current_tank_type ?? "",
-            tankCapacity: detail.consumer_profile?.current_tank_capacity != null ? String(detail.consumer_profile.current_tank_capacity) : "",
-            tankAge: detail.consumer_profile?.current_tank_age != null ? String(detail.consumer_profile.current_tank_age) : "",
+            houseStage: (detail.consumer_profile?.data?.house_stage as string) ?? "",
+            tankType: (detail.consumer_profile?.data?.tank_type as string) ?? "",
+            tankCapacity: detail.consumer_profile?.data?.tank_capacity != null ? String(detail.consumer_profile.data.tank_capacity) : "",
+            tankAge: detail.consumer_profile?.data?.tank_age != null ? String(detail.consumer_profile.data.tank_age) : "",
             referredByContactId: detail.referred_by_id,
-            dealerOwnerName: detail.dealer_profile?.owner_name ?? "",
-            dealerEmail: detail.dealer_profile?.email ?? "",
-            interestedProducts: detail.interested_products?.map((p) => ({ id: p.id, name: p.name })) ?? [],
             note: detail.notes ?? "",
           },
         } : current);
@@ -116,8 +114,6 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
     const phoneValidation = validatePhone(values.phone);
     if (!phoneValidation.valid) { setFormError(phoneValidation.message || "Invalid phone number"); return; }
     if (values.contactType === "partner" && !values.partnerType) { setFormError("Select the partner type."); return; }
-    if (values.contactType === "dealer" && !values.dealerOwnerName.trim()) { setFormError("Owner name is required for dealer contacts."); return; }
-    if (values.contactType === "dealer" && values.dealerEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.dealerEmail.trim())) { setFormError("Enter a valid email address (e.g. owner@business.com)."); return; }
 
     const source = leadSources.find((item) => item.name === sourceValue);
     const houseStage = values.houseStage.trim();
@@ -127,6 +123,7 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
     const hasConsumerFields = houseStage || tankType || tankCapacity != null || tankAge != null || editor.contact;
     const body = {
       contact_type: values.contactType,
+      branch_id: values.branchId,
       name: values.name.trim(),
       phone: values.phone,
       district: values.district.trim(),
@@ -135,17 +132,24 @@ export function useContactEditor({ leadSources, onSaved }: { leadSources: LeadSo
       lead_source_id: source?.id ?? null,
       // Send the owner only when it was chosen (create) or changed (edit); otherwise the backend keeps or auto-picks it.
       ...(values.assignedTo && values.assignedTo !== String(editor.contact?.assignedToId ?? "") ? { assigned_to: Number(values.assignedTo) } : {}),
-      ...(values.contactType === "partner" ? { partner_profile: { profession_type: values.partnerType, ...(values.workArea.trim() ? { work_area: values.workArea.trim() } : { work_area: null }) } } : {}),
-      ...(values.contactType === "consumer" && hasConsumerFields ? {
-        consumer_profile: {
-          house_stage: houseStage || null,
-          current_tank_type: tankType || null,
-          current_tank_capacity: tankCapacity,
-          current_tank_age: tankAge,
+      ...(values.contactType === "partner" ? {
+        partner_profile: {
+          data: {
+            partner_type: values.partnerType,
+            ...(values.workArea.trim() ? { work_area: values.workArea.trim() } : {}),
+          },
         },
       } : {}),
-      ...(values.contactType === "dealer" ? { dealer_profile: { owner_name: values.dealerOwnerName.trim(), ...(values.dealerEmail.trim() ? { email: values.dealerEmail.trim() } : {}) } } : {}),
-      interested_product_ids: values.interestedProducts.map((p) => p.id),
+      ...(values.contactType === "consumer" && hasConsumerFields ? {
+        consumer_profile: {
+          data: {
+            ...(houseStage ? { house_stage: houseStage } : {}),
+            ...(tankType ? { tank_type: tankType } : {}),
+            ...(tankCapacity != null ? { tank_capacity: tankCapacity } : {}),
+            ...(tankAge != null ? { tank_age: tankAge } : {}),
+          },
+        },
+      } : {}),
       // Send null to clear the note, or the trimmed string when set. Omitting would leave it unchanged on PUT.
       notes: values.note.trim() || null,
     };
