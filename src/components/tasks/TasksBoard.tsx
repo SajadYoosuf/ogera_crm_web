@@ -14,6 +14,7 @@ import { addDays, MAX_CUSTOM_DAYS, rangeFor, startOfWeek, type TaskView } from "
 import TaskCard from "./TaskCard";
 import TaskTable, { useWide } from "./TaskTable";
 import { RescheduleTaskDialog } from "./TaskDialogs";
+import AddTaskDialog from "./AddTaskDialog";
 
 // Due date picks the range the list covers. Today is the day view on today's date.
 type DueKey = "all" | "today" | "week" | "month" | "custom";
@@ -107,6 +108,7 @@ export default function TasksBoard() {
 
   // One dialog at a time. Status changes go directly via the dropdown. Reschedule is the only dialog.
   const [dialog, setDialog] = useState<{ step: "schedule" | "reschedule"; task: TaskItem } | null>(null);
+  const [addOpen, setAddOpen] = useState(false); // the "Add New" dialog: pick a lead, then schedule a task for it
 
   function accessTokenOrThrow() {
     const accessToken = sessionStorage.getItem("ogera_access_token");
@@ -174,7 +176,7 @@ export default function TasksBoard() {
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-20 flex h-[72px] shrink-0 items-center justify-between gap-4 border-b border-[#E5E7EA] bg-white pl-16 pr-4 sm:pr-7 lg:pl-7">
         <h1 className="shrink-0 whitespace-nowrap text-xl font-bold tracking-[-0.01em] text-[#1A1C21]">Tasks</h1>
-        <button type="button" className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-lg bg-[#0E7A4F] px-4 text-sm font-semibold text-white hover:bg-[#0B6A44]">
+        <button type="button" onClick={() => setAddOpen(true)} className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-lg bg-[#0E7A4F] px-4 text-sm font-semibold text-white hover:bg-[#0B6A44]">
           <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
           Add New
         </button>
@@ -335,6 +337,13 @@ export default function TasksBoard() {
       )}
       {dialog?.step === "reschedule" && (
         <RescheduleTaskDialog task={dialog.task} onSave={(date, time) => rescheduleTask(dialog.task, date, time)} onCancel={() => setDialog(null)} />
+      )}
+      {addOpen && (
+        <AddTaskDialog
+          staff={staff}
+          onCancel={() => setAddOpen(false)}
+          onSaved={async (leadName) => { setAddOpen(false); setNotice(`Task added for ${leadName}.`); await load(true); }}
+        />
       )}
     </div>
   );
