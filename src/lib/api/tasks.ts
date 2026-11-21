@@ -16,6 +16,10 @@ export type TaskItem = ActivityItem & {
   contact_type: string;
   priority?: "high" | "medium" | "low";
   followup_status?: TaskFollowupStatus | null;
+  /** "lead" for tasks on a pre-conversion lead; "contact" (default) for converted contacts. */
+  entity_type?: "lead" | "contact";
+  /** Set when entity_type = "lead". */
+  lead_id?: number | null;
 };
 
 export type TaskSummary = { overdue: number; today: number; upcoming: number; done: number };

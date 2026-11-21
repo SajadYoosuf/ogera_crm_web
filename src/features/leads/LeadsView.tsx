@@ -34,7 +34,11 @@ import LeadExportModal from "@/features/leads/components/LeadExportModal";
 import FilterSelect from "@/components/FilterSelect";
 import DateRangePicker from "@/components/DateRangePicker";
 import type { FilterGroup } from "@/components/FilterPanel";
-import { updateLead, listLeadStatuses, type LeadStatus, type LeadStatusOption } from "@/lib/api/leads-module";
+import { updateLead, deleteLead, listLeadStatuses, type LeadStatus, type LeadStatusOption } from "@/lib/api/leads-module";
+import LeadActionMenu from "@/features/leads/components/LeadActionMenu";
+import LeadActivityLogModal from "@/features/leads/components/LeadActivityLogModal";
+import LeadFollowupModal from "@/features/leads/components/LeadFollowupModal";
+import LeadDetailModal from "@/features/leads/components/LeadDetailModal";
 import { listEmployees, type Employee } from "@/lib/api/employees";
 import { listBranches, listLeadSources, type BranchOption, type LeadSource } from "@/features/contacts/api/contacts";
 
@@ -148,6 +152,7 @@ function EmptyState({ hasFilters, onClear, onCreate }: { hasFilters: boolean; on
 export default function LeadsView() {
   const list = useLeadsList();
   const [openLeadId, setOpenLeadId] = useState<number | null>(null);
+  const [detailLeadId, setDetailLeadId] = useState<number | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
   const [ioDialog, setIoDialog] = useState<"import" | "export" | null>(null);
@@ -202,6 +207,10 @@ export default function LeadsView() {
 
   const converter = useLeadConvert(() => { void list.loadLeads(); });
 
+  // Activity log and follow-up modals — track which lead's id each is open for
+  const [activityLogLeadId, setActivityLogLeadId] = useState<number | null>(null);
+  const [followupLeadId, setFollowupLeadId] = useState<number | null>(null);
+
   /** Called when the user changes the status dropdown inline in a table row. */
   async function handleStatusChange(leadId: number, newStatus: LeadStatus) {
     const token = sessionStorage.getItem("ogera_access_token");
@@ -233,6 +242,17 @@ export default function LeadsView() {
       showToast("Assignee update failed. Please try again.");
     } finally {
       setUpdatingAssigneeId(null);
+    }
+  }
+
+  async function handleDeleteLead(leadId: number) {
+    const token = sessionStorage.getItem("ogera_access_token");
+    if (!token) return;
+    try {
+      await deleteLead(token, leadId);
+      void list.loadLeads();
+    } catch {
+      showToast("Delete failed. Please try again.");
     }
   }
 
@@ -334,7 +354,7 @@ export default function LeadsView() {
                         list.leads.map((lead) => (
                           <tr
                             key={lead.id}
-                            onClick={() => setOpenLeadId(lead.id)}
+                            onClick={() => setDetailLeadId(lead.id)}
                             className="group cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB] [&_td]:py-3.5"
                           >
                             {/* Name — the row's own cursor-pointer isn't obvious enough on its own, so the
@@ -412,15 +432,15 @@ export default function LeadsView() {
                             </td>
 
                             {/* Action */}
-                            <td className="sticky right-0 z-10 bg-white px-4 text-center transition-colors group-hover:bg-[#FAFAFB] shadow-[-8px_0_8px_-8px_rgba(16,24,40,0.18)]" onClick={(e) => e.stopPropagation()}>
-                              {lead.status !== "converted" && lead.status !== "lost_lead" && (
-                                <button
-                                  onClick={() => converter.openModal(lead.id)}
-                                  className="rounded-lg bg-teal-50 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-100 transition-colors"
-                                >
-                                  Convert
-                                </button>
-                              )}
+                            <td className="sticky right-0 z-10 bg-white px-3 text-center transition-colors group-hover:bg-[#FAFAFB] shadow-[-8px_0_8px_-8px_rgba(16,24,40,0.18)]" onClick={(e) => e.stopPropagation()}>
+                              <LeadActionMenu
+                                lead={lead}
+                                onEdit={() => setOpenLeadId(lead.id)}
+                                onActivityLog={() => setActivityLogLeadId(lead.id)}
+                                onFollowup={() => setFollowupLeadId(lead.id)}
+                                onConvert={() => converter.openModal(lead.id, lead)}
+                                onDelete={handleDeleteLead}
+                              />
                             </td>
                           </tr>
                         ))
@@ -448,7 +468,19 @@ export default function LeadsView() {
         </section>
       </div>
 
-      {/* Lead detail / create modal — one modal, always editable */}
+      {/* 3-tab lead detail modal — opened by clicking a lead row */}
+      <LeadDetailModal
+        leadId={detailLeadId}
+        statuses={statuses}
+        branches={branches}
+        leadSources={leadSources}
+        onClose={() => setDetailLeadId(null)}
+        onConverted={(id) => { setDetailLeadId(null); converter.openModal(id); }}
+        onDeleted={() => { setDetailLeadId(null); void list.loadLeads(); }}
+        onSaved={() => { void list.loadLeads(); }}
+      />
+
+      {/* Edit-only modal — opened via "Edit" in the kebab menu or "New Lead" */}
       <LeadModal
         leadId={openLeadId}
         isCreateOpen={isCreateOpen}
@@ -467,6 +499,34 @@ export default function LeadsView() {
       {ioDialog === "import" && (
         <LeadImportModal leadSources={leadSources} onClose={() => setIoDialog(null)} onImported={() => { list.setPage(1); void list.loadLeads(); }} />
       )}
+      {/* Activity log modal */}
+      {activityLogLeadId !== null && (() => {
+        const lead = list.leads.find((l) => l.id === activityLogLeadId);
+        const name = lead ? `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || `Lead #${lead.id}` : `Lead #${activityLogLeadId}`;
+        return (
+          <LeadActivityLogModal
+            leadId={activityLogLeadId}
+            leadName={name}
+            onSaved={() => setActivityLogLeadId(null)}
+            onCancel={() => setActivityLogLeadId(null)}
+          />
+        );
+      })()}
+
+      {/* Follow-up modal */}
+      {followupLeadId !== null && (() => {
+        const lead = list.leads.find((l) => l.id === followupLeadId);
+        const name = lead ? `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || `Lead #${lead.id}` : `Lead #${followupLeadId}`;
+        return (
+          <LeadFollowupModal
+            leadId={followupLeadId}
+            leadName={name}
+            onSaved={() => setFollowupLeadId(null)}
+            onCancel={() => setFollowupLeadId(null)}
+          />
+        );
+      })()}
+
       {ioDialog === "export" && (
         <LeadExportModal
           statuses={statuses}

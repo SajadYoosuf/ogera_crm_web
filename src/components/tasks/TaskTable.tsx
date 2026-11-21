@@ -64,7 +64,12 @@ function TaskRow({ task, onChangeStatus, onStartReschedule }: { task: TaskItem }
       <td className="h-14 px-4 align-middle">
         <div className="flex max-w-72 flex-col gap-0.5">
           <span className={`truncate font-semibold ${done ? "text-[#9AA0AC] line-through" : "text-[#1A1C21]"}`}>{title}</span>
-          <span className="truncate text-[11px] text-[#8A8F9C]">↳ {task.contact_name}</span>
+          <div className="flex items-center gap-1.5">
+            {task.entity_type === "lead"
+              ? <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-px text-[10px] font-semibold text-amber-700">Lead</span>
+              : <span className="shrink-0 rounded-full bg-blue-50 px-1.5 py-px text-[10px] font-semibold text-blue-700">Contact</span>}
+            <span className="truncate text-[11px] text-[#8A8F9C]">{task.contact_name}</span>
+          </div>
         </div>
       </td>
       <td className="whitespace-nowrap px-3 align-middle">

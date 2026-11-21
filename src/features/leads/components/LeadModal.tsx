@@ -47,6 +47,8 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
   const [isLoading, setIsLoading] = useState(isEdit);
   const [fetchError, setFetchError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const editor = useLeadEditor(() => {
     onSaved();
@@ -80,18 +82,18 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
     }
   }
 
-  async function handleDelete() {
+  async function handleDeleteConfirmed() {
     if (!lead) return;
     const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
-    if (!confirm(`Delete lead "${lead.first_name ?? "this lead"}"? This cannot be undone.`)) return;
     setIsDeleting(true);
     try {
       await deleteLead(token, lead.id);
       onDeleted();
       onClose();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Delete failed.");
+      setConfirmingDelete(false);
+      setDeleteError(err instanceof ApiError ? err.message : "Delete failed.");
     } finally {
       setIsDeleting(false);
     }
@@ -161,6 +163,11 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
                 <span>{editor.saveError}</span>
               </div>
             )}
+            {deleteError && (
+              <div className="mt-1 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                <span>{deleteError}</span>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
@@ -176,15 +183,33 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
                       Convert
                     </button>
                   )}
-                  <button
-                    type="button" onClick={handleDelete} disabled={isDeleting}
-                    className="flex h-10 w-10 items-center justify-center rounded-[8px] text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50"
-                    title="Delete lead"
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                    </svg>
-                  </button>
+                  {confirmingDelete ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-600">Delete?</span>
+                      <button
+                        type="button" onClick={() => void handleDeleteConfirmed()} disabled={isDeleting}
+                        className="rounded-lg bg-red-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                      >
+                        {isDeleting ? "…" : "Yes"}
+                      </button>
+                      <button
+                        type="button" onClick={() => { setConfirmingDelete(false); setDeleteError(""); }}
+                        className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button" onClick={() => setConfirmingDelete(true)} disabled={isDeleting}
+                      className="flex h-10 w-10 items-center justify-center rounded-[8px] text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50"
+                      title="Delete lead"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

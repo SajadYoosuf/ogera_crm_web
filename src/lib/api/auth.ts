@@ -147,7 +147,7 @@ export function errorFromResponse(status: number, body: unknown): ApiError {
   const incomplete = status === 409 ? extractMissing(body) : null;
   if (incomplete) return new ApiError("unknown", incomplete.message, status, incomplete.missing);
   const detail = extractDetail(body);
-  if (status === 401) return new ApiError("invalid_credentials", "Incorrect email or password.", status);
+  if (status === 401) return new ApiError("invalid_credentials", detail ?? "Your session has expired. Please sign in again.", status);
   // 403 on login: the account is inactive, or a non-admin/manager tried the website (the server says which).
   if (status === 403) {
     if (detail && detail.toLowerCase().includes("mobile app")) {
@@ -197,12 +197,19 @@ export async function request<T>(path: string, init: RequestInit = {}, timeoutMs
 }
 
 /** POST /auth/login */
-export function login(email: string, password: string): Promise<LoginResponse> {
-  return request<LoginResponse>("/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  try {
+    return await request<LoginResponse>("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.kind === "invalid_credentials") {
+      throw new ApiError("invalid_credentials", "Incorrect email or password.", 401);
+    }
+    throw error;
+  }
 }
 
 /** GET /auth/me — 401 here means the token is missing, invalid, or expired. */

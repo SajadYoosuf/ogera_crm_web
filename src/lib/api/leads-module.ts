@@ -266,11 +266,25 @@ export function deleteLead(token: string, leadId: number): Promise<void> {
   });
 }
 
+export type ConvertLeadBody = {
+  contact_type: "consumer" | "partner";
+  partner_type?: string;
+  name?: string;
+  phone?: string;
+  address?: string;
+  district?: string;
+};
+
 /** POST /leads/{id}/convert — convert lead to a Contact. */
-export function convertLead(token: string, leadId: number): Promise<ConvertLeadResponse> {
+export function convertLead(
+  token: string,
+  leadId: number,
+  body: ConvertLeadBody = { contact_type: "consumer" },
+): Promise<ConvertLeadResponse> {
   return request<ConvertLeadResponse>(`/leads/${leadId}/convert`, {
     method: "POST",
-    headers: authHeaders(token),
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
 }
 
