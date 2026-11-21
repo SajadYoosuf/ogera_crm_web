@@ -129,6 +129,9 @@ function extractDetail(body: unknown): string | null {
       .filter(Boolean);
     return msgs.length ? msgs.join(". ") : null;
   }
+  if (detail && typeof detail === "object" && typeof (detail as { message?: unknown }).message === "string") {
+    return (detail as { message: string }).message;
+  }
   return null;
 }
 
