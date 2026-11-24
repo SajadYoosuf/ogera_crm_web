@@ -126,7 +126,7 @@ export default function ContactsView() {
   };
 
   // Created by / Assigned to are admin and manager columns, so they only show once the employee list loads.
-  const tableColumns = ["Contact", "Contact Type", "Contact Number", "Branch", "Location", "Source", "Stage", ...(canAssign ? ["Created by", "Assigned to"] : []), "Status"];
+  const tableColumns = ["Contact", "Contact Type", "Contact Number", "Branch", "Location", "Source", "Stage", ...(canAssign ? ["Created by", "Assigned to"] : []), "Created at", "Status"];
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
   const hasNonTypeFilters = Object.entries(filters).some(([k, v]) => k !== "type" && Boolean(v));
@@ -259,7 +259,8 @@ export default function ContactsView() {
             <>
               {/* Wide desktop: the monitoring table. Phones and tablets use the cards below. */}
               <div className="hidden overflow-x-auto xl:block">
-                <table className="w-full min-w-[1180px] border-collapse text-sm">
+                {/* w-max + min-w-full: the table takes its natural column widths, so columns never squeeze; overflow scrolls sideways. */}
+                <table className="w-max min-w-full border-collapse text-sm">
                   <thead className="bg-[#F7F7F9] text-left text-[13px] font-medium text-[#4B5060]">
                     <tr>
                       {tableColumns.map((column) => (
@@ -302,6 +303,7 @@ export default function ContactsView() {
                               {contact.assignedTo || <span className="text-[#8A8F9C]">Unassigned</span>}
                             </td>
                           )}
+                          <td className="whitespace-nowrap px-3 tabular-nums text-[#6B7080]">{DATE_FORMAT.format(new Date(contact.createdAt))}</td>
                           <td className="whitespace-nowrap px-3"><VerifiedBadge contact={contact} /></td>
                           <td className={`sticky right-0 z-10 bg-white px-4 text-center transition-colors group-hover:bg-[#FAFAFB] ${STICKY_EDGE}`} onClick={(event) => event.stopPropagation()}>
                             <ContactRowMenu label={label} onEdit={() => openEditor(contact)} onDelete={() => { setFormError(""); setDeleteTarget(contact); }} />
