@@ -66,7 +66,7 @@ test("the Lead Pipeline and an open lead fit the screen", async ({ page }) => {
   await expectNoSidewaysScroll(page);
 });
 
-test("the reschedule dialog and the mark-done dialog fit the screen", async ({ page }, testInfo) => {
+test("the mark-done dialog fits the screen", async ({ page }, testInfo) => {
   const name = `Dialog ${Date.now()}`;
   await seedTask(name, `Visit ${Date.now()}`, 0);
   await signIn(page, "anu");
@@ -74,7 +74,7 @@ test("the reschedule dialog and the mark-done dialog fit the screen", async ({ p
   const item = page.locator("tbody tr, article").filter({ hasText: name }).first();
   await expect(item).toBeVisible();
 
-  const openFrom = async (action: "Reschedule" | "Mark done") => {
+  const openFrom = async (action: "Mark done") => {
     if (testInfo.project.name === "phone") {
       await item.getByRole("button", { name: action }).click();
     } else {
@@ -83,12 +83,6 @@ test("the reschedule dialog and the mark-done dialog fit the screen", async ({ p
       await page.getByRole("menuitem", { name: action }).click();
     }
   };
-
-  await openFrom("Reschedule");
-  const reschedule = page.locator("form", { has: page.getByLabel("New due date") });
-  await expectInsideScreen(page, reschedule.getByRole("button", { name: "Save new date" }));
-  await expectNoSidewaysScroll(page);
-  await reschedule.getByRole("button", { name: "Cancel" }).click();
 
   await openFrom("Mark done");
   const log = page.locator("form", { has: page.getByLabel("What happened?") });

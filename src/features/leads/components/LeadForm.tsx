@@ -10,7 +10,7 @@
 import PhoneField from "@/components/PhoneField";
 import SelectField from "@/components/SelectField";
 import { todayDate, type LeadFormState } from "@/features/leads/hooks/useLeadEditor";
-import type { LeadStatusOption } from "@/lib/api/leads-module";
+import type { LeadStatusOption } from "@/features/leads/api/leads";
 import type { BranchOption, LeadSource } from "@/features/contacts/api/contacts";
 
 type Props = {
@@ -98,17 +98,21 @@ export default function LeadForm({ form, isEdit, statuses, branches, leadSources
 
       {/* Status — edit mode only, full width. Options come from GET /leads/statuses. */}
       {isEdit && statuses.length > 0 && (
-        <SelectField
-          label="Status"
-          value={form.status}
-          onChange={(value) => setField("status", value)}
-          options={[
-            ...statuses.map((s) => ({ value: s.value, label: s.label })),
-            // "converted" isn't in lead_statuses (it's set by the Convert action), but an
-            // already-converted lead must still show its current status in this list.
-            ...(form.status === "converted" ? [{ value: "converted", label: "Converted" }] : []),
-          ]}
-        />
+        form.status === "converted" ? (
+          // A converted lead's status is locked (the backend returns 409 for changes).
+          // Show it as text so the user is not offered a change that will fail.
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold text-gray-700">Status</span>
+            <p className="text-sm text-gray-600">Converted — status is locked. Change the contact instead.</p>
+          </div>
+        ) : (
+          <SelectField
+            label="Status"
+            value={form.status}
+            onChange={(value) => setField("status", value)}
+            options={statuses.map((s) => ({ value: s.value, label: s.label }))}
+          />
+        )
       )}
 
       <div>

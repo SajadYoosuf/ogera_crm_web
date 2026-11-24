@@ -1,4 +1,4 @@
-import { ApiError, request, type Employee } from "./auth";
+import { apiCall, ApiError, type Employee } from "./auth";
 
 export type { Employee };
 
@@ -67,25 +67,15 @@ async function logged<T>(method: string, path: string, body: unknown, call: () =
   }
 }
 
-/** auth.ts maps statuses for the login form; on protected routes 403/404 mean something else. */
-function mapError(error: unknown): unknown {
-  if (!(error instanceof ApiError)) return error;
-  if (error.status === 401) return new ApiError("invalid_credentials", "Your session has expired. Please sign in again.", 401);
-  if (error.status === 403) return new ApiError("forbidden", "You don't have permission to do that.", 403);
-  if (error.status === 404) return new ApiError("unknown", "That employee no longer exists.", 404);
-  return error;
-}
-
 function call<T>(accessToken: string, method: string, path: string, body?: unknown, timeoutMs?: number): Promise<T> {
   return logged(method, path, body, async () => {
     try {
-      return await request<T>(path, {
-        method,
-        headers: { Authorization: `Bearer ${accessToken}`, ...(body ? { "Content-Type": "application/json" } : {}) },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-      }, timeoutMs);
+      return await apiCall<T>(accessToken, method, path, body, timeoutMs);
     } catch (error) {
-      throw mapError(error);
+      if (error instanceof ApiError && error.status === 404) {
+        throw new ApiError("unknown", "That employee no longer exists.", 404);
+      }
+      throw error;
     }
   });
 }

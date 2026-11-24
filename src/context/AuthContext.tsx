@@ -22,6 +22,9 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { store } from "@/store";
+import { resetLookups } from "@/store/lookupsSlice";
+import { invalidateEnumOptions } from "@/hooks/useEnumOptions";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -150,6 +153,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearSession = useCallback(() => {
     clearStorage();
     setState({ status: "unauthenticated" });
+    // Wipe tenant-specific cached data so a subsequent login (possibly a different tenant)
+    // starts with a clean store rather than the previous user's data.
+    store.dispatch(resetLookups());
+    invalidateEnumOptions();
   }, []);
 
   const value: AuthContextValue = {

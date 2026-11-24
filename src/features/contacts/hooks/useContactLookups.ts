@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { listAllEmployees, type Employee } from "@/lib/api/employees";
 import { KERALA_DISTRICTS } from "@/features/contacts/utils";
 import { listLeadSources, listPartnerTypes, listContactFieldDefinitions, listBranches, type LeadSource, type PartnerTypeOption, type ContactFieldDefinition, type BranchOption } from "@/features/contacts/api/contacts";
+import { useAuth } from "@/context/AuthContext";
 
 /*
  * useContactLookups — loads all reference data the contacts screens need.
@@ -30,6 +31,7 @@ import { listLeadSources, listPartnerTypes, listContactFieldDefinitions, listBra
  */
 
 export function useContactLookups() {
+  const { token } = useAuth();
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [partnerTypes, setPartnerTypes] = useState<PartnerTypeOption[]>([]);
   const [consumerFields, setConsumerFields] = useState<ContactFieldDefinition[]>([]);
@@ -40,24 +42,21 @@ export function useContactLookups() {
   const canAssign = !employeesFailed;
 
   useEffect(() => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) return;
+    if (!token) return;
 
-    listLeadSources(accessToken).then(setLeadSources).catch(() => {});
-    listPartnerTypes(accessToken).then(setPartnerTypes).catch(() => {});
-    listContactFieldDefinitions(accessToken, "consumer").then(setConsumerFields).catch(() => {});
-    listContactFieldDefinitions(accessToken, "partner").then(setPartnerFields).catch(() => {});
-    listBranches(accessToken).then(setBranches).catch(() => {});
-  }, []);
+    listLeadSources(token).then(setLeadSources).catch(() => {});
+    listPartnerTypes(token).then(setPartnerTypes).catch(() => {});
+    listContactFieldDefinitions(token, "consumer").then(setConsumerFields).catch(() => {});
+    listContactFieldDefinitions(token, "partner").then(setPartnerFields).catch(() => {});
+    listBranches(token).then(setBranches).catch(() => {});
+  }, [token]);
 
   useEffect(() => {
-    if (!canAssign || employees.length > 0) return;
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    if (!accessToken) return;
-    listAllEmployees(accessToken)
+    if (!canAssign || employees.length > 0 || !token) return;
+    listAllEmployees(token)
       .then((result) => setEmployees(result.employees))
       .catch(() => setEmployeesFailed(true));
-  }, [canAssign, employees.length]);
+  }, [canAssign, employees.length, token]);
 
   // Kerala districts are the standard list; not managed via field definitions.
   const districtNames = useMemo(() => KERALA_DISTRICTS, []);

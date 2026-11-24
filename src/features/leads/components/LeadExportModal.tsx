@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import DateRangePicker from "@/components/DateRangePicker";
 import SelectField from "@/components/SelectField";
 import { ApiError } from "@/lib/api/auth";
-import { listLeads, type LeadStatusOption } from "@/lib/api/leads-module";
+import { listLeads, type LeadStatusOption } from "@/features/leads/api/leads";
 import { downloadLeadsExport, type LeadExportFilters, type LeadExportFormat } from "@/features/leads/api/leadsIo";
 
 const FORMATS: { value: LeadExportFormat; label: string; hint: string }[] = [

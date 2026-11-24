@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import OtpInput from "@/components/auth/OtpInput";
+import OtpInput from "@/features/auth/components/OtpInput";
 import { ApiError } from "@/lib/api/auth";
 import { requestResetCode, resetPassword, verifyResetCode } from "@/lib/api/password-reset";
 import { dmSans, notoMalayalam, sora } from "@/lib/auth-fonts";

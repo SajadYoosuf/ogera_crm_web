@@ -196,6 +196,39 @@ export async function request<T>(path: string, init: RequestInit = {}, timeoutMs
   return body as T;
 }
 
+/**
+ * Authenticated API call with standard 401/403 remapping.
+ * Use this in every API module instead of duplicating the auth-header boilerplate.
+ */
+export async function apiCall<T>(
+  token: string,
+  method: string,
+  path: string,
+  body?: unknown,
+  timeoutMs?: number,
+): Promise<T> {
+  try {
+    return await request<T>(
+      path,
+      {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      },
+      timeoutMs,
+    );
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (error.status === 401) throw new ApiError("invalid_credentials", "Your session has expired. Please sign in again.", 401);
+      if (error.status === 403) throw new ApiError("forbidden", "You don't have permission to do that.", 403);
+    }
+    throw error;
+  }
+}
+
 /** POST /auth/login */
 export async function login(email: string, password: string): Promise<LoginResponse> {
   try {

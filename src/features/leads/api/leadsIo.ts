@@ -14,14 +14,10 @@ export type ImportReport = {
   /** Every row that is not plain "ready". */
   rows: ImportRow[];
 };
-export type AssignMode = "auto" | "unassigned" | "specific";
 export type ImportOptions = {
   /** Column index -> field; omit to let the backend detect it. */
   mapping?: Record<number, string>;
   defaultSourceId?: number;
-  assignMode: AssignMode;
-  /** Required when assignMode is "specific". */
-  assignedTo?: number;
 };
 export type ImportResult = { created: number; skipped: number };
 
@@ -46,8 +42,6 @@ function importForm(file: File, options: ImportOptions) {
   form.set("file", file);
   if (options.mapping) form.set("mapping", JSON.stringify(options.mapping));
   if (options.defaultSourceId !== undefined) form.set("default_source_id", String(options.defaultSourceId));
-  form.set("assign_mode", options.assignMode);
-  if (options.assignedTo !== undefined) form.set("assigned_to", String(options.assignedTo));
   return form;
 }
 

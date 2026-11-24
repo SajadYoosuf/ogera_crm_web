@@ -19,6 +19,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { getContactStats, bulkAssignContacts, type ContactBulkAssignRule } from "@/features/contacts/api/contacts";
 import { listEmployees, type Employee } from "@/lib/api/employees";
 
@@ -41,6 +42,7 @@ type Props = {
 };
 
 export default function ContactsBulkAssignModal({ isOpen, onClose, onDone }: Props) {
+  const { token } = useAuth();
   // ── Data loading ─────────────────────────────────────────────────────────────
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [unassignedBySource, setUnassignedBySource] = useState<Record<string, number>>({});
@@ -64,7 +66,6 @@ export default function ContactsBulkAssignModal({ isOpen, onClose, onDone }: Pro
 
   // ── Load data when modal opens ────────────────────────────────────────────────
   const loadData = useCallback(async () => {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
     setIsLoading(true);
     setLoadError("");
@@ -95,7 +96,7 @@ export default function ContactsBulkAssignModal({ isOpen, onClose, onDone }: Pro
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (isOpen) {
@@ -164,8 +165,6 @@ export default function ContactsBulkAssignModal({ isOpen, onClose, onDone }: Pro
       }
     }
     if (allRules.length === 0) return;
-
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
 
     setIsSubmitting(true);

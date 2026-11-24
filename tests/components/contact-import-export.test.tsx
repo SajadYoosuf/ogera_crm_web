@@ -12,6 +12,9 @@ vi.mock("@/features/contacts/api/contactsIo", async (importOriginal) => {
   const actual = await importOriginal() as Record<string, unknown>;
   return { ...actual, analyzeImport: vi.fn(), commitImport: vi.fn() };
 });
+vi.mock("@/context/AuthContext", () => ({
+  useAuth: () => ({ token: "test-token", user: null, setSession: vi.fn(), clearSession: vi.fn() }),
+}));
 
 const fetchMock = vi.fn();
 const json = (data: unknown, status = 200) => ({ ok: status < 400, status, json: async () => data, headers: new Headers() });

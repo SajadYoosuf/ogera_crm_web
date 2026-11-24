@@ -19,8 +19,9 @@
  *   onDelete     — called when delete is confirmed; receives lead id
  */
 
-import { useEffect, useRef, useState } from "react";
-import type { LeadListItem } from "@/lib/api/leads-module";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import type { LeadListItem } from "@/features/leads/api/leads";
 
 type Props = {
   lead: LeadListItem;
@@ -35,19 +36,38 @@ export default function LeadActionMenu({ lead, onEdit, onActivityLog, onFollowup
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
+  // The menu is portalled to <body> so the table's sticky Action column and its
+  // overflow scroller can neither cover nor clip it. Position comes from the trigger.
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setConfirming(false);
-      }
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+      setConfirming(false);
+    }
+    function close() {
+      setOpen(false);
+      setConfirming(false);
     }
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
   }, [open]);
 
   function toggle(e: React.MouseEvent) {
@@ -72,9 +92,10 @@ export default function LeadActionMenu({ lead, onEdit, onActivityLog, onFollowup
   const isLost = lead.status === "lost_lead";
 
   return (
-    <div ref={ref} className="relative inline-block">
+    <div className="relative inline-block">
       {/* Kebab trigger */}
       <button
+        ref={triggerRef}
         onClick={toggle}
         aria-label="Lead actions"
         className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
@@ -82,8 +103,8 @@ export default function LeadActionMenu({ lead, onEdit, onActivityLog, onFollowup
         <KebabIcon />
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full z-30 mt-1 min-w-[160px] rounded-xl border border-gray-100 bg-white shadow-lg ring-1 ring-black/5">
+      {open && pos && createPortal(
+        <div ref={menuRef} style={{ top: pos.top, right: pos.right }} className="fixed z-50 min-w-[160px] rounded-xl border border-gray-100 bg-white shadow-lg ring-1 ring-black/5">
           {confirming ? (
             /* Delete confirmation inline */
             <div className="p-3">
@@ -129,7 +150,8 @@ export default function LeadActionMenu({ lead, onEdit, onActivityLog, onFollowup
               </MenuItem>
             </ul>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

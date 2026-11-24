@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import { scheduleLeadTask } from "@/lib/api/interactions";
-import { useActivityTypes } from "@/components/followups/useActivityTypes";
+import { useEnumOptions } from "@/hooks/useEnumOptions";
 import { listAllEmployees } from "@/lib/api/employees";
 
 type StaffMember = { id: number; name: string };
@@ -33,7 +33,7 @@ function todayIso(): string {
 
 export default function LeadFollowupModal({ leadId, leadName, onSaved, onCancel }: Props) {
   const { token, user } = useAuth();
-  const { types: activityTypes, loaded: typesLoaded } = useActivityTypes();
+  const { options: activityTypes, isLoaded: typesLoaded } = useEnumOptions("activity_type");
 
   // Staff list — admins/managers see everyone; others only see themselves.
   const [staff, setStaff] = useState<StaffMember[]>([]);

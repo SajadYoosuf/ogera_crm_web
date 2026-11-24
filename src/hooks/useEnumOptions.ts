@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { listEnum, type EnumCategory, type EnumValue } from "@/lib/api/settings";
+import { useAuth } from "@/context/AuthContext";
 
 const STALE_MS = 5 * 60 * 1000;
 
@@ -37,12 +38,12 @@ const subscribe = (listener: () => void) => { listeners.add(listener); return ()
  * `fallback` shows until the first answer (or if the request fails), so a form is never empty.
  */
 export function useEnumOptions(category: EnumCategory, fallback: EnumValue[] = []) {
+  const { token } = useAuth();
   const entry = useSyncExternalStore(subscribe, () => cache.get(category), () => undefined);
 
   useEffect(() => {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (token) load(category, token);
-  }, [category]);
+  }, [category, token]);
 
   // An empty answer (every option hidden, or a bad response) keeps the fallback so a dropdown is never blank.
   const items = entry && entry.items.length > 0 ? entry.items : fallback;

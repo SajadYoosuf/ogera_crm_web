@@ -14,7 +14,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import { logLeadActivity } from "@/lib/api/interactions";
-import { useActivityTypes } from "@/components/followups/useActivityTypes";
+import { useEnumOptions } from "@/hooks/useEnumOptions";
 
 type Props = {
   leadId: number;
@@ -25,7 +25,7 @@ type Props = {
 
 export default function LeadActivityLogModal({ leadId, leadName, onSaved, onCancel }: Props) {
   const { token } = useAuth();
-  const { types: activityTypes, loaded: typesLoaded } = useActivityTypes();
+  const { options: activityTypes, isLoaded: typesLoaded } = useEnumOptions("activity_type");
 
   const [activityType, setActivityType] = useState("phone_call");
   const [customLabel, setCustomLabel] = useState("");

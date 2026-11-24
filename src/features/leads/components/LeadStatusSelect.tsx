@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePopoverFit } from "@/hooks/usePopoverFit";
 import { statusBadgeClass, statusDotClass } from "./LeadStatusPill";
-import type { LeadStatus, LeadStatusOption } from "@/lib/api/leads-module";
+import type { LeadStatus, LeadStatusOption } from "@/features/leads/api/leads";
 
 type Props = {
   status: LeadStatus;
@@ -23,9 +23,11 @@ type Props = {
   isUpdating: boolean;
   justUpdated: boolean;
   label: string;
+  /** True for converted leads: show the status as plain text, no popup. */
+  locked?: boolean;
 };
 
-export default function LeadStatusSelect({ status, statuses, onChange, isUpdating, justUpdated, label }: Props) {
+export default function LeadStatusSelect({ status, statuses, onChange, isUpdating, justUpdated, label, locked = false }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const listStyle = usePopoverFit(open, rootRef, 180);
@@ -58,6 +60,18 @@ export default function LeadStatusSelect({ status, statuses, onChange, isUpdatin
       <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
         <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>
         Saved
+      </span>
+    );
+  }
+
+  if (locked) {
+    // Converted leads: plain pill, no popup, so the status cannot be changed here.
+    return (
+      <span
+        title="Converted leads can't change status"
+        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${statusBadgeClass(status)}`}
+      >
+        {options.find((s) => s.value === status)?.label ?? status}
       </span>
     );
   }

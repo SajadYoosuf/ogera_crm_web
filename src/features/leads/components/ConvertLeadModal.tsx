@@ -4,7 +4,8 @@
  * ConvertLeadModal — 2-step modal to convert a lead into a Contact.
  *
  * Step 1: choose contact type (Consumer / Partner), fill partner_type if Partner,
- *         and optionally fill missing fields (name, phone, address, district).
+ *         and fill only the fields the lead does not already have (name, phone, address required;
+ *         district optional).
  * Step 2: summary → "Convert" button.
  * Success: redirect prompt.
  */
@@ -22,8 +23,9 @@ type Props = { converter: ReturnType<typeof useLeadConvert> };
 
 export default function ConvertLeadModal({ converter }: Props) {
   const {
-    isOpen, step, form, updateForm,
+    isOpen, step, lead, form, updateForm,
     isConverting, convertError, result,
+    partnerTypes, partnerTypesStatus, reloadPartnerTypes,
     closeModal, nextStep, prevStep, confirm,
   } = converter;
   const router = useRouter();
@@ -44,7 +46,7 @@ export default function ConvertLeadModal({ converter }: Props) {
             {result.created ? "A new contact was created." : "Linked to an existing contact."}
           </p>
           <div className="mt-5 flex gap-3">
-            <button onClick={() => router.push("/contacts")}
+            <button onClick={() => router.push("/dashboard/contacts")}
               className="flex-1 rounded-xl bg-teal-600 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 transition-colors">
               Go to Contacts
             </button>
@@ -136,51 +138,71 @@ export default function ConvertLeadModal({ converter }: Props) {
           {/* Partner type */}
           {form.contact_type === "partner" && (
             <Field label="Partner type *">
+              {partnerTypesStatus === "loading" && (
+                <p className="text-sm text-gray-500">Loading partner types…</p>
+              )}
+              {partnerTypesStatus === "error" && (
+                <p className="text-sm text-red-600">
+                  Could not load partner types.{" "}
+                  <button type="button" onClick={reloadPartnerTypes} className="font-medium underline">Retry</button>
+                </p>
+              )}
+              {partnerTypesStatus === "ready" && partnerTypes.length === 0 && (
+                <p className="text-sm text-gray-500">No partner types are set up yet. Ask an admin to add them in Settings.</p>
+              )}
+              {partnerTypesStatus === "ready" && partnerTypes.length > 0 && (
+                <select
+                  aria-label="Partner type"
+                  value={form.partner_type}
+                  onChange={(e) => updateForm({ partner_type: e.target.value })}
+                  className={inputCls}
+                >
+                  <option value="">— select partner type —</option>
+                  {partnerTypes.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              )}
+            </Field>
+          )}
+
+          {!lead?.first_name && !lead?.last_name && (
+            <Field label="Name *">
               <input
                 type="text"
-                placeholder="e.g. Plumber, Builder, Contractor"
-                value={form.partner_type}
-                onChange={(e) => updateForm({ partner_type: e.target.value })}
+                placeholder="Full name"
+                value={form.name}
+                onChange={(e) => updateForm({ name: e.target.value })}
                 className={inputCls}
               />
             </Field>
           )}
 
-          {/* Name */}
-          <Field label={`Name${!form.name ? " *" : ""}`}>
-            <input
-              type="text"
-              placeholder="Full name"
-              value={form.name}
-              onChange={(e) => updateForm({ name: e.target.value })}
-              className={inputCls}
-            />
-          </Field>
+          {!lead?.phone && (
+            <Field label="Phone *">
+              <input
+                type="tel"
+                placeholder="+91XXXXXXXXXX"
+                value={form.phone}
+                onChange={(e) => updateForm({ phone: e.target.value })}
+                className={inputCls}
+              />
+            </Field>
+          )}
 
-          {/* Phone */}
-          <Field label={`Phone${!form.phone ? " *" : ""}`}>
-            <input
-              type="tel"
-              placeholder="+91XXXXXXXXXX"
-              value={form.phone}
-              onChange={(e) => updateForm({ phone: e.target.value })}
-              className={inputCls}
-            />
-          </Field>
+          {!lead?.address && (
+            <Field label="Address *">
+              <input
+                type="text"
+                placeholder="Street / locality"
+                value={form.address}
+                onChange={(e) => updateForm({ address: e.target.value })}
+                className={inputCls}
+              />
+            </Field>
+          )}
 
-          {/* Address */}
-          <Field label="Address">
-            <input
-              type="text"
-              placeholder="Street / locality"
-              value={form.address}
-              onChange={(e) => updateForm({ address: e.target.value })}
-              className={inputCls}
-            />
-          </Field>
-
-          {/* District */}
-          <Field label="District">
+          <Field label="District (optional)">
             <select
               value={form.district}
               onChange={(e) => updateForm({ district: e.target.value })}

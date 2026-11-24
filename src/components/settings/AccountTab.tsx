@@ -10,17 +10,6 @@ const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d).{6,15}$/;
 
 type Notice = { text: string; tone: "ok" | "error" };
 
-/** Keeps the name shown in the session in step after a save. A storage failure never blocks the save. */
-function rememberProfile(profile: MyProfile) {
-  try {
-    const raw = sessionStorage.getItem("ogera_user");
-    const current = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-    sessionStorage.setItem("ogera_user", JSON.stringify({ ...current, name: profile.name, email: profile.email }));
-  } catch {
-    // Private windows can block storage; the server already has the new details.
-  }
-}
-
 /** 0 to 3, for the strength bar. Length and a mix of character kinds count; the rule above decides validity. */
 function strengthOf(password: string) {
   let score = 0;
@@ -35,7 +24,7 @@ const STRENGTH_COLOR = ["#C2410C", "#B45309", "#17703F", "#17703F"] as const;
 const labelClass = "text-xs font-semibold text-[#4B5060]";
 
 export default function AccountTab({ profile, onSaved }: { profile: MyProfile; onSaved?: (next: MyProfile) => void }) {
-  const { token } = useAuth();
+  const { token, user, setSession } = useAuth();
   const [name, setName] = useState(profile.name);
   const [email, setEmail] = useState(profile.email);
   const [emailEditing, setEmailEditing] = useState(false);
@@ -75,7 +64,7 @@ export default function AccountTab({ profile, onSaved }: { profile: MyProfile; o
       if (nameTrim !== profile.name) patch.name = nameTrim;
       if (emailChanged) { patch.email = emailTrim; patch.current_password = emailPassword; }
       const saved = await updateMe(token, patch);
-      rememberProfile(saved);
+      if (token && user) setSession(token, { ...user, name: saved.name, email: saved.email });
       onSaved?.(saved);
       setName(saved.name); setEmail(saved.email);
       setEmailEditing(false); setEmailPassword("");

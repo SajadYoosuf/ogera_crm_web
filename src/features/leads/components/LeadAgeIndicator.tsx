@@ -8,7 +8,7 @@
  *   otherwise  → no highlight
  */
 
-import type { LeadStatus } from "@/lib/api/leads-module";
+import type { LeadStatus } from "@/features/leads/api/leads";
 
 function ageLabel(createdAt: string): string {
   const ageMs = Date.now() - new Date(createdAt).getTime();

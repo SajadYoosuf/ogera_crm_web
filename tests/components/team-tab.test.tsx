@@ -10,6 +10,9 @@ vi.mock("@/lib/api/employees", async (importOriginal) => {
   return { ...actual, listAllEmployees: vi.fn(), updateEmployee: vi.fn() };
 });
 vi.mock("@/lib/api/settings", () => ({ listRoles: vi.fn() }));
+vi.mock("@/context/AuthContext", () => ({
+  useAuth: () => ({ token: sessionStorage.getItem("ogera_access_token"), user: null, setSession: vi.fn(), clearSession: vi.fn() }),
+}));
 
 const person = (overrides: Partial<Employee>): Employee => ({
   id: 1, name: "Asha", email: "asha@example.com", role: "sales_executive", is_active: true,

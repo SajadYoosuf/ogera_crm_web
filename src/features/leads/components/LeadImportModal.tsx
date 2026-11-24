@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
-import { listEmployees, type Employee } from "@/lib/api/employees";
 import {
   analyzeLeadImport, commitLeadImport, downloadLeadImportTemplate, problemRowsCsv,
-  type AssignMode, type ImportOptions, type ImportReport, type ImportResult, type UploadProgress,
+  type ImportOptions, type ImportReport, type ImportResult, type UploadProgress,
 } from "@/features/leads/api/leadsIo";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -26,11 +25,10 @@ const STEP_LABELS = { 1: "Step 1 of 3 — Choose a file", 2: "Step 2 of 3 — Ma
 const messageOf = (error: unknown) => (error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
 const formatSize = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
-type Rules = { mapping?: Record<number, string>; sourceId: string; assignMode: AssignMode; assignedTo: string };
-const DEFAULT_RULES: Rules = { sourceId: "", assignMode: "unassigned", assignedTo: "" };
+type Rules = { mapping?: Record<number, string>; sourceId: string };
+const DEFAULT_RULES: Rules = { sourceId: "" };
 const toOptions = (rules: Rules): ImportOptions => ({
   mapping: rules.mapping, defaultSourceId: rules.sourceId ? Number(rules.sourceId) : undefined,
-  assignMode: rules.assignMode, assignedTo: rules.assignedTo ? Number(rules.assignedTo) : undefined,
 });
 
 /**
@@ -45,18 +43,12 @@ export default function LeadImportModal({ leadSources, onClose, onImported }: { 
   const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
   const [rules, setRules] = useState<Rules>(DEFAULT_RULES);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [isChecking, setIsChecking] = useState(false);
   const [upload, setUpload] = useState<UploadProgress | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<ImportResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!token) return;
-    listEmployees(token, { is_active: true, limit: 100 }).then((list) => setEmployees(list.items)).catch(() => setEmployees([]));
-  }, []);
 
   const latestCheck = useRef(0);
   const checkController = useRef<AbortController | null>(null);
@@ -137,8 +129,7 @@ export default function LeadImportModal({ leadSources, onClose, onImported }: { 
   const total = report?.summary.total ?? 0;
   const importable = report ? report.summary.ready + report.summary.warning : 0;
   const canContinue = !!report && !isChecking && !isImporting;
-  const canImport = canContinue && report.missing_required.length === 0 && importable > 0
-    && (rules.assignMode !== "specific" || !!rules.assignedTo);
+  const canImport = canContinue && report.missing_required.length === 0 && importable > 0;
 
   const runImport = async () => {
     if (!file || !report || !token) return;
@@ -296,21 +287,6 @@ export default function LeadImportModal({ leadSources, onClose, onImported }: { 
                     {leadSources.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                   </select>
                 </label>
-                <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#3A3E4A]">Assign imported leads to
-                  <select value={rules.assignMode} onChange={(event) => changeRules({ assignMode: event.target.value as AssignMode })} className={SELECT_CLASS}>
-                    <option value="unassigned">Leave unassigned</option>
-                    <option value="auto">Assign automatically (least-loaded staff)</option>
-                    <option value="specific">One employee for this whole file</option>
-                  </select>
-                </label>
-                {rules.assignMode === "specific" && (
-                  <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#3A3E4A] sm:col-span-2">Employee
-                    <select value={rules.assignedTo} onChange={(event) => changeRules({ assignedTo: event.target.value })} className={SELECT_CLASS}>
-                      <option value="">Choose an employee</option>
-                      {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
-                    </select>
-                  </label>
-                )}
                 {report.summary.duplicate > 0 && (
                   <p className="sm:col-span-2 rounded-[7px] bg-[#EEF4FF] px-2.5 py-2 text-[12px] font-normal leading-relaxed text-[#1D5BBF]">
                     {report.summary.duplicate} row{report.summary.duplicate === 1 ? "" : "s"} already {report.summary.duplicate === 1 ? "has" : "have"} this phone number in the CRM and will be skipped automatically — nothing existing is changed.

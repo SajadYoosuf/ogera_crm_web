@@ -67,11 +67,7 @@ export type PartnerTypeOption = { value: string; label: string };
 
 /** GET /contacts/partner-types — partner type options from contact_field_definitions. */
 export async function listPartnerTypes(accessToken: string): Promise<PartnerTypeOption[]> {
-  try {
-    return await request<PartnerTypeOption[]>("/contacts/partner-types", { headers: { Authorization: `Bearer ${accessToken}` } });
-  } catch {
-    return [];
-  }
+  return request<PartnerTypeOption[]>("/contacts/partner-types", { headers: { Authorization: `Bearer ${accessToken}` } });
 }
 
 export type LeadSource = { id: number; name: string; slug: string };

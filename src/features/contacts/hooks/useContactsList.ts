@@ -5,9 +5,11 @@ import { ApiError } from "@/lib/api/auth";
 import { trace } from "@/lib/api/devlog";
 import { getContactTypeCounts, listContacts, type ApiContactType, type ContactSort } from "@/features/contacts/api/contacts";
 import { NO_FILTERS, PAGE_SIZE, fromApi, type Contact, type Filters } from "@/features/contacts/utils";
+import { useAuth } from "@/context/AuthContext";
 
 /** The contacts list: paging, search-as-you-type and filters, loaded from the API. */
 export function useContactsList() {
+  const { token } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -23,12 +25,11 @@ export function useContactsList() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const loadContacts = useCallback(async () => {
-    const accessToken = sessionStorage.getItem("ogera_access_token");
-    trace("log", "[contacts page] load triggered", { page, filters, search: submittedSearch, hasToken: !!accessToken });
-    if (!accessToken) { setContacts([]); setTotal(0); setError("Sign in to load your contacts."); setIsLoading(false); return; }
+    trace("log", "[contacts page] load triggered", { page, filters, search: submittedSearch, hasToken: !!token });
+    if (!token) { setContacts([]); setTotal(0); setError("Sign in to load your contacts."); setIsLoading(false); return; }
     setIsLoading(true); setError("");
     try {
-      const result = await listContacts(accessToken, { skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE, sort, contact_type: (filters.type || undefined) as ApiContactType | undefined,
+      const result = await listContacts(token, { skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE, sort, contact_type: (filters.type || undefined) as ApiContactType | undefined,
         partner_type: filters.type === "partner" ? filters.partnerType || undefined : undefined,
         lead_source_id: filters.source ? Number(filters.source) : undefined,
         district: filters.district || undefined,
@@ -39,12 +40,12 @@ export function useContactsList() {
       });
       setContacts(result.items.map(fromApi)); setTotal(result.total);
       // A failed count keeps the last numbers; it must not hide the list.
-      getContactTypeCounts(accessToken).then((counts) => setTypeCounts({ "": counts.all, consumer: counts.consumer, partner: counts.partner, dealer: counts.dealer ?? 0 })).catch(() => {});
+      getContactTypeCounts(token).then((counts) => setTypeCounts({ "": counts.all, consumer: counts.consumer, partner: counts.partner, dealer: counts.dealer ?? 0 })).catch(() => {});
     } catch (caught) {
       setContacts([]); setTotal(0);
       setError(caught instanceof ApiError ? caught.message : "Contacts could not be loaded. Please try again.");
     } finally { setIsLoading(false); }
-  }, [page, filters, submittedSearch, sort]);
+  }, [page, filters, submittedSearch, sort, token]);
 
   useEffect(() => { const timer = window.setTimeout(() => { void loadContacts(); }, 0); return () => window.clearTimeout(timer); }, [loadContacts]);
 

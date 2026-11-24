@@ -8,6 +8,14 @@ vi.mock("@/lib/api/settings", () => ({
   changePassword: vi.fn(),
   updateMe: vi.fn(),
 }));
+vi.mock("@/context/AuthContext", () => ({
+  useAuth: () => ({
+    token: sessionStorage.getItem("ogera_access_token"),
+    user: { id: 7, name: "Sam Sales", email: "sam@example.com", role: "sales_executive", phone: null, company: { id: 1, name: "Test Co", logo_url: null, status: "active" } },
+    setSession: vi.fn(),
+    clearSession: vi.fn(),
+  }),
+}));
 
 const profile = { id: 7, name: "Sam Sales", email: "sam@example.com", role: "sales_executive" };
 

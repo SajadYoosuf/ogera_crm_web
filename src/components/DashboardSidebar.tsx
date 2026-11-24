@@ -29,7 +29,7 @@ const menuItems: MenuItem[] = [
   {
     id: "contacts",
     label: "Contacts",
-    href: "/contacts",
+    href: "/dashboard/contacts",
     category: "MAIN",
     icon: (
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6" />
@@ -38,55 +38,10 @@ const menuItems: MenuItem[] = [
   {
     id: "leads",
     label: "Leads",
-    href: "/leads",
+    href: "/dashboard/leads",
     category: "MAIN",
     icon: (
       <path d="M5 12h14M12 5l7 7-7 7" />
-    ),
-  },
-  {
-    id: "field-map",
-    label: "Field Map",
-    href: "/dashboard/map",
-    category: "MAIN",
-    icon: (
-      <path d="M12 21s-7-6.2-7-11.5a7 7 0 1 1 14 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" />
-    ),
-  },
-  {
-    id: "followups",
-    label: "Lead Pipeline",
-    href: "/dashboard/followups",
-    category: "MAIN",
-    icon: (
-      <path d="M4 4h5v16H4zM15 4h5v10h-5z" />
-    ),
-  },
-  {
-    id: "tasks",
-    label: "Tasks",
-    href: "/dashboard/tasks",
-    category: "MAIN",
-    icon: (
-      <path d="M8 2v4M16 2v4M3 8h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 15l2 2 4-4" />
-    ),
-  },
-  {
-    id: "sales",
-    label: "Sales",
-    href: "/dashboard/sales",
-    category: "MAIN",
-    icon: (
-      <path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" />
-    ),
-  },
-  {
-    id: "products",
-    label: "Products",
-    href: "/dashboard/products",
-    category: "MAIN",
-    icon: (
-      <path d="M7 3h10v4a2 2 0 0 1-1 1.7V20a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V8.7A2 2 0 0 1 7 7z" />
     ),
   },
   {
@@ -96,15 +51,6 @@ const menuItems: MenuItem[] = [
     category: "ADMIN",
     icon: (
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
-    ),
-  },
-  {
-    id: "expenses",
-    label: "Expenses",
-    href: "/dashboard/expenses",
-    category: "ADMIN",
-    icon: (
-      <path d="M2 7h20v12H2zM2 11h20M6 15h4M16 3l-2 4M8 3l2 4" />
     ),
   },
 

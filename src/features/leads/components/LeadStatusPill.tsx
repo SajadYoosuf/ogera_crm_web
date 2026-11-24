@@ -10,7 +10,7 @@
  * DB) falls back to a neutral grey instead of crashing.
  */
 
-import type { LeadStatus } from "@/lib/api/leads-module";
+import type { LeadStatus } from "@/features/leads/api/leads";
 
 /** badge background + text classes, keyed by status slug */
 export const STATUS_BADGE_COLOR: Record<string, string> = {

@@ -20,12 +20,14 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { useLeadsList, type LeadFilters } from "@/features/leads/hooks/useLeadsList";
 import { useLeadConvert } from "@/features/leads/hooks/useLeadConvert";
 import LeadModal from "@/features/leads/components/LeadModal";
 import ConvertLeadModal from "@/features/leads/components/ConvertLeadModal";
 import LeadScoreBar from "@/features/leads/components/LeadScoreBar";
 import LeadStatusSelect from "@/features/leads/components/LeadStatusSelect";
+import { isLeadConverted } from "@/features/leads/api/leads";
 import BulkAssignModal from "@/features/leads/components/BulkAssignModal";
 import LeadsFilterMenu from "@/features/leads/components/LeadsFilterMenu";
 import LeadsMoreMenu from "@/features/leads/components/LeadsMoreMenu";
@@ -34,7 +36,7 @@ import LeadExportModal from "@/features/leads/components/LeadExportModal";
 import FilterSelect from "@/components/FilterSelect";
 import DateRangePicker from "@/components/DateRangePicker";
 import type { FilterGroup } from "@/components/FilterPanel";
-import { updateLead, deleteLead, listLeadStatuses, type LeadStatus, type LeadStatusOption } from "@/lib/api/leads-module";
+import { updateLead, deleteLead, listLeadStatuses, type LeadStatus, type LeadStatusOption } from "@/features/leads/api/leads";
 import LeadActionMenu from "@/features/leads/components/LeadActionMenu";
 import LeadActivityLogModal from "@/features/leads/components/LeadActivityLogModal";
 import LeadFollowupModal from "@/features/leads/components/LeadFollowupModal";
@@ -150,6 +152,7 @@ function EmptyState({ hasFilters, onClear, onCreate }: { hasFilters: boolean; on
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function LeadsView() {
+  const { token } = useAuth();
   const list = useLeadsList();
   const [openLeadId, setOpenLeadId] = useState<number | null>(null);
   const [detailLeadId, setDetailLeadId] = useState<number | null>(null);
@@ -181,13 +184,12 @@ export default function LeadsView() {
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   useEffect(() => {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
     listEmployees(token, { is_active: true, limit: 100 }).then((res) => setEmployees(res.items)).catch(() => {});
     listLeadStatuses(token).then(setStatuses).catch(() => {});
     listBranches(token).then(setBranches).catch(() => {});
     listLeadSources(token).then(setLeadSources).catch(() => {});
-  }, []);
+  }, [token]);
 
   // Source / Status / Assigned, grouped for the single "Filter" button (LeadsFilterMenu)
   // instead of three separate dropdowns competing for space in the toolbar row.
@@ -213,7 +215,6 @@ export default function LeadsView() {
 
   /** Called when the user changes the status dropdown inline in a table row. */
   async function handleStatusChange(leadId: number, newStatus: LeadStatus) {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
     setUpdatingStatusId(leadId);
     try {
@@ -231,7 +232,6 @@ export default function LeadsView() {
 
   /** Called when the user changes the assignee dropdown inline in a table row. */
   async function handleAssignChange(leadId: number, value: string) {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
     const assigned_to = value ? Number(value) : null;
     setUpdatingAssigneeId(leadId);
@@ -246,7 +246,6 @@ export default function LeadsView() {
   }
 
   async function handleDeleteLead(leadId: number) {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
     try {
       await deleteLead(token, leadId);
@@ -403,6 +402,7 @@ export default function LeadsView() {
                                 isUpdating={updatingStatusId === lead.id}
                                 justUpdated={justUpdatedStatusId === lead.id}
                                 label={lead.first_name ?? `lead ${lead.id}`}
+                                locked={isLeadConverted(lead)}
                               />
                             </td>
 
@@ -475,9 +475,8 @@ export default function LeadsView() {
         branches={branches}
         leadSources={leadSources}
         onClose={() => setDetailLeadId(null)}
-        onConverted={(id) => { setDetailLeadId(null); converter.openModal(id); }}
-        onDeleted={() => { setDetailLeadId(null); void list.loadLeads(); }}
-        onSaved={() => { void list.loadLeads(); }}
+        onConverted={(lead) => { setDetailLeadId(null); converter.openModal(lead.id, lead); }}
+        onChanged={() => { void list.loadLeads(); }}
       />
 
       {/* Edit-only modal — opened via "Edit" in the kebab menu or "New Lead" */}
@@ -488,7 +487,7 @@ export default function LeadsView() {
         branches={branches}
         leadSources={leadSources}
         onClose={() => { setOpenLeadId(null); setIsCreateOpen(false); }}
-        onConverted={(id) => { setOpenLeadId(null); setIsCreateOpen(false); converter.openModal(id); }}
+        onConverted={(lead) => { setOpenLeadId(null); setIsCreateOpen(false); converter.openModal(lead.id, lead); }}
         onDeleted={() => { void list.loadLeads(); }}
         onSaved={() => { void list.loadLeads(); }}
       />

@@ -9,7 +9,8 @@
 
 import { useState } from "react";
 import { ApiError } from "@/lib/api/auth";
-import { sendLeadWhatsApp } from "@/lib/api/leads-module";
+import { useAuth } from "@/context/AuthContext";
+import { sendLeadWhatsApp } from "@/features/leads/api/leads";
 
 type Props = {
   leadId: number;
@@ -18,12 +19,12 @@ type Props = {
 };
 
 export default function WhatsAppButton({ leadId, alreadySent, onSent }: Props) {
+  const { token } = useAuth();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(alreadySent);
   const [error, setError] = useState("");
 
   async function handle() {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
     setSending(true);
     setError("");

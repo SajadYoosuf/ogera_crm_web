@@ -11,11 +11,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/auth";
+import { useAuth } from "@/context/AuthContext";
 import {
   listLeads,
   type LeadListItem,
   type LeadStatus,
-} from "@/lib/api/leads-module";
+} from "@/features/leads/api/leads";
 
 export const PAGE_SIZE = 20;
 
@@ -31,6 +32,7 @@ export type LeadFilters = {
 export const NO_FILTERS: LeadFilters = { status: "", source_id: "", assigned_to: "", date_from: "", date_to: "" };
 
 export function useLeadsList() {
+  const { token } = useAuth();
   const [leads, setLeads] = useState<LeadListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -44,7 +46,6 @@ export function useLeadsList() {
   const hasFilters = Object.values(filters).some(Boolean);
 
   const loadLeads = useCallback(async () => {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) {
       setLeads([]);
       setTotal(0);
@@ -74,7 +75,7 @@ export function useLeadsList() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, filters, submittedSearch]);
+  }, [page, filters, submittedSearch, token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadLeads(); }, 0);

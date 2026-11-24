@@ -16,11 +16,11 @@
  *   the manager types (e.g. "Site measurement", "Demo visit").
  *
  * USAGE:
- *   Always pass the JWT token from sessionStorage as the first argument.
+ *   Always pass the JWT token from useAuth().token as the first argument.
  *   Every function throws ApiError on failure — catch it at the call site.
  */
 
-import { request } from "@/lib/api/auth";
+import { apiCall } from "@/lib/api/auth";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,106 +91,42 @@ export type ScheduleTaskInput = {
 /** Body for PATCH /interactions/{id} */
 export type UpdateTaskInput =
   | { status: "completed"; outcome: InteractionOutcome; notes?: string }
-  | { status: "todo" | "inprogress" }
-  | { due_at: string };  // reschedule
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function authHeaders(token: string): HeadersInit {
-  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
-}
+  | { status: "todo" | "inprogress" };
 
 // ── Lead interactions ─────────────────────────────────────────────────────────
 
 /** POST /leads/{id}/interactions/log — log a past activity on a lead. */
-export function logLeadActivity(
-  token: string,
-  leadId: number,
-  input: LogActivityInput,
-): Promise<Interaction> {
-  return request<Interaction>(`/leads/${leadId}/interactions/log`, {
-    method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify(input),
-  });
-}
+export const logLeadActivity = (token: string, leadId: number, input: LogActivityInput): Promise<Interaction> =>
+  apiCall<Interaction>(token, "POST", `/leads/${leadId}/interactions/log`, input);
 
 /** POST /leads/{id}/interactions/task — schedule a follow-up task on a lead. */
-export function scheduleLeadTask(
-  token: string,
-  leadId: number,
-  input: ScheduleTaskInput,
-): Promise<Interaction> {
-  return request<Interaction>(`/leads/${leadId}/interactions/task`, {
-    method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify(input),
-  });
-}
+export const scheduleLeadTask = (token: string, leadId: number, input: ScheduleTaskInput): Promise<Interaction> =>
+  apiCall<Interaction>(token, "POST", `/leads/${leadId}/interactions/task`, input);
 
 /** GET /leads/{id}/interactions — list all interactions for a lead. */
-export function listLeadInteractions(
-  token: string,
-  leadId: number,
-  kind?: InteractionKind,
-): Promise<Interaction[]> {
+export function listLeadInteractions(token: string, leadId: number, kind?: InteractionKind): Promise<Interaction[]> {
   const q = kind ? `?kind=${kind}` : "";
-  return request<Interaction[]>(`/leads/${leadId}/interactions${q}`, {
-    headers: authHeaders(token),
-  });
+  return apiCall<Interaction[]>(token, "GET", `/leads/${leadId}/interactions${q}`);
 }
 
 // ── Contact interactions ──────────────────────────────────────────────────────
 
 /** POST /contacts/{id}/interactions/log — log a past activity on a contact. */
-export function logContactActivity(
-  token: string,
-  contactId: number,
-  input: LogActivityInput,
-): Promise<Interaction> {
-  return request<Interaction>(`/contacts/${contactId}/interactions/log`, {
-    method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify(input),
-  });
-}
+export const logContactActivity = (token: string, contactId: number, input: LogActivityInput): Promise<Interaction> =>
+  apiCall<Interaction>(token, "POST", `/contacts/${contactId}/interactions/log`, input);
 
 /** POST /contacts/{id}/interactions/task — schedule a follow-up task on a contact. */
-export function scheduleContactTask(
-  token: string,
-  contactId: number,
-  input: ScheduleTaskInput,
-): Promise<Interaction> {
-  return request<Interaction>(`/contacts/${contactId}/interactions/task`, {
-    method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify(input),
-  });
-}
+export const scheduleContactTask = (token: string, contactId: number, input: ScheduleTaskInput): Promise<Interaction> =>
+  apiCall<Interaction>(token, "POST", `/contacts/${contactId}/interactions/task`, input);
 
 /** GET /contacts/{id}/interactions — list all interactions for a contact. */
-export function listContactInteractions(
-  token: string,
-  contactId: number,
-  kind?: InteractionKind,
-): Promise<Interaction[]> {
+export function listContactInteractions(token: string, contactId: number, kind?: InteractionKind): Promise<Interaction[]> {
   const q = kind ? `?kind=${kind}` : "";
-  return request<Interaction[]>(`/contacts/${contactId}/interactions${q}`, {
-    headers: authHeaders(token),
-  });
+  return apiCall<Interaction[]>(token, "GET", `/contacts/${contactId}/interactions${q}`);
 }
 
 // ── Task update ───────────────────────────────────────────────────────────────
 
-/** PATCH /interactions/{id} — update a task (status, reschedule, or complete). */
-export function updateInteraction(
-  token: string,
-  interactionId: number,
-  input: UpdateTaskInput,
-): Promise<Interaction> {
-  return request<Interaction>(`/interactions/${interactionId}`, {
-    method: "PATCH",
-    headers: authHeaders(token),
-    body: JSON.stringify(input),
-  });
-}
+/** PATCH /interactions/{id} — update a task (status or complete). */
+export const updateInteraction = (token: string, interactionId: number, input: UpdateTaskInput): Promise<Interaction> =>
+  apiCall<Interaction>(token, "PATCH", `/interactions/${interactionId}`, input);

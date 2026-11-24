@@ -19,7 +19,8 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { getLeadStats, bulkAssignLeads, type BulkAssignRule } from "@/lib/api/leads-module";
+import { useAuth } from "@/context/AuthContext";
+import { getLeadStats, bulkAssignLeads, type BulkAssignRule } from "@/features/leads/api/leads";
 import { listEmployees, type Employee } from "@/lib/api/employees";
 import type { LeadSource } from "@/features/contacts/api/contacts";
 
@@ -43,6 +44,7 @@ type Props = {
 };
 
 export default function BulkAssignModal({ isOpen, leadSources, onClose, onDone }: Props) {
+  const { token } = useAuth();
   const sourceOptions: { value: number | null; label: string }[] = [
     { value: null, label: "Any source" },
     ...leadSources.map((s) => ({ value: s.id, label: s.name })),
@@ -71,7 +73,6 @@ export default function BulkAssignModal({ isOpen, leadSources, onClose, onDone }
 
   // ── Load data when modal opens ────────────────────────────────────────────────
   const loadData = useCallback(async () => {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
     setIsLoading(true);
     setLoadError("");
@@ -89,7 +90,7 @@ export default function BulkAssignModal({ isOpen, leadSources, onClose, onDone }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (isOpen) {
@@ -154,8 +155,6 @@ export default function BulkAssignModal({ isOpen, leadSources, onClose, onDone }
       }
     }
     if (allRules.length === 0) return;
-
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
 
     setIsSubmitting(true);

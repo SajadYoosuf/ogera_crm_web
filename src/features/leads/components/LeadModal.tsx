@@ -13,7 +13,8 @@
 
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/auth";
-import { getLead, deleteLead, type Lead, type LeadStatusOption } from "@/lib/api/leads-module";
+import { useAuth } from "@/context/AuthContext";
+import { getLead, deleteLead, isLeadConverted, type Lead, type LeadStatusOption } from "@/features/leads/api/leads";
 import type { BranchOption, LeadSource } from "@/features/contacts/api/contacts";
 import LeadStatusPill from "./LeadStatusPill";
 import LeadScoreBar from "./LeadScoreBar";
@@ -30,7 +31,7 @@ type Props = {
   branches: BranchOption[];
   leadSources: LeadSource[];
   onClose: () => void;
-  onConverted: (leadId: number) => void;
+  onConverted: (lead: Lead) => void;
   onDeleted: () => void;
   onSaved: () => void;
 };
@@ -42,6 +43,7 @@ export default function LeadModal(props: Props) {
 }
 
 function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onConverted, onDeleted, onSaved }: Props) {
+  const { token } = useAuth();
   const isEdit = leadId !== null;
   const [lead, setLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(isEdit);
@@ -57,7 +59,6 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
 
   useEffect(() => {
     if (leadId === null) return;
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
     let cancelled = false;
     getLead(token, leadId)
@@ -73,7 +74,6 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
   }, [leadId]);
 
   async function refreshLead() {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token || leadId === null) return;
     try {
       setLead(await getLead(token, leadId));
@@ -84,7 +84,6 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
 
   async function handleDeleteConfirmed() {
     if (!lead) return;
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) return;
     setIsDeleting(true);
     try {
@@ -175,9 +174,9 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
             <div>
               {isEdit && lead && (
                 <div className="flex items-center gap-2">
-                  {lead.status !== "converted" && lead.status !== "lost_lead" && (
+                  {!isLeadConverted(lead) && lead.status !== "lost_lead" && (
                     <button
-                      type="button" onClick={() => onConverted(lead.id)}
+                      type="button" onClick={() => onConverted(lead)}
                       className="h-10 rounded-[8px] bg-teal-50 px-4 text-[14px] font-semibold text-teal-700 transition-colors hover:bg-teal-100"
                     >
                       Convert

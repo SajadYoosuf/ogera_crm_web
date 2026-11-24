@@ -17,6 +17,14 @@ vi.mock("@/lib/api/employees", async (importOriginal) => {
     logEvent: vi.fn(),
   };
 });
+vi.mock("@/context/AuthContext", () => ({
+  useAuth: () => {
+    const token = sessionStorage.getItem("ogera_access_token");
+    const raw = sessionStorage.getItem("ogera_user");
+    const user = raw ? JSON.parse(raw) : null;
+    return { token, user, setSession: vi.fn(), clearSession: vi.fn() };
+  },
+}));
 
 // ─── import helpers under test ───────────────────────────────────────────────
 // The helpers are module-private in page.tsx, so we test them via their observable

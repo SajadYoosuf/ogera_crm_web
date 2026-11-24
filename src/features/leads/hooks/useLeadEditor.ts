@@ -13,13 +13,14 @@
 import { useState } from "react";
 import { validatePhone } from "@/components/PhoneField";
 import { ApiError } from "@/lib/api/auth";
+import { useAuth } from "@/context/AuthContext";
 import {
   createLead,
   updateLead,
   type Lead,
   type LeadCreate,
   type LeadStatus,
-} from "@/lib/api/leads-module";
+} from "@/features/leads/api/leads";
 
 export type LeadFormState = {
   first_name: string;
@@ -54,6 +55,7 @@ const BLANK: LeadFormState = {
 };
 
 export function useLeadEditor(onSuccess: () => void) {
+  const { token } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<LeadFormState>(BLANK);
@@ -99,7 +101,6 @@ export function useLeadEditor(onSuccess: () => void) {
   }
 
   async function submit() {
-    const token = sessionStorage.getItem("ogera_access_token");
     if (!token) { setSaveError("Not signed in."); return; }
 
     const phoneCheck = validatePhone(form.phone);
