@@ -35,6 +35,7 @@ Full token list with hex values and usage notes: `tokens.json`.
 - **Center modals** (Add Contact, New Task, New Activity Log, New Schedule Followup): dimmed `overlay-backdrop`, white card max-width ~520–560px, `radius-modal` (16px), `shadow-modal`, sticky footer with Cancel (secondary) + primary action right-aligned.
 - **Right drawers** (Lead Preview, Add Contact Drawer): same dimmed backdrop, panel flush right, max-width ~440–480px, `shadow-drawer`.
 - **Dropdown menus** (Stage/Assignee change): absolute panel below the trigger button, white, `border-strong`, `radius-lg`, `shadow-dropdown`; selected item gets `accent-green-tint-08` background + `text-heading` + bold.
+- **Native selects** (`<select>`, single-select): styled globally in `src/app/globals.css` (`@layer base`). Any `<select>` gets the same white field as `.crm-input`: `border-default` 1px, `radius-sm` (8px), 44px min height, `text-ink` 14px/500, a muted chevron on the right and the blue focus ring. Do not restyle a select per screen; only add Tailwind utilities for size or width. Multi-selects keep the browser default. For a themed popup list (filters, stage/assignee pickers), use `FilterSelect` instead.
 - **Empty states**: centered icon badge (52×52px, `radius-xl`, `surface-muted` background, `text-faint` icon) + bold `text-body` heading + `text-muted` subtext (max-width ~250px) — the triggering action button (e.g. "+ Log New Activity") stays visible above the empty state, never hidden by it.
 
 ## Components in this system
