@@ -52,12 +52,13 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("TasksView", () => {
-  it("shows tab counts and the Today list by default", async () => {
+  it("shows bucket counts and the Today list by default", async () => {
     render(<TasksView />);
     expect(await screen.findByText("Ravi Kumar")).toBeTruthy();
     expect(vi.mocked(listLeadTasks).mock.calls[0][1]).toMatchObject({ bucket: "today", assignedTo: null });
-    expect(screen.getByRole("tab", { name: /Overdue\s*3/ })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: /Today/ }).getAttribute("aria-selected")).toBe("true");
+    // Bucket dropdown shows live counts in the options
+    expect(screen.getByRole("option", { name: /Overdue \(3\)/ })).toBeTruthy();
+    expect((screen.getByLabelText("Task group") as HTMLSelectElement).value).toBe("today");
   });
 
   it("opens the overdue tab from ?tab= and marks late tasks in red", async () => {
@@ -68,16 +69,23 @@ describe("TasksView", () => {
     expect(vi.mocked(listLeadTasks).mock.calls[0][1]).toMatchObject({ bucket: "overdue" });
   });
 
-  it("switching tabs updates the URL", async () => {
+  it("changing the bucket dropdown updates the URL", async () => {
     render(<TasksView />);
     await screen.findByText("Ravi Kumar");
-    fireEvent.click(screen.getByRole("tab", { name: /Upcoming/ }));
+    fireEvent.change(screen.getByLabelText("Task group"), { target: { value: "upcoming" } });
     expect(nav.replace).toHaveBeenCalledWith("/dashboard/tasks?tab=upcoming", { scroll: false });
   });
 
-  it("clicking a card opens the lead", async () => {
+  it("clicking a row opens the task detail modal", async () => {
     render(<TasksView />);
     fireEvent.click(await screen.findByText("Ravi Kumar"));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+
+  it("View Lead button in action column navigates to the lead", async () => {
+    render(<TasksView />);
+    await screen.findByText("Ravi Kumar");
+    fireEvent.click(screen.getByRole("button", { name: "View Lead" }));
     expect(nav.push).toHaveBeenCalledWith("/dashboard/leads?lead=5");
   });
 
