@@ -107,19 +107,19 @@ export default function LeadActionMenu({ lead, onEdit, onActivityLog, onFollowup
         <div ref={menuRef} style={{ top: pos.top, right: pos.right }} className="fixed z-50 min-w-[160px] rounded-xl border border-gray-100 bg-white shadow-lg ring-1 ring-black/5">
           {confirming ? (
             /* Delete confirmation inline */
-            <div className="p-3">
+            <div className="w-56 p-3">
               <p className="mb-2 text-xs font-medium text-gray-700">Delete this lead?</p>
               <div className="flex gap-2">
                 <button
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="flex-1 rounded-lg bg-red-600 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  className="flex-1 whitespace-nowrap rounded-lg bg-red-600 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
                 >
                   {deleting ? "Deleting…" : "Yes, delete"}
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setConfirming(false); }}
-                  className="flex-1 rounded-lg border border-gray-200 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="flex-1 whitespace-nowrap rounded-lg border border-gray-200 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
