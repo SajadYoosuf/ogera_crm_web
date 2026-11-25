@@ -6,35 +6,50 @@
  * Fields: Type (tile selector), custom_label (when type='other'), Title (auto-fills from type),
  * Priority (high/medium/low), Due Date, Due Time (optional), Assigned To, Notes (optional).
  *
- * Staff list is fetched internally. Non-admin/manager users only see themselves.
+ * Quick presets (In 1 hour, Tomorrow morning, Next Monday…) fill the date and time from the
+ * times set in Settings → Follow-ups; a date without a time uses the default due time from there.
+ * `initial` pre-fills the form (used by "Schedule next follow-up?" after completing one).
+ *
+ * Staff list is fetched internally. Non-head users only see themselves, so the "Assigned To"
+ * dropdown is shown only to head roles (it is hidden for everyone else).
  * Uses POST /leads/{id}/interactions/task.
  */
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
-import { scheduleLeadTask } from "@/lib/api/interactions";
-import { useEnumOptions } from "@/hooks/useEnumOptions";
+import { ACTIVITY_TYPE_FALLBACK, localDateTimeToIso, scheduleLeadTask } from "@/lib/api/interactions";
+import { staticOptions, useEnumOptions } from "@/hooks/useEnumOptions";
 import { listAllEmployees } from "@/lib/api/employees";
-import { isHeadRole } from "@/lib/shared/roles";
+import { isLeadHead } from "@/lib/shared/roles";
+import { useFollowupSettings } from "@/features/settings/hooks/useFollowupSettings";
+import { duePresets, isPast, localDate } from "@/features/leads/followupPresets";
+
+const FALLBACK_TYPES = staticOptions(ACTIVITY_TYPE_FALLBACK);
 
 type StaffMember = { id: number; name: string };
+
+export type FollowupInitial = {
+  activityType?: string;
+  customLabel?: string;
+  date?: string;
+  time?: string;
+  notes?: string;
+};
 
 type Props = {
   leadId: number;
   leadName: string;
+  initial?: FollowupInitial;
   onSaved: () => void;
   onCancel: () => void;
 };
 
-/** Today's date in YYYY-MM-DD format, computed once per render. */
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-export default function LeadFollowupModal({ leadId, leadName, onSaved, onCancel }: Props) {
+export default function LeadFollowupModal({ leadId, leadName, initial, onSaved, onCancel }: Props) {
   const { token, user } = useAuth();
-  const { options: activityTypes, isLoaded: typesLoaded } = useEnumOptions("activity_type");
+  const { options: activityTypes } = useEnumOptions("activity_type", FALLBACK_TYPES);
+  const { settings } = useFollowupSettings();
+  const typesLoaded = true;
 
   // Staff list — admins/managers see everyone; others only see themselves.
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -42,7 +57,8 @@ export default function LeadFollowupModal({ leadId, leadName, onSaved, onCancel 
 
   useEffect(() => {
     if (!token || !user) return;
-    const isElevated = user.role === "admin" || user.role === "manager";
+    // Staff schedule follow-ups for themselves only (the backend refuses anyone else).
+    const isElevated = isLeadHead(user);
     if (!isElevated) {
       setStaff([{ id: user.id, name: user.name }]);
       setStaffLoaded(true);
@@ -62,18 +78,24 @@ export default function LeadFollowupModal({ leadId, leadName, onSaved, onCancel 
   }, [token, user]);
 
   // Form state
-  const [activityType, setActivityType] = useState("phone_call");
-  const [customLabel, setCustomLabel] = useState("");
-  const [title, setTitle] = useState("Phone Call");
+  const initialType = initial?.activityType ?? "phone_call";
+  const [activityType, setActivityType] = useState(initialType);
+  const [customLabel, setCustomLabel] = useState(initial?.customLabel ?? "");
+  const [title, setTitle] = useState(() =>
+    initialType === "other" && initial?.customLabel
+      ? initial.customLabel
+      : FALLBACK_TYPES.find((t) => t.value === initialType)?.label ?? initialType.replace(/_/g, " "));
   const [titleEdited, setTitleEdited] = useState(false);
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
+  const [date, setDate] = useState(initial?.date ?? "");
+  const [time, setTime] = useState(initial?.time ?? "");
   const [assigneeId, setAssigneeId] = useState<string>("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(initial?.notes ?? "");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const today = todayIso();
+  // Local date (toISOString would give the UTC date, a day behind before 05:30 IST).
+  const today = localDate(new Date());
+  const presets = duePresets(settings);
 
   // Default assignee to current user once staff loads
   useEffect(() => {
@@ -94,7 +116,10 @@ export default function LeadFollowupModal({ leadId, leadName, onSaved, onCancel 
   async function save() {
     // Validate
     if (!date) { setError("Choose a due date."); return; }
-    if (date < today) { setError("Due date cannot be in the past."); return; }
+    if (date < today || isPast({ date, time }, new Date(), settings.default_due_time)) {
+      setError("The due time is in the past. Choose a later time.");
+      return;
+    }
     if (activityType === "other" && !customLabel.trim()) {
       setError("Please name this custom activity type.");
       return;
@@ -102,9 +127,9 @@ export default function LeadFollowupModal({ leadId, leadName, onSaved, onCancel 
     if (!assigneeId) { setError("Choose who this task is assigned to."); return; }
     if (!token) { setError("Sign in again to continue."); return; }
 
-    // Combine date + optional time into an ISO 8601 datetime string.
-    // If no time is chosen, default to 09:00 so the backend has a full datetime.
-    const dueAt = `${date}T${time || "09:00"}:00`;
+    // Local date + optional time (default from Settings) as a UTC ISO string. Sending the
+    // naive "YYYY-MM-DDTHH:MM" would be read as UTC by the server — 5h30 late in IST.
+    const dueAt = localDateTimeToIso(date, time, settings.default_due_time);
 
     setIsSaving(true);
     setError("");
@@ -203,6 +228,25 @@ export default function LeadFollowupModal({ leadId, leadName, onSaved, onCancel 
             </div>
           </div>
 
+          {/* Quick presets */}
+          <div>
+            <span className="mb-2 block text-xs font-medium text-gray-600">Quick pick</span>
+            <div className="flex flex-wrap gap-1.5">
+              {presets.map((p) => {
+                const on = date === p.date && time === p.time;
+                return (
+                  <button key={p.key} type="button" aria-pressed={on}
+                    onClick={() => { setDate(p.date); setTime(p.time); }}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                      on ? "border-teal-600 bg-teal-50 text-teal-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}>
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Date & Time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -214,13 +258,14 @@ export default function LeadFollowupModal({ leadId, leadName, onSaved, onCancel 
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-600">Due Time</label>
-              <input type="time" value={time}
+              <input type="time" value={time} placeholder={settings.default_due_time}
+                title={`Leave empty for ${settings.default_due_time}`}
                 onChange={(e) => setTime(e.target.value)} className={inputCls} />
             </div>
           </div>
 
           {/* Assigned To — only head roles can pick another staff member; everyone else is assigned to themselves. */}
-          {isHeadRole(user?.role) && (
+          {isLeadHead(user) && (
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-600">Assigned To</label>
               {!staffLoaded ? (
