@@ -32,7 +32,7 @@ function PermissionsMatrix({
 }) {
   const { token } = useAuth();
   const [perms, setPerms] = useState<Record<string, string>>(role.permissions ?? {});
-  const [seeAll, setSeeAll] = useState(role.see_all_records);
+  const [seeAll, setSeeAll] = useState(role.see_all_records ?? false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
