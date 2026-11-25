@@ -57,6 +57,8 @@ const PRIORITY_FALLBACK = staticOptions([
 
 const FALLBACK_TYPES = staticOptions(ACTIVITY_TYPE_FALLBACK);
 
+const selectClass = "h-9 w-auto min-w-36 text-sm";
+
 type Employee = { id: number; name: string };
 type ActionMenu = { task: LeadTask; top: number; right: number };
 type Detail = { task: LeadTask; mode: TaskActionMode };
@@ -93,7 +95,7 @@ function StatusSelect({ task, editable, onChange }: {
       value={task.status}
       disabled={locked}
       onChange={(e) => onChange(e.target.value as InteractionStatus)}
-      className={`h-7 rounded-full border-0 px-2 text-[11px] font-semibold outline-none focus:outline-2 focus:outline-[#7EE2A8] disabled:cursor-default ${className}`}
+      className={`h-7 min-h-0 w-auto rounded-full border-0 py-0 pl-3 pr-7 text-xs font-semibold ${className}`}
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>{o.label}</option>
@@ -132,10 +134,10 @@ function TaskDetailModal({
       role="dialog"
       aria-modal="true"
       aria-label={`Task: ${task.title ?? task.activity_type}`}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[1100] flex items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-0 bg-[rgba(17,18,20,0.45)] backdrop-blur-[3px]" />
       <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-[#EFEFF2] px-5 py-4">
           <div>
@@ -295,7 +297,7 @@ export default function TasksView() {
                 value={bucket}
                 onChange={(e) => selectBucket(e.target.value as LeadTaskBucket)}
                 aria-label="Task group"
-                className="h-9 rounded-[8px] border border-[#E1E1E6] bg-white px-2.5 text-sm text-[#1A1C21] outline-none focus:outline-2 focus:outline-[#7EE2A8]"
+                className={selectClass}
               >
                 {BUCKETS.map((b) => (
                   <option key={b.key} value={b.key}>
@@ -309,7 +311,7 @@ export default function TasksView() {
                   value={assignee}
                   onChange={(e) => setAssignee(e.target.value)}
                   aria-label="Assigned to"
-                  className="h-9 rounded-[8px] border border-[#E1E1E6] bg-white px-2.5 text-sm text-[#1A1C21] outline-none focus:outline-2 focus:outline-[#7EE2A8]"
+                  className={selectClass}
                 >
                   <option value="">Employee</option>
                   {employees.map((e) => (
@@ -521,11 +523,11 @@ export default function TasksView() {
 
       {menu && menuTask && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} aria-hidden="true" />
+          <div className="fixed inset-0 z-[1090]" onClick={() => setMenu(null)} aria-hidden="true" />
           <div
             role="menu"
             aria-label="Task actions"
-            className="fixed z-50 w-44 rounded-lg border border-[#E5E7EA] bg-white py-1 shadow-lg"
+            className="fixed z-[1100] w-44 rounded-lg border border-[#E5E7EA] bg-white py-1 shadow-lg"
             style={{ top: menu.top, right: menu.right }}
           >
             <MenuItem label="View Lead" onClick={() => { setMenu(null); openLead(menuTask.entity_id); }} />
