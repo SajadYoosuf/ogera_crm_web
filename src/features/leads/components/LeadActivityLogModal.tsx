@@ -13,8 +13,15 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
-import { logLeadActivity } from "@/lib/api/interactions";
-import { useEnumOptions } from "@/hooks/useEnumOptions";
+import { ACTIVITY_TYPE_FALLBACK, logLeadActivity, type InteractionOutcome } from "@/lib/api/interactions";
+import { staticOptions, useEnumOptions } from "@/hooks/useEnumOptions";
+
+const FALLBACK_TYPES = staticOptions(ACTIVITY_TYPE_FALLBACK);
+const OUTCOMES: { value: InteractionOutcome; label: string }[] = [
+  { value: "done", label: "Done" },
+  { value: "not_now", label: "Not now" },
+  { value: "no_answer", label: "No answer" },
+];
 
 type Props = {
   leadId: number;
@@ -25,7 +32,10 @@ type Props = {
 
 export default function LeadActivityLogModal({ leadId, leadName, onSaved, onCancel }: Props) {
   const { token } = useAuth();
-  const { options: activityTypes, isLoaded: typesLoaded } = useEnumOptions("activity_type");
+  // The fallback list shows immediately and stays if the settings endpoint is unavailable.
+  const { options: activityTypes } = useEnumOptions("activity_type", FALLBACK_TYPES);
+  const typesLoaded = true;
+  const [outcome, setOutcome] = useState<InteractionOutcome | "">("");
 
   const [activityType, setActivityType] = useState("phone_call");
   const [customLabel, setCustomLabel] = useState("");
@@ -49,6 +59,7 @@ export default function LeadActivityLogModal({ leadId, leadName, onSaved, onCanc
         ...(activityType === "other" ? { custom_label: customLabel.trim() } : {}),
         title: title.trim() || undefined,
         notes: notes.trim(),
+        ...(outcome ? { outcome } : {}),
       });
       onSaved();
     } catch (err) {
@@ -117,6 +128,22 @@ export default function LeadActivityLogModal({ leadId, leadName, onSaved, onCanc
               onChange={(e) => setTitle(e.target.value)}
               className={inputCls}
             />
+          </div>
+
+          {/* Outcome (optional) */}
+          <div>
+            <span className="mb-1 block text-xs font-medium text-gray-600">Outcome</span>
+            <div className="flex gap-2">
+              {OUTCOMES.map((o) => (
+                <button key={o.value} type="button" aria-pressed={outcome === o.value}
+                  onClick={() => setOutcome(outcome === o.value ? "" : o.value)}
+                  className={`flex-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
+                    outcome === o.value ? "border-teal-600 bg-teal-50 text-teal-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Notes (required) */}

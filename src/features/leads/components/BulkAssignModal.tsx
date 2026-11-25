@@ -21,8 +21,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getLeadStats, bulkAssignLeads, type BulkAssignRule } from "@/features/leads/api/leads";
-import { listEmployees, type Employee } from "@/lib/api/employees";
+import { getEmployeeDirectory, type DirectoryEmployee } from "@/lib/api/employees";
 import type { LeadSource } from "@/features/contacts/api/contacts";
+
+// ── Workload pill color: green <10, amber 10-20, red >20 ─────────────────────
+
+function workloadPill(count: number) {
+  if (count < 10) return { bg: "bg-[#EAF4EF]", text: "text-[#0E4D3A]" };
+  if (count <= 20) return { bg: "bg-amber-50", text: "text-amber-700" };
+  return { bg: "bg-red-50", text: "text-red-600" };
+}
 
 // ── Pending rule — accumulates before the final submit ───────────────────────
 
@@ -52,7 +60,7 @@ export default function BulkAssignModal({ isOpen, leadSources, onClose, onDone }
   const sourceLabel = (id: number | null): string => sourceOptions.find((s) => s.value === id)?.label ?? "Unknown";
 
   // ── Data loading ─────────────────────────────────────────────────────────────
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<DirectoryEmployee[]>([]);
   const [unassignedBySource, setUnassignedBySource] = useState<Record<string, number>>({});
   const [totalUnassigned, setTotalUnassigned] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -77,14 +85,14 @@ export default function BulkAssignModal({ isOpen, leadSources, onClose, onDone }
     setIsLoading(true);
     setLoadError("");
     try {
-      const [stats, empList] = await Promise.all([
+      const [stats, directory] = await Promise.all([
         getLeadStats(token),
-        listEmployees(token, { is_active: true, limit: 100 }),
+        getEmployeeDirectory(token),
       ]);
       setUnassignedBySource(stats.unassigned_by_source ?? {});
       const total = Object.values(stats.unassigned_by_source ?? {}).reduce((a, b) => a + b, 0);
       setTotalUnassigned(total);
-      setEmployees(empList.items);
+      setEmployees(directory);
     } catch {
       setLoadError("Failed to load data. Please try again.");
     } finally {
@@ -279,29 +287,39 @@ export default function BulkAssignModal({ isOpen, leadSources, onClose, onDone }
                 <div>
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Assign leads to staff</p>
                   <div className="space-y-2">
-                    {employees.map((emp) => (
-                      <div key={emp.id} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#09152b] text-xs font-semibold text-white shrink-0">
-                          {emp.name.charAt(0).toUpperCase()}
+                    {employees.map((emp) => {
+                      const pill = workloadPill(emp.open_lead_count);
+                      return (
+                        <div key={emp.id} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#09152b] text-xs font-semibold text-white shrink-0">
+                            {emp.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="truncate text-sm font-medium text-gray-800">{emp.name}</p>
+                              <span className="rounded-full bg-[#F3F3F5] px-1.5 py-0.5 text-[10.5px] font-medium text-[#6B7080]">{emp.role_name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold ${pill.bg} ${pill.text}`}>
+                                {emp.open_lead_count} open
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <input
+                              type="number"
+                              min={0}
+                              max={available}
+                              value={countInputs[emp.id] ?? ""}
+                              onChange={(e) => setCountInputs((prev) => ({ ...prev, [emp.id]: e.target.value }))}
+                              placeholder="0"
+                              className="w-16 rounded-lg border border-gray-200 bg-white px-2 py-1 text-center text-sm text-gray-700 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                            />
+                            <span className="text-xs text-gray-400">leads</span>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-gray-800">{emp.name}</p>
-                          <p className="text-xs text-gray-400 capitalize">{emp.role}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <input
-                            type="number"
-                            min={0}
-                            max={available}
-                            value={countInputs[emp.id] ?? ""}
-                            onChange={(e) => setCountInputs((prev) => ({ ...prev, [emp.id]: e.target.value }))}
-                            placeholder="0"
-                            className="w-16 rounded-lg border border-gray-200 bg-white px-2 py-1 text-center text-sm text-gray-700 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                          />
-                          <span className="text-xs text-gray-400">leads</span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Allocation counter */}

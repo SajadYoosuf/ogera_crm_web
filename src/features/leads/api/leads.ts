@@ -119,6 +119,8 @@ export type LeadCreate = {
   tags?: string[];
   /** Omit to default to the creating employee's own branch; send a different id to pick another. */
   branch_id?: number | null;
+  /** Admin/manager only. Omit to let the server auto-assign. */
+  assigned_to?: number;
 };
 
 export type LeadUpdate = Partial<{
@@ -184,7 +186,11 @@ export type TenantApiKey = {
   label: string;
   is_active: boolean;
   created_at: string;
+  /** False for keys created before copying was enabled — their raw value was never stored. */
+  can_reveal: boolean;
 };
+
+export type TenantApiKeyRevealed = { id: number; raw_key: string };
 
 export type TenantApiKeyCreated = TenantApiKey & {
   /** Raw key — shown once at creation. Store it immediately. */
@@ -290,6 +296,10 @@ export const listApiKeys = (token: string): Promise<TenantApiKey[]> =>
 /** POST /api-keys — generate a new key. Raw key is shown ONCE in the response. */
 export const createApiKey = (token: string, label: string): Promise<TenantApiKeyCreated> =>
   apiCall<TenantApiKeyCreated>(token, "POST", "/api-keys", { label });
+
+/** GET /api-keys/{id}/reveal — the raw key, for copying from Settings. */
+export const revealApiKey = (token: string, keyId: number): Promise<TenantApiKeyRevealed> =>
+  apiCall<TenantApiKeyRevealed>(token, "GET", `/api-keys/${keyId}/reveal`);
 
 /** DELETE /api-keys/{id} — revoke (deactivate) a key. */
 export const revokeApiKey = (token: string, keyId: number): Promise<void> =>

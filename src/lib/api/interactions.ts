@@ -60,6 +60,31 @@ export type Interaction = {
   created_at: string;
   // Computed
   overdue_days: number;
+  /** Open task whose due time has passed (by the minute, not the day). */
+  is_overdue?: boolean;
+  overdue_minutes?: number;
+  /** Completed tasks: when it was completed and how it was actually done (from the linked activity). */
+  completed_at?: string | null;
+  actual_activity_type?: string | null;
+  actual_custom_label?: string | null;
+};
+
+/** A task row from GET /lead-tasks: the interaction plus its lead. */
+export type LeadTask = Interaction & {
+  lead_name: string;
+  lead_phone: string | null;
+  lead_status: string | null;
+};
+
+export type LeadTaskBucket = "today" | "overdue" | "upcoming" | "completed";
+
+export type LeadTaskList = {
+  items: LeadTask[];
+  total: number;
+  skip: number;
+  limit: number;
+  bucket: LeadTaskBucket;
+  summary: Record<LeadTaskBucket, number>;
 };
 
 /** Body for POST .../interactions/log */
@@ -90,7 +115,15 @@ export type ScheduleTaskInput = {
 
 /** Body for PATCH /interactions/{id} */
 export type UpdateTaskInput =
-  | { status: "completed"; outcome: InteractionOutcome; notes?: string }
+  | {
+      status: "completed";
+      outcome: InteractionOutcome;
+      notes?: string;
+      /** How it was actually done; defaults to the task's planned type. */
+      actual_activity_type?: string;
+      /** Required when actual_activity_type = 'other'. */
+      custom_label?: string;
+    }
   | { status: "todo" | "inprogress" };
 
 // ── Lead interactions ─────────────────────────────────────────────────────────
@@ -127,6 +160,56 @@ export function listContactInteractions(token: string, contactId: number, kind?:
 
 // ── Task update ───────────────────────────────────────────────────────────────
 
-/** PATCH /interactions/{id} — update a task (status or complete). */
+/** PATCH /interactions/{id} — update a task (status or complete). Assignee or admin/manager. */
 export const updateInteraction = (token: string, interactionId: number, input: UpdateTaskInput): Promise<Interaction> =>
   apiCall<Interaction>(token, "PATCH", `/interactions/${interactionId}`, input);
+
+/** PATCH /leads/{id}/interactions/{iid}/reschedule — move a task's due time (not into the past). Assignee or admin/manager. */
+export const rescheduleLeadTask = (token: string, leadId: number, interactionId: number, dueAt: string, reason?: string): Promise<Interaction> =>
+  apiCall<Interaction>(token, "PATCH", `/leads/${leadId}/interactions/${interactionId}/reschedule`, {
+    due_at: dueAt,
+    ...(reason && reason.trim() ? { reason: reason.trim() } : {}),
+  });
+
+/** GET /lead-tasks — follow-ups across leads for the Tasks page. Staff get only their own. */
+export function listLeadTasks(
+  token: string,
+  params: { bucket: LeadTaskBucket; assignedTo?: number | null; q?: string; skip?: number; limit?: number },
+): Promise<LeadTaskList> {
+  const query = new URLSearchParams({ bucket: params.bucket });
+  if (params.assignedTo != null) query.set("assigned_to", String(params.assignedTo));
+  if (params.q && params.q.trim()) query.set("q", params.q.trim());
+  if (params.skip) query.set("skip", String(params.skip));
+  if (params.limit) query.set("limit", String(params.limit));
+  return apiCall<LeadTaskList>(token, "GET", `/lead-tasks?${query.toString()}`);
+}
+
+/** PATCH /leads/{id}/interactions/{iid}/reassign — admin/manager only. */
+export const reassignLeadTask = (token: string, leadId: number, interactionId: number, assignedTo: number): Promise<Interaction> =>
+  apiCall<Interaction>(token, "PATCH", `/leads/${leadId}/interactions/${interactionId}/reassign`, { assigned_to: assignedTo });
+
+/** DELETE /leads/{id}/interactions/{iid} — admin/manager only. */
+export const deleteLeadInteraction = (token: string, leadId: number, interactionId: number): Promise<void> =>
+  apiCall<void>(token, "DELETE", `/leads/${leadId}/interactions/${interactionId}`);
+
+/**
+ * Activity types shown until /settings/enums/activity_type answers (or if it fails),
+ * so the log and follow-up forms are never empty.
+ */
+export const ACTIVITY_TYPE_FALLBACK = [
+  { value: "phone_call", label: "Phone Call" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "field_visit", label: "Field Visit" },
+  { value: "message", label: "Message" },
+  { value: "quotation", label: "Quotation" },
+  { value: "note", label: "Note" },
+  { value: "other", label: "Other" },
+];
+
+/**
+ * A local date ("2026-11-30") and optional time ("14:30") as a UTC ISO string.
+ * The backend reads offset-less times as UTC, so the browser's timezone must be applied here.
+ */
+export function localDateTimeToIso(date: string, time?: string, defaultTime = "09:00"): string {
+  return new Date(`${date}T${time || defaultTime}:00`).toISOString();
+}

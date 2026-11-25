@@ -14,6 +14,7 @@ import { useState } from "react";
 import { validatePhone } from "@/components/PhoneField";
 import { ApiError } from "@/lib/api/auth";
 import { useAuth } from "@/context/AuthContext";
+import { canDo } from "@/lib/shared/roles";
 import {
   createLead,
   updateLead,
@@ -32,6 +33,8 @@ export type LeadFormState = {
   status: LeadStatus;
   notes: string;
   tags: string;
+  /** Admin/manager only, create mode: null = auto-assign on the server. */
+  assigned_to: number | null;
 };
 
 const BLANK: LeadFormState = {
@@ -44,10 +47,12 @@ const BLANK: LeadFormState = {
   status: "new",
   notes: "",
   tags: "",
+  assigned_to: null,
 };
 
 export function useLeadEditor(onSuccess: () => void) {
   const { token, user } = useAuth();
+  const canManage = canDo(user, "leads", "u");
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<LeadFormState>(BLANK);
@@ -67,6 +72,7 @@ export function useLeadEditor(onSuccess: () => void) {
         status: lead.status,
         notes: lead.notes ?? "",
         tags: lead.tags?.join(", ") ?? "",
+        assigned_to: lead.assigned_to,
       });
     } else {
       setEditingId(null);
@@ -109,6 +115,7 @@ export function useLeadEditor(onSuccess: () => void) {
           branch_id: form.branch_id,
           notes: form.notes || undefined,
           tags: tags.length ? tags : undefined,
+          ...(canManage && form.assigned_to != null ? { assigned_to: form.assigned_to } : {}),
         });
       } else {
         const body: LeadCreate = {
@@ -116,6 +123,8 @@ export function useLeadEditor(onSuccess: () => void) {
           phone: form.phone,
           source_id: form.source_id,
         };
+        // Only admin/manager may pick the assignee; the server returns 403 if staff send it.
+        if (canManage && form.assigned_to != null) body.assigned_to = form.assigned_to;
         if (form.last_name) body.last_name = form.last_name;
         if (form.address) body.address = form.address;
         if (form.notes) body.notes = form.notes;
@@ -133,5 +142,5 @@ export function useLeadEditor(onSuccess: () => void) {
   }
 
   const clearSaveError = () => setSaveError("");
-  return { isOpen, editingId, form, isSaving, saveError, clearSaveError, open, close, setField, submit };
+  return { isOpen, editingId, form, isSaving, saveError, clearSaveError, open, close, setField, submit, canManage };
 }

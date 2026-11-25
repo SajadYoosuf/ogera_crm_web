@@ -155,7 +155,7 @@ function EmptyState({ hasFilters, onClear, onCreate }: { hasFilters: boolean; on
 
 export default function LeadsView() {
   const { token, user } = useAuth();
-  // Admin/manager see the import and export tools; staff do not.
+  // Admin/manager see every lead and the bulk tools; staff see only their own leads.
   const canManage = canDo(user, "leads", "u");
   const list = useLeadsList();
   const [openLeadId, setOpenLeadId] = useState<number | null>(null);
@@ -207,11 +207,12 @@ export default function LeadsView() {
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   useEffect(() => {
     if (!token) return;
-    listEmployees(token, { is_active: true, limit: 100 }).then((res) => setEmployees(res.items)).catch(() => {});
+    // The employee list feeds admin/manager-only controls; staff would get a 403.
+    if (canManage) listEmployees(token, { is_active: true, limit: 100 }).then((res) => setEmployees(res.items)).catch(() => {});
     listLeadStatuses(token).then(setStatuses).catch(() => {});
     listBranches(token).then(setBranches).catch(() => {});
     listLeadSources(token).then(setLeadSources).catch(() => {});
-  }, [token]);
+  }, [token, canManage]);
 
   // Source / Status / Assigned, grouped for the single "Filter" button (LeadsFilterMenu)
   // instead of three separate dropdowns competing for space in the toolbar row.
@@ -221,7 +222,10 @@ export default function LeadsView() {
       key: "status", label: "Status", value: list.filters.status,
       options: [...statuses.map((s) => ({ value: s.value, label: s.label })), { value: "converted", label: "Converted" }],
     },
-    { key: "assigned_to", label: "Assigned to", value: list.filters.assigned_to, options: employees.map((emp) => ({ value: String(emp.id), label: emp.name })) },
+    // Staff only ever see their own leads, so filtering by assignee means nothing to them.
+    ...(canManage
+      ? [{ key: "assigned_to", label: "Assigned to", value: list.filters.assigned_to, options: employees.map((emp) => ({ value: String(emp.id), label: emp.name })) }]
+      : []),
   ];
 
   function handleFilterMenuChange(key: string, value: string) {
@@ -277,7 +281,7 @@ export default function LeadsView() {
     }
   }
 
-  const tableColumns = ["Name", "Source", "Branch", "Tags", "WhatsApp", "Status", "Assigned", "Created by", "Score", "Created"];
+  const tableColumns = ["Name", "Source", "Branch", "Tags", "WhatsApp", "Status", ...(canManage ? ["Assigned"] : []), "Created by", "Score", "Created"];
 
   return (
     <div className="flex min-h-full flex-col bg-[#F4FBF7]">
@@ -304,7 +308,7 @@ export default function LeadsView() {
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
           {/* Import and export are for admin/manager only; staff don't see the menu at all. */}
           {canManage && <LeadsMoreMenu onImport={() => setIoDialog("import")} onExport={() => setIoDialog("export")} />}
-          <button
+          {canManage && <button
             type="button" onClick={() => setIsBulkAssignOpen(true)}
             className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#0E4D3A] px-3 text-sm font-medium text-[#0E4D3A] hover:bg-[#0E4D3A]/5 transition-colors sm:px-4"
           >
@@ -312,7 +316,7 @@ export default function LeadsView() {
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
             <span className="hidden sm:inline">Bulk Assign</span>
-          </button>
+          </button>}
           <button type="button" aria-label="Add Lead" onClick={() => setIsCreateOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#0E4D3A] px-3 text-sm font-semibold text-white transition-colors hover:bg-[#0E4D3A] sm:px-4">
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             <span className="hidden sm:inline">Add Lead</span>
@@ -354,8 +358,8 @@ export default function LeadsView() {
             ) : (
               <>
                 <div className="w-full min-w-0 overflow-x-auto">
-                  <table className="w-max min-w-full border-collapse text-sm">
-                    <thead className="bg-[#F7F7F9] text-left text-[13px] font-medium text-[#4B5060]">
+                  <table className="w-max min-w-full border-collapse text-base [&_td]:whitespace-nowrap">
+                    <thead className="bg-[#F7F7F9] text-left text-sm font-medium text-[#4B5060]">
                       <tr>
                         {tableColumns.map((column) => (
                           <th key={column} scope="col" className="px-3 py-3 font-medium whitespace-nowrap">{column}</th>
@@ -382,7 +386,7 @@ export default function LeadsView() {
                             {/* Name — the row's own cursor-pointer isn't obvious enough on its own, so the
                                 name itself looks like a link (teal + underline on hover) to show where to click */}
                             <td className="px-3">
-                              <div className="min-w-0 truncate font-semibold text-[#1A1C21] underline decoration-transparent decoration-2 underline-offset-2 transition-colors group-hover:text-[#0E4D3A] group-hover:decoration-[#0E4D3A]">
+                              <div className="max-w-[240px] truncate font-semibold text-[#1A1C21] underline decoration-transparent decoration-2 underline-offset-2 transition-colors group-hover:text-[#0E4D3A] group-hover:decoration-[#0E4D3A]">
                                 {`${lead.first_name ?? ""}${lead.last_name ? " " + lead.last_name : ""}`.trim() || "—"}
                               </div>
                             </td>
@@ -429,8 +433,8 @@ export default function LeadsView() {
                               />
                             </td>
 
-                            {/* Assigned — inline dropdown */}
-                            <td className="px-3" onClick={(e) => e.stopPropagation()}>
+                            {/* Assigned — inline dropdown (admin/manager only) */}
+                            {canManage && <td className="px-3" onClick={(e) => e.stopPropagation()}>
                               <span className={updatingAssigneeId === lead.id ? "pointer-events-none inline-block opacity-50" : "inline-block"}>
                                 <FilterSelect
                                   fit clearable label="Assign" className="w-auto"
@@ -439,7 +443,7 @@ export default function LeadsView() {
                                   options={employees.map((emp) => ({ value: String(emp.id), label: emp.name }))}
                                 />
                               </span>
-                            </td>
+                            </td>}
 
                             {/* Created by */}
                             <td className="whitespace-nowrap px-3 text-[#3A3E4A]">{lead.created_by_name || <span className="text-[#B4B8C2]">—</span>}</td>
@@ -462,7 +466,7 @@ export default function LeadsView() {
                                 onActivityLog={() => setActivityLogLeadId(lead.id)}
                                 onFollowup={() => setFollowupLeadId(lead.id)}
                                 onConvert={() => converter.openModal(lead.id, lead)}
-                                onDelete={handleDeleteLead}
+                                onDelete={canManage ? handleDeleteLead : undefined}
                               />
                             </td>
                           </tr>
@@ -497,6 +501,7 @@ export default function LeadsView() {
         statuses={statuses}
         branches={branches}
         leadSources={leadSources}
+        employees={employees}
         onClose={closeDetail}
         onConverted={(lead) => { closeDetail(); converter.openModal(lead.id, lead); }}
         onChanged={() => { void list.loadLeads(); }}
@@ -509,6 +514,7 @@ export default function LeadsView() {
         statuses={statuses}
         branches={branches}
         leadSources={leadSources}
+        employees={employees}
         onClose={() => { setOpenLeadId(null); setIsCreateOpen(false); }}
         onConverted={(lead) => { setOpenLeadId(null); setIsCreateOpen(false); converter.openModal(lead.id, lead); }}
         onDeleted={() => { void list.loadLeads(); }}

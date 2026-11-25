@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { usePopoverFit } from "@/hooks/usePopoverFit";
 
 /** Secondary actions for the leads list: import and export. */
-export default function LeadsMoreMenu({ onImport, onExport }: { onImport: () => void; onExport: () => void }) {
+/** `onExport` omitted = no Export item (staff cannot export). */
+export default function LeadsMoreMenu({ onImport, onExport }: { onImport: () => void; onExport?: () => void }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -40,9 +41,11 @@ export default function LeadsMoreMenu({ onImport, onExport }: { onImport: () => 
           <button type="button" role="menuitem" onClick={() => choose(onImport)} className="flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-gray-50">
             Import leads
           </button>
-          <button type="button" role="menuitem" onClick={() => choose(onExport)} className="flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-gray-50">
-            Export leads
-          </button>
+          {onExport && (
+            <button type="button" role="menuitem" onClick={() => choose(onExport)} className="flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-gray-50">
+              Export leads
+            </button>
+          )}
         </div>
       )}
     </div>

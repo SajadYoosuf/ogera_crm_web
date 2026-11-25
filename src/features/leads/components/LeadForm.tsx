@@ -21,6 +21,11 @@ type Props = {
   /** From GET /lead-sources — the same endpoint and data the Contacts source picker uses. */
   leadSources: LeadSource[];
   setField: <K extends keyof LeadFormState>(key: K, value: LeadFormState[K]) => void;
+  /** Admin/manager: may backdate and pick the assignee on create. Staff see neither field. */
+  canManage?: boolean;
+  /** Options for the "Assign to" picker (create mode, admin/manager only). */
+  /** Admin/manager only: null = auto-assign on create or keep current on edit. */
+  assignees?: { id: number; name: string; role_name?: string }[];
 };
 
 const inputClass =
@@ -28,7 +33,7 @@ const inputClass =
 
 const labelClass = "mb-1 block text-xs font-medium text-gray-600";
 
-export default function LeadForm({ form, isEdit, statuses, branches, leadSources, setField }: Props) {
+export default function LeadForm({ form, isEdit, statuses, branches, leadSources, setField, canManage = false, assignees = [] }: Props) {
   return (
     <div className="space-y-4">
       {/* Name row — always 2-col */}
@@ -126,6 +131,17 @@ export default function LeadForm({ form, isEdit, statuses, branches, leadSources
           placeholder="Any extra context about this lead…"
         />
       </div>
+
+      {/* Assign to — admin/manager on create (blank = auto-assign) and edit (blank = keep current). */}
+      {canManage && assignees.length > 0 && (
+        <SelectField
+          label="Assign to"
+          value={form.assigned_to != null ? String(form.assigned_to) : ""}
+          onChange={(value) => setField("assigned_to", value ? Number(value) : null)}
+          placeholder={isEdit ? "Keep current" : "Auto-assign"}
+          options={assignees.map((e) => ({ value: String(e.id), label: e.role_name ? `${e.name} · ${e.role_name}` : e.name }))}
+        />
+      )}
 
       <div>
         <label htmlFor="lead-tags" className={labelClass}>Tags <span className="text-gray-400">(comma-separated)</span></label>

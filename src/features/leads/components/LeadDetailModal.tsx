@@ -17,14 +17,18 @@ import { ApiError } from "@/lib/api/auth";
 import { useAuth } from "@/context/AuthContext";
 import { getLead, updateLead, getLeadTimeline, isLeadConverted, type Lead, type LeadStatus, type LeadStatusOption, type LeadTimelineItem } from "@/features/leads/api/leads";
 import type { BranchOption, LeadSource } from "@/features/contacts/api/contacts";
-import { listLeadInteractions, type Interaction } from "@/lib/api/interactions";
+import { deleteLeadInteraction, listLeadInteractions, type Interaction } from "@/lib/api/interactions";
 import { useLeadEditor } from "@/features/leads/hooks/useLeadEditor";
+import { canDo, isLeadHead } from "@/lib/shared/roles";
 import LeadStatusSelect from "./LeadStatusSelect";
 import WhatsAppButton from "./WhatsAppButton";
 import LeadForm from "./LeadForm";
 import LeadActivityLogModal from "./LeadActivityLogModal";
 import LeadFollowupModal from "./LeadFollowupModal";
+import LeadTaskActions from "./LeadTaskActions";
+import { FollowupCard, formatDateTime, typeLabel } from "./FollowupCard";
 import ErrorPopup from "@/components/ErrorPopup";
+import { useFollowupSettings } from "@/features/settings/hooks/useFollowupSettings";
 
 type Tab = "details" | "activity" | "followups";
 
@@ -39,6 +43,8 @@ type Props = {
   statuses: LeadStatusOption[];
   branches: BranchOption[];
   leadSources: LeadSource[];
+  /** For admin/manager task reassignment. */
+  employees?: { id: number; name: string; role?: string }[];
   onClose: () => void;
   onConverted: (lead: Lead) => void;
   onChanged: () => void;
@@ -49,8 +55,11 @@ export default function LeadDetailModal(props: Props) {
   return <LeadDetailDialog key={props.leadId} {...props} leadId={props.leadId} />;
 }
 
-function LeadDetailDialog({ leadId, statuses, branches, leadSources, onClose, onConverted, onChanged }: Props & { leadId: number }) {
-  const { token } = useAuth();
+function LeadDetailDialog({ leadId, statuses, branches, leadSources, employees = [], onClose, onConverted, onChanged }: Props & { leadId: number }) {
+  const { token, user } = useAuth();
+  const head = canDo(user, "leads", "u");
+  const { settings: followupSettings } = useFollowupSettings();
+  const canCreateFollowup = isLeadHead(user) || followupSettings.allow_staff_create_followup;
   const [tab, setTab] = useState<Tab>("details");
   const [lead, setLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,7 +110,17 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, onClose, on
     } finally {
       setListsLoading(false);
     }
-  }, [leadId]);
+  }, [leadId, token]);
+
+  async function removeActivity(ia: Interaction) {
+    if (!token) return;
+    try {
+      await deleteLeadInteraction(token, leadId, ia.id);
+      void loadInteractions();
+    } catch (err) {
+      setListsError(err instanceof ApiError ? err.message : "Could not delete the activity.");
+    }
+  }
 
   useEffect(() => {
     if (!token) return;
@@ -247,7 +266,16 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, onClose, on
                 {lead && !editing && <LeadDetails lead={lead} />}
                 {lead && editing && (
                   <>
-                    <LeadForm form={editor.form} isEdit statuses={statuses} branches={branches} leadSources={leadSources} setField={editor.setField} />
+                    <LeadForm
+                      form={editor.form}
+                      isEdit
+                      statuses={statuses}
+                      branches={branches}
+                      leadSources={leadSources}
+                      setField={editor.setField}
+                      canManage={head}
+                      assignees={employees.map((e) => ({ id: e.id, name: e.name, role_name: e.role ? e.role.split("_").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : undefined }))}
+                    />
                     {editor.saveError && <ErrorPopup message={editor.saveError} onDismiss={editor.clearSaveError} />}
                   </>
                 )}
@@ -292,7 +320,7 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, onClose, on
               )}
               {logs.length > 0 && (
                 <ul className="space-y-3">
-                  {logs.map((ia) => <ActivityCard key={ia.id} interaction={ia} />)}
+                  {logs.map((ia) => <ActivityCard key={ia.id} interaction={ia} onDelete={head ? () => void removeActivity(ia) : undefined} />)}
                 </ul>
               )}
             </div>
@@ -302,10 +330,12 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, onClose, on
             <div className="px-6 py-5">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-[#6B7080]">Follow-ups · {tasks.length}</h3>
-                <button onClick={() => setShowFollowupModal(true)}
-                  className="h-8 rounded-lg bg-[#0E4D3A] px-3 text-xs font-semibold text-white hover:bg-[#0B3E2F]">
-                  New follow-up
-                </button>
+                {canCreateFollowup && (
+                  <button onClick={() => setShowFollowupModal(true)}
+                    className="h-8 rounded-lg bg-[#0E4D3A] px-3 text-xs font-semibold text-white hover:bg-[#0B3E2F]">
+                    New follow-up
+                  </button>
+                )}
               </div>
               {listsLoading && <p className="text-sm text-gray-400">Loading…</p>}
               {!listsLoading && tasks.length === 0 && (
@@ -313,11 +343,16 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, onClose, on
               )}
               {tasks.length > 0 && (
                 <ul className="space-y-3">
-                  {tasks.map((t) => <FollowupCard key={t.id} task={t} />)}
+                  {tasks.map((t) => (
+                    <FollowupCard key={t.id} task={t}>
+                      <LeadTaskActions task={t} leadId={leadId} leadName={leadName} employees={isLeadHead(user) ? employees : []} onChanged={() => void loadInteractions()} />
+                    </FollowupCard>
+                  ))}
                 </ul>
               )}
             </div>
           )}
+
         </div>
       </section>
 
@@ -412,49 +447,16 @@ function DetailRow({ label, value }: { label: string; value: string | null | und
   );
 }
 
-// ── Activity and follow-up cards ───────────────────────────────────────────────
+// ── Activity cards ───────────────────────────────────────────────────────────
 
-function parseIso(iso: string): Date {
-  return new Date(iso.endsWith("Z") || iso.includes("+") ? iso : iso + "Z");
-}
-
-function formatDateTime(iso: string): string {
-  return parseIso(iso).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-function formatDate(iso: string): string {
-  return parseIso(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function typeLabel(ia: Interaction): string {
-  if (ia.activity_type === "other" && ia.custom_label) return ia.custom_label;
-  return ia.activity_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-const PRIORITY_BADGE: Record<string, string> = {
-  high: "bg-red-50 text-red-700",
-  medium: "bg-amber-50 text-amber-700",
-  low: "bg-green-50 text-green-700",
-};
-
-const TASK_STATUS_LABEL: Record<string, string> = {
-  todo: "To do",
-  inprogress: "In progress",
-  completed: "Completed",
-};
-const TASK_STATUS_BADGE: Record<string, string> = {
-  todo: "bg-gray-100 text-gray-600",
-  inprogress: "bg-blue-50 text-blue-700",
-  completed: "bg-teal-50 text-teal-700",
-};
-
-function ActivityCard({ interaction: ia }: { interaction: Interaction }) {
+function ActivityCard({ interaction: ia, onDelete }: { interaction: Interaction; onDelete?: () => void }) {
+  const [confirming, setConfirming] = useState(false);
   return (
     <li className="rounded-xl border border-[#EFEFF2] bg-[#FAFAFA] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-teal-700">{typeLabel(ia)}</span>
+            <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-teal-700">{typeLabel(ia.activity_type, ia.custom_label)}</span>
             {ia.outcome && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold capitalize text-gray-600">{ia.outcome.replace(/_/g, " ")}</span>}
           </div>
           {ia.title && <p className="mt-1.5 text-sm font-semibold text-[#1A1C21]">{ia.title}</p>}
@@ -462,38 +464,18 @@ function ActivityCard({ interaction: ia }: { interaction: Interaction }) {
         </div>
         <span className="shrink-0 text-xs text-[#8A8F9C]">{formatDateTime(ia.logged_at)}</span>
       </div>
-      {ia.done_by_name && <p className="mt-2 text-xs text-[#8A8F9C]">Logged by {ia.done_by_name}</p>}
-    </li>
-  );
-}
-
-function FollowupCard({ task: t }: { task: Interaction }) {
-  const isOverdue = t.overdue_days > 0 && t.status !== "completed";
-  return (
-    <li className="rounded-xl border border-[#EFEFF2] bg-[#FAFAFA] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-teal-700">{typeLabel(t)}</span>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${PRIORITY_BADGE[t.priority] ?? ""}`}>{t.priority} priority</span>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TASK_STATUS_BADGE[t.status] ?? ""}`}>{TASK_STATUS_LABEL[t.status] ?? t.status}</span>
-          </div>
-          {t.title && <p className="mt-1.5 text-sm font-semibold text-[#1A1C21]">{t.title}</p>}
-          {t.notes && <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-[#3A3E4A]">{t.notes}</p>}
-        </div>
-        {t.due_at && (
-          <div className="shrink-0 text-right text-xs">
-            <p className={isOverdue ? "font-semibold text-red-500" : "text-[#3A3E4A]"}>
-              {isOverdue ? `${t.overdue_days}d overdue` : `Due ${formatDate(t.due_at)}`}
-            </p>
-            <p className="text-[#8A8F9C]">{parseIso(t.due_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</p>
-          </div>
-        )}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="text-xs text-[#8A8F9C]">{ia.done_by_name ? `Logged by ${ia.done_by_name}` : ""}</p>
+        {onDelete && (confirming ? (
+          <span className="flex items-center gap-1.5 text-xs">
+            <span className="text-red-700">Delete?</span>
+            <button type="button" onClick={onDelete} className="rounded-md bg-red-600 px-2 py-0.5 font-semibold text-white">Yes</button>
+            <button type="button" onClick={() => setConfirming(false)} className="rounded-md border border-gray-200 px-2 py-0.5">No</button>
+          </span>
+        ) : (
+          <button type="button" onClick={() => setConfirming(true)} className="text-xs font-semibold text-red-600 hover:underline">Delete</button>
+        ))}
       </div>
-      <p className="mt-2 text-xs text-[#8A8F9C]">
-        {t.assigned_to_name ? `Assigned to ${t.assigned_to_name}` : "Unassigned"}
-        {t.created_by_name ? ` · Created by ${t.created_by_name}` : ""}
-      </p>
     </li>
   );
 }

@@ -29,7 +29,8 @@ type Props = {
   onActivityLog: () => void;
   onFollowup: () => void;
   onConvert: () => void;
-  onDelete: (leadId: number) => Promise<void>;
+  /** Omit for staff: only admin/manager may delete, so no Delete item is shown. */
+  onDelete?: (leadId: number) => Promise<void>;
 };
 
 export default function LeadActionMenu({ lead, onEdit, onActivityLog, onFollowup, onConvert, onDelete }: Props) {
@@ -78,6 +79,7 @@ export default function LeadActionMenu({ lead, onEdit, onActivityLog, onFollowup
 
   async function handleDelete(e: React.MouseEvent) {
     e.stopPropagation();
+    if (!onDelete) return;
     setDeleting(true);
     try {
       await onDelete(lead.id);
@@ -141,13 +143,17 @@ export default function LeadActionMenu({ lead, onEdit, onActivityLog, onFollowup
                   Convert
                 </MenuItem>
               )}
-              <li role="separator" className="my-1 border-t border-gray-100" />
-              <MenuItem
-                onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
-                danger
-              >
-                Delete
-              </MenuItem>
+              {onDelete && (
+                <>
+                  <li role="separator" className="my-1 border-t border-gray-100" />
+                  <MenuItem
+                    onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
+                    danger
+                  >
+                    Delete
+                  </MenuItem>
+                </>
+              )}
             </ul>
           )}
         </div>,

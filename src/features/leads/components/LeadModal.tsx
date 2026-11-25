@@ -31,6 +31,8 @@ type Props = {
   statuses: LeadStatusOption[];
   branches: BranchOption[];
   leadSources: LeadSource[];
+  /** Active employees for the admin/manager "Assign to" picker on create. */
+  employees?: { id: number; name: string }[];
   onClose: () => void;
   onConverted: (lead: Lead) => void;
   onDeleted: () => void;
@@ -43,7 +45,7 @@ export default function LeadModal(props: Props) {
   return <LeadModalDialog key={props.leadId ?? "new"} {...props} />;
 }
 
-function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onConverted, onDeleted, onSaved }: Props) {
+function LeadModalDialog({ leadId, statuses, branches, leadSources, employees = [], onClose, onConverted, onDeleted, onSaved }: Props) {
   const { token } = useAuth();
   const isEdit = leadId !== null;
   const [lead, setLead] = useState<Lead | null>(null);
@@ -158,7 +160,8 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
             )}
 
             {(!isEdit || lead) && (
-              <LeadForm form={editor.form} isEdit={isEdit} statuses={statuses} branches={branches} leadSources={leadSources} setField={editor.setField} />
+              <LeadForm form={editor.form} isEdit={isEdit} statuses={statuses} branches={branches} leadSources={leadSources} setField={editor.setField}
+                canManage={editor.canManage} assignees={employees} />
             )}
 
             {editor.saveError && <ErrorPopup message={editor.saveError} onDismiss={editor.clearSaveError} />}
@@ -182,7 +185,7 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
                       Convert
                     </button>
                   )}
-                  {confirmingDelete ? (
+                  {!editor.canManage ? null : confirmingDelete ? (
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-gray-600">Delete?</span>
                       <button
