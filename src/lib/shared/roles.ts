@@ -16,6 +16,15 @@ export function isHeadRole(role: string | null | undefined): boolean {
   return role === "admin" || role === "manager";
 }
 
+/**
+ * Admin or manager for lead follow-ups: may see everyone's tasks, reassign, delete, and edit
+ * follow-up settings. Uses the role slug, not the permission string: several staff roles hold
+ * leads "crud" but still only work their own follow-ups on the backend (services/lead_access.py).
+ */
+export function isLeadHead(user: { role?: string } | null | undefined): boolean {
+  return isHeadRole(user?.role);
+}
+
 export function isAdminRole(role: string | null | undefined): boolean {
   return role === "admin";
 }

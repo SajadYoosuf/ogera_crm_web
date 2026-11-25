@@ -31,7 +31,6 @@ const PAGES = [
   { path: "/", signedIn: false },
   { path: "/dashboard", signedIn: true },
   { path: "/dashboard/employees", signedIn: true },
-  { path: "/dashboard/followups", signedIn: true },
   { path: "/dashboard/professionals", signedIn: true },
   { path: "/dashboard/tasks", signedIn: true },
   { path: "/dashboard/settings", signedIn: true },

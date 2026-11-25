@@ -21,6 +21,17 @@ export const LEAD_SOURCES = [
   { id: 4, name: "WhatsApp", slug: "whatsapp" },
 ];
 
+/** Mirrors GET /roles: the seeded employees' roles plus the two system roles. */
+export const ROLES = [
+  { id: 1, slug: "admin", name: "Admin", description: null, is_system: true, is_active: true, employee_count: 1 },
+  { id: 2, slug: "manager", name: "Manager", description: null, is_system: true, is_active: true, employee_count: 1 },
+  { id: 3, slug: "team_lead", name: "Team Lead", description: null, is_system: false, is_active: true, employee_count: 1 },
+  { id: 4, slug: "sales_executive", name: "Sales Executive", description: null, is_system: false, is_active: true, employee_count: 2 },
+  { id: 5, slug: "tele_caller", name: "Tele Caller", description: null, is_system: false, is_active: true, employee_count: 1 },
+  { id: 6, slug: "field_executive", name: "Field Executive", description: null, is_system: false, is_active: true, employee_count: 1 },
+  { id: 7, slug: "support", name: "Support", description: null, is_system: false, is_active: true, employee_count: 1 },
+];
+
 export const PROFESSION_TYPES = [
   { value: "plumber", label: "Plumber" },
   { value: "engineer", label: "Engineer" },
@@ -76,7 +87,8 @@ export const MANAGER: Viewer = { id: 2, name: "Maya Manager", email: "maya.manag
 export async function signInAs(page: Page, viewer: Viewer = ADMIN) {
   await page.addInitScript((user) => {
     sessionStorage.setItem("ogera_access_token", "test-token");
-    sessionStorage.setItem("ogera_user", JSON.stringify({ id: user.id, name: user.name, email: user.email, role: user.role, phone: null }));
+    // `company` is required by AuthContext's readStorage(); without it the session is treated as signed out.
+    sessionStorage.setItem("ogera_user", JSON.stringify({ id: user.id, name: user.name, email: user.email, role: user.role, phone: null, company: { name: "Ogera" } }));
   }, viewer);
 }
 
@@ -153,6 +165,25 @@ export async function mockApi(page: Page, options: { employees?: MockEmployee[];
       if (method === "GET") return json(route, 200, target);
       if (method === "PUT") { Object.assign(target, body); return json(route, 200, target); }
       if (method === "DELETE") { target.deleted_at = "2026-10-01T10:00:00"; target.is_active = false; return route.fulfill({ status: 204, headers: CORS }); }
+    }
+
+    if (url.pathname === "/roles" && method === "GET") return json(route, 200, { items: ROLES, total: ROLES.length });
+
+    // Tasks page and follow-up settings: empty lists and the backend defaults.
+    if (url.pathname === "/lead-tasks" && method === "GET") {
+      return json(route, 200, {
+        items: [], total: 0, skip: 0, limit: 30, bucket: url.searchParams.get("bucket") ?? "today",
+        summary: { today: 0, overdue: 0, upcoming: 0, completed: 0 },
+      });
+    }
+    if (url.pathname === "/settings/followups" && method === "GET") {
+      return json(route, 200, {
+        default_due_time: "09:00", morning_time: "10:00", afternoon_time: "14:00", evening_time: "17:00",
+        reminders_enabled: true, reminder_mode: "due_day_only", reminder_max_days: 7, due_today_reminder_hour: 9,
+        due_now_reminder_enabled: true, due_now_window_minutes: 10, overdue_reminder_after_hours: 24,
+        retry_followup_days: 3, auto_followup_hours: 48, allow_staff_reschedule: true, allow_staff_create_followup: true,
+        status_colors: { todo: "gray", inprogress: "blue", completed: "teal" }, updated_by: null, updated_at: null, stored: false,
+      });
     }
 
     // Contacts routes

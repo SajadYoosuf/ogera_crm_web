@@ -17,6 +17,16 @@ vi.mock("@/lib/api/employees", async (importOriginal) => {
     logEvent: vi.fn(),
   };
 });
+vi.mock("@/lib/api/settings", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/settings")>();
+  const role = (id: number, slug: string, name: string) => ({ id, slug, name, description: null, is_system: false, is_active: true, employee_count: 0 });
+  const items = [
+    role(1, "admin", "Admin"), role(2, "manager", "Manager"), role(3, "team_lead", "Team Lead"),
+    role(4, "sales_executive", "Sales Executive"), role(5, "tele_caller", "Tele Caller"),
+    role(6, "field_executive", "Field Executive"), role(7, "support", "Support"),
+  ];
+  return { ...actual, listRoles: vi.fn().mockResolvedValue({ items, total: items.length }) };
+});
 vi.mock("@/context/AuthContext", () => ({
   useAuth: () => {
     const token = sessionStorage.getItem("ogera_access_token");

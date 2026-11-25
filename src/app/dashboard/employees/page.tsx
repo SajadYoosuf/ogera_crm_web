@@ -6,9 +6,10 @@ import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import {
   createEmployee, deleteEmployee, getEmployee,
-  listAllEmployees, logEvent, updateEmployee, EMPLOYEE_ROLES, EMPLOYEE_BRANCHES,
-  type Employee, type EmployeeRole, type EmployeeBranch, type EmployeeUpdate,
+  listAllEmployees, logEvent, updateEmployee, EMPLOYEE_BRANCHES,
+  type Employee, type EmployeeBranch, type EmployeeUpdate,
 } from "@/lib/api/employees";
+import { listRoles, type RoleSummary } from "@/lib/api/settings";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { dmSans } from "@/lib/auth-fonts";
 import FilterSelect, { type FilterOption } from "@/components/FilterSelect";
@@ -19,7 +20,9 @@ type LoadState =
   | { status: "ready"; employees: Employee[]; syncedAt: Date };
 
 type Viewer = { id: number; role: string };
-type FormValues = { name: string; email: string; phone: string; role: EmployeeRole; branch: EmployeeBranch | ""; is_active: boolean; password: string };
+type FormValues = { name: string; email: string; phone: string; role: string; branch: EmployeeBranch | ""; is_active: boolean; password: string };
+/** The fields the role pickers need from GET /roles. */
+type RoleOption = Pick<RoleSummary, "slug" | "name">;
 
 const AVATAR_TONES = ["bg-[#E7F5EE] text-[#0E4D3A]", "bg-[#E0F2FE] text-[#0B6AA8]", "bg-[#DCFCE7] text-[#167A44]", "bg-[#FEF3C7] text-[#9A6200]", "bg-[#FCE7F3] text-[#A8326E]"];
 const ROLE_STYLES: Record<string, string> = {
@@ -199,23 +202,28 @@ function SkeletonRows() {
   );
 }
 
-function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
-  employee?: Employee; viewer: Viewer; onClose: () => void; onSaved: (message: string) => void;
+function EmployeeFormDialog({ employee, viewer, roles, onClose, onSaved }: {
+  employee?: Employee; viewer: Viewer; roles: RoleSummary[]; onClose: () => void; onSaved: (message: string) => void;
 }) {
   const router = useRouter();
   const { token } = useAuth();
   const isEdit = !!employee;
   const isSelf = employee?.id === viewer.id;
-  // Managers cannot assign the admin role when creating or editing employees.
-  const roles = useMemo(() => {
-    const options: EmployeeRole[] = viewer.role === "manager"
-      ? EMPLOYEE_ROLES.filter((r) => r !== "admin")
-      : [...EMPLOYEE_ROLES];
-    return employee && !options.includes(employee.role as EmployeeRole) ? [employee.role as EmployeeRole, ...options] : options;
-  }, [employee, viewer.role]);
+  // Roles come from GET /roles. Managers cannot assign the admin role. Inactive roles are offered
+  // only when the employee already holds one, so an old assignment still shows its current value.
+  const roleOptions = useMemo<RoleOption[]>(() => {
+    const options = roles
+      .filter((role) => (role.is_active || role.slug === employee?.role) && !(viewer.role === "manager" && role.slug === "admin"))
+      .map(({ slug, name }) => ({ slug, name }));
+    const current = employee?.role;
+    if (current && !options.some((role) => role.slug === current)) {
+      return [{ slug: current, name: current.replaceAll("_", " ") }, ...options];
+    }
+    return options;
+  }, [roles, employee, viewer.role]);
   const [values, setValues] = useState<FormValues>({
     name: employee?.name ?? "", email: employee?.email ?? "", phone: toIndianLocal(employee?.phone),
-    role: (employee?.role as EmployeeRole) ?? "sales_executive",
+    role: employee?.role ?? roleOptions.find((role) => role.slug === "sales_executive")?.slug ?? roleOptions[0]?.slug ?? "",
     branch: (employee?.branch as EmployeeBranch) ?? "",
     is_active: employee?.is_active ?? true, password: "",
   });
@@ -305,8 +313,8 @@ function EmployeeFormDialog({ employee, viewer, onClose, onSaved }: {
               )}
             </div>
             <label className="crm-field-label">Role
-              <select value={values.role} disabled={isSelf} onChange={(e) => set("role", e.target.value as EmployeeRole)} className="crm-select capitalize">
-                {roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+              <select value={values.role} disabled={isSelf} onChange={(e) => set("role", e.target.value)} className="crm-select capitalize">
+                {roleOptions.map((role) => <option key={role.slug} value={role.slug}>{role.name}</option>)}
               </select>
               {isSelf && <span className="text-[11px] font-normal text-gray-400">You can&apos;t change your own role.</span>}
             </label>
@@ -370,6 +378,7 @@ export default function EmployeesPage() {
   const router = useRouter();
   const isOnline = useOnlineStatus();
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [roles, setRoles] = useState<RoleSummary[]>([]);
   const [search, setSearch] = useState("");
   // "" means no filter chosen; the dropdowns then show only their label.
   const [roleFilter, setRoleFilter] = useState("");
@@ -396,7 +405,8 @@ export default function EmployeesPage() {
     if (!accessToken) { setState({ status: "error", error: { kind: "auth", message: "Sign in to view your team." } }); return; }
     setState({ status: "loading" });
     try {
-      const { employees } = await listAllEmployees(accessToken);
+      const [{ employees }, roleList] = await Promise.all([listAllEmployees(accessToken), listRoles(accessToken)]);
+      setRoles(roleList.items);
       setState({ status: "ready", employees, syncedAt: new Date() });
     } catch (error) {
       setState({ status: "error", error: error instanceof ApiError ? error : new ApiError("unknown", "Something went wrong. Please try again.") });
@@ -452,13 +462,14 @@ export default function EmployeesPage() {
       ? noAdmins.filter((e) => e.role !== "manager")
       : noAdmins;
   }, [state, viewer]);
-  // Managers cannot filter by admin or manager role either.
+  // Managers cannot filter by admin or manager role either. No "All" entry: the clearable
+  // dropdown shows only its label until a role is picked, and picking it again clears the filter.
   const roleOptions = useMemo<FilterOption[]>(() => {
-    const roles = viewer?.role === "manager"
-      ? EMPLOYEE_ROLES.filter((r) => r !== "admin" && r !== "manager")
-      : EMPLOYEE_ROLES;
-    return [{ value: "", label: "All Roles" }, ...roles.map((role) => ({ value: role, label: roleLabel(role) }))];
-  }, [viewer]);
+    const hidden = viewer?.role === "manager" ? ["admin", "manager"] : [];
+    return roles
+      .filter((role) => !hidden.includes(role.slug))
+      .map((role) => ({ value: role.slug, label: role.name }));
+  }, [roles, viewer]);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return employees.filter((employee) =>
@@ -792,7 +803,7 @@ export default function EmployeesPage() {
         </div>
       )}
 
-      {editor && viewer && <EmployeeFormDialog employee={editor.employee} viewer={viewer} onClose={() => setEditor(null)} onSaved={handleSaved} />}
+      {editor && viewer && <EmployeeFormDialog employee={editor.employee} viewer={viewer} roles={roles} onClose={() => setEditor(null)} onSaved={handleSaved} />}
 
       {deleteTarget && (
         <div className="fixed inset-0 z-[1110] grid place-items-center overflow-y-auto p-4 bg-[rgba(17,18,20,0.45)] backdrop-blur-[5px]">

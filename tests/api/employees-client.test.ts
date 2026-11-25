@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, type Employee } from "@/lib/api/auth";
 import {
-  createEmployee, deleteEmployee, EMPLOYEE_ROLES, listAllEmployees, updateEmployee,
+  createEmployee, deleteEmployee, listAllEmployees, updateEmployee,
 } from "@/lib/api/employees";
 
 const employee = (id: number, role = "sales_executive"): Employee => ({
@@ -72,11 +72,5 @@ describe("employees client", () => {
     mockFetch([{ status: 409, body: { detail: "Email already in use" } }]);
     const error = await createEmployee("tok", { name: "A", email: "a@b.com", password: "Welcome123" }).catch((e) => e);
     expect(error.message).toBe("Email already in use");
-  });
-});
-
-describe("employee roles", () => {
-  it("offers only admin, manager and sales executive", () => {
-    expect([...EMPLOYEE_ROLES]).toEqual(["admin", "manager", "sales_executive"]);
   });
 });

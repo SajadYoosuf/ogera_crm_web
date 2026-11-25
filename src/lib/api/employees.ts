@@ -2,10 +2,6 @@ import { apiCall, ApiError, type Employee } from "./auth";
 
 export type { Employee };
 
-/** Mirrors the Employees section of the parent API.md. */
-export const EMPLOYEE_ROLES = ["admin", "manager", "sales_executive"] as const;
-export type EmployeeRole = (typeof EMPLOYEE_ROLES)[number];
-
 export type EmployeeList = { items: Employee[]; total: number; skip: number; limit: number };
 
 export const EMPLOYEE_BRANCHES = ["malappuram", "perinthalmanna", "kottakkal"] as const;
@@ -15,7 +11,8 @@ export type EmployeeCreate = {
   name: string;
   email: string;
   phone?: string;
-  role?: EmployeeRole;
+  /** A role slug from GET /roles; the backend checks it exists. */
+  role?: string;
   branch?: EmployeeBranch | null;
   is_field_staff?: boolean;
   password: string;
@@ -113,3 +110,16 @@ export const updateEmployee = (accessToken: string, id: number, input: EmployeeU
 
 /** DELETE /employees/{id} — soft delete, 204. */
 export const deleteEmployee = (accessToken: string, id: number) => call<void>(accessToken, "DELETE", `/employees/${id}`);
+
+export type DirectoryEmployee = {
+  id: number;
+  name: string;
+  role: string;
+  role_name: string;
+  phone: string | null;
+  open_lead_count: number;
+};
+
+/** GET /employees/directory — staff whose role has leads read access, with open lead counts. */
+export const getEmployeeDirectory = (accessToken: string) =>
+  call<DirectoryEmployee[]>(accessToken, "GET", "/employees/directory");

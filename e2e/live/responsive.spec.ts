@@ -46,7 +46,7 @@ test("the Tasks screen fits the screen and its rows stay readable", async ({ pag
   await page.goto("/dashboard/tasks");
   await expect(page.getByText(name).first()).toBeVisible();
   await expectNoSidewaysScroll(page);
-  await expectInsideScreen(page, page.getByRole("tablist", { name: "Task status filter" }));
+  await expectInsideScreen(page, page.getByRole("tablist", { name: "Task groups" }));
 });
 
 test("the Lead Pipeline and an open lead fit the screen", async ({ page }) => {
@@ -56,7 +56,7 @@ test("the Lead Pipeline and an open lead fit the screen", async ({ page }) => {
   await createLead(api, anu, name);
   await api.dispose();
   await signIn(page, "anu");
-  await page.goto("/dashboard/followups");
+  await page.goto("/dashboard/leads");
   await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
   await expectNoSidewaysScroll(page);
 
@@ -97,7 +97,7 @@ test("the schedule form fits the screen on a phone and a tablet", async ({ page 
   await createLead(api, anu, name);
   await api.dispose();
   await signIn(page, "anu");
-  await page.goto("/dashboard/followups");
+  await page.goto("/dashboard/leads");
   await page.getByText(name, { exact: true }).first().click();
   await page.getByRole("tablist", { name: "Lead detail tabs" }).getByRole("tab", { name: /^Follow-ups/ }).click();
   await page.getByRole("button", { name: "Schedule Followup" }).first().click();
