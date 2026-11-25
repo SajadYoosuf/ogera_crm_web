@@ -126,7 +126,7 @@ export default function LeadFollowupModal({ leadId, leadName, onSaved, onCancel 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
       role="presentation">
       <div role="dialog" aria-modal="true" aria-labelledby="followup-title"
         className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">

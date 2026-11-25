@@ -239,7 +239,7 @@ export default function ConvertLeadModal({ converter }: Props) {
 
 function Overlay({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
       role="presentation">
       {children}
     </div>
