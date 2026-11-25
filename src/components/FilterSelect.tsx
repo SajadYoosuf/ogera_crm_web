@@ -1,7 +1,8 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { usePopoverFit } from "@/hooks/usePopoverFit";
+import { createPortal } from "react-dom";
+import { useFloatingPopover } from "@/hooks/useFloatingPopover";
 
 export type FilterOption = { value: string; label: string; count?: number; dot?: string };
 
@@ -20,12 +21,16 @@ export default function FilterSelect({ label, value, onChange, options, icon, cl
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const listStyle = usePopoverFit(open, rootRef, 240);
+  const listRef = useRef<HTMLUListElement>(null);
+  const listStyle = useFloatingPopover(open, rootRef, 240);
   const current = clearable && !value ? undefined : options.find((option) => option.value === value) ?? (clearable ? undefined : options[0]);
 
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (event: MouseEvent) => { if (!rootRef.current?.contains(event.target as Node)) setOpen(false); };
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !listRef.current?.contains(target)) setOpen(false);
+    };
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -54,8 +59,8 @@ export default function FilterSelect({ label, value, onChange, options, icon, cl
         <Icon className={`w-4 h-4 shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6" /></Icon>
       </button>
 
-      {open && (
-        <ul style={listStyle} role="listbox" aria-label={label} className="absolute top-full z-[1100] mt-2 max-h-[min(30rem,calc(100vh-14rem))] overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
+      {open && createPortal(
+        <ul ref={listRef} style={listStyle} role="listbox" aria-label={label} className="fixed z-[1100] overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
           {options.map((option) => {
             const selected = option.value === value;
             return (
@@ -77,7 +82,8 @@ export default function FilterSelect({ label, value, onChange, options, icon, cl
               </li>
             );
           })}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );

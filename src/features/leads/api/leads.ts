@@ -267,6 +267,8 @@ export type LeadTimelineItem = {
   action: string;
   /** Human-readable sentence, e.g. "Status changed from new to contacted" */
   label: string;
+  /** Extra line for assignments, e.g. "Assigned to Raj Sales" or "Unassigned". Null for other events. */
+  detail: string | null;
   actor_name: string | null;
   old_value: string | null;
   new_value: string | null;

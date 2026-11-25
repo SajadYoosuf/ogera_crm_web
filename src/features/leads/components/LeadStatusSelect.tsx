@@ -12,7 +12,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { usePopoverFit } from "@/hooks/usePopoverFit";
+import { createPortal } from "react-dom";
+import { useFloatingPopover } from "@/hooks/useFloatingPopover";
 import { statusBadgeClass, statusDotClass } from "./LeadStatusPill";
 import type { LeadStatus, LeadStatusOption } from "@/features/leads/api/leads";
 
@@ -30,7 +31,8 @@ type Props = {
 export default function LeadStatusSelect({ status, statuses, onChange, isUpdating, justUpdated, label, locked = false }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const listStyle = usePopoverFit(open, rootRef, 180);
+  const listRef = useRef<HTMLUListElement>(null);
+  const listStyle = useFloatingPopover(open, rootRef, 180, 288);
 
   // "converted" isn't a lead_statuses row (it's set by the Convert action), but an
   // already-converted lead must still appear as an option so its current value shows.
@@ -40,7 +42,10 @@ export default function LeadStatusSelect({ status, statuses, onChange, isUpdatin
 
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (event: MouseEvent) => { if (!rootRef.current?.contains(event.target as Node)) setOpen(false); };
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !listRef.current?.contains(target)) setOpen(false);
+    };
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -90,8 +95,8 @@ export default function LeadStatusSelect({ status, statuses, onChange, isUpdatin
         <svg className={`h-3 w-3 shrink-0 opacity-70 transition-transform ${open ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </button>
 
-      {open && (
-        <ul style={listStyle} role="listbox" aria-label="Status" className="absolute top-full z-[1100] mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
+      {open && createPortal(
+        <ul ref={listRef} style={listStyle} role="listbox" aria-label="Status" className="fixed z-[1100] overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
           {options.map((option) => {
             const selected = option.value === status;
             return (
@@ -108,7 +113,8 @@ export default function LeadStatusSelect({ status, statuses, onChange, isUpdatin
               </li>
             );
           })}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );

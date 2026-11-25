@@ -266,6 +266,7 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, onClose, on
                       <li key={ev.id} className="relative">
                         <span aria-hidden="true" className="absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full bg-[#0E4D3A]" />
                         <p className="text-sm font-semibold text-[#1A1C21]">{ev.label}</p>
+                        {ev.detail && <p className="mt-0.5 text-sm text-[#3A3E4A]">{ev.detail}</p>}
                         <p className="mt-0.5 text-xs text-[#8A8F9C]">
                           {formatDateTime(ev.created_at)}{ev.actor_name ? ` · ${ev.actor_name}` : ""}
                         </p>
