@@ -36,7 +36,7 @@ import { useFollowupSettings } from "@/features/settings/hooks/useFollowupSettin
 import { duePresets, isPast, localDate, retryChoice } from "@/features/leads/followupPresets";
 import LeadFollowupModal, { type FollowupInitial } from "./LeadFollowupModal";
 
-type Mode = "idle" | "complete" | "next" | "reschedule" | "reassign" | "delete";
+export type TaskActionMode = "idle" | "complete" | "next" | "reschedule" | "reassign" | "delete";
 
 const OUTCOMES: { value: InteractionOutcome; label: string }[] = [
   { value: "done", label: "Done" },
@@ -54,13 +54,17 @@ const input = "h-8 rounded-md border border-[#DEE1E5] px-2 text-xs text-[#1A1C21
 const chip = (on: boolean) =>
   `h-8 rounded-md border px-2 text-xs font-semibold ${on ? "border-teal-600 bg-teal-50 text-teal-700" : "border-[#DEE1E5] text-[#4B5060] hover:bg-[#F7F7F9]"}`;
 
-export default function LeadTaskActions({ task, leadId, leadName, employees = [], onChanged }: {
+export default function LeadTaskActions({ task, leadId, leadName, employees = [], onChanged, initialMode = "idle", onCancel }: {
   task: Interaction;
   leadId: number;
   /** Shown in the "Schedule next follow-up" form. */
   leadName?: string;
   employees?: { id: number; name: string }[];
   onChanged: () => void;
+  /** Opens straight into one action (e.g. from the Tasks page menu). */
+  initialMode?: TaskActionMode;
+  /** Replaces the default cancel, which returns to the button row. */
+  onCancel?: () => void;
 }) {
   const { token, user } = useAuth();
   const { settings } = useFollowupSettings();
@@ -71,7 +75,7 @@ export default function LeadTaskActions({ task, leadId, leadName, employees = []
   const canReschedule = head || (isAssignee && settings.allow_staff_reschedule);
   const canCreate = head || settings.allow_staff_create_followup;
 
-  const [mode, setMode] = useState<Mode>("idle");
+  const [mode, setMode] = useState<TaskActionMode>(initialMode);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [outcome, setOutcome] = useState<InteractionOutcome>("done");
@@ -149,7 +153,11 @@ export default function LeadTaskActions({ task, leadId, leadName, employees = []
     void run((t) => rescheduleLeadTask(t, leadId, task.id, localDateTimeToIso(date, time, settings.default_due_time), reason));
   }
 
-  function cancel() { setMode("idle"); setError(""); }
+  function cancel() {
+    if (onCancel) { onCancel(); return; }
+    setMode("idle");
+    setError("");
+  }
 
   const open = task.status !== "completed";
   const channelTypes = activityTypes.filter((o) => !NOT_A_CHANNEL.has(o.value));

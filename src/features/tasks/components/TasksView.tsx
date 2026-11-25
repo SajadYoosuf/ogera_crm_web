@@ -4,27 +4,37 @@
  * /dashboard/tasks — every lead follow-up in one place, table layout matching the Leads page.
  *
  *   Toolbar   search + bucket dropdown (Today/Overdue/Upcoming/Completed) + assignee filter
- *   Table     Lead, Title, Type, Priority, Status, Due, Assigned To, sticky Action column
- *   Detail    clicking a row opens a task detail modal with the full action set
+ *   Table     Lead, Title, Type, Priority, Status, Due, Assigned To, Action
+ *   Status    dropdown only the assignee can change; choosing Completed opens the completion form
+ *   Action    three-dot menu: View Lead, Reschedule, Reassign, Delete (by role rules)
+ *   Detail    clicking a row opens the task card; the menu opens each action directly
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import { listAllEmployees } from "@/lib/api/employees";
-import { ACTIVITY_TYPE_FALLBACK, type LeadTask, type LeadTaskBucket } from "@/lib/api/interactions";
+import {
+  ACTIVITY_TYPE_FALLBACK,
+  updateInteraction,
+  type InteractionStatus,
+  type LeadTask,
+  type LeadTaskBucket,
+} from "@/lib/api/interactions";
 import { isLeadHead } from "@/lib/shared/roles";
 import {
   FollowupCard,
+  PRIORITY_BADGE,
+  TASK_STATUS_FALLBACK,
   formatDate,
   formatTime,
   overdueMinutes,
   overdueText,
   useTaskStatusStyle,
-  PRIORITY_BADGE,
 } from "@/features/leads/components/FollowupCard";
-import LeadTaskActions from "@/features/leads/components/LeadTaskActions";
+import LeadTaskActions, { type TaskActionMode } from "@/features/leads/components/LeadTaskActions";
+import { useFollowupSettings } from "@/features/settings/hooks/useFollowupSettings";
 import { useLeadTasks } from "../hooks/useLeadTasks";
 import { staticOptions, useEnumOptions } from "@/hooks/useEnumOptions";
 
@@ -47,6 +57,10 @@ const PRIORITY_FALLBACK = staticOptions([
 
 const FALLBACK_TYPES = staticOptions(ACTIVITY_TYPE_FALLBACK);
 
+type Employee = { id: number; name: string };
+type ActionMenu = { task: LeadTask; top: number; right: number };
+type Detail = { task: LeadTask; mode: TaskActionMode };
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function SkeletonRows({ columns }: { columns: number }) {
@@ -65,26 +79,54 @@ function SkeletonRows({ columns }: { columns: number }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const { label, className } = useTaskStatusStyle()(status);
+function StatusSelect({ task, editable, onChange }: {
+  task: LeadTask;
+  editable: boolean;
+  onChange: (status: InteractionStatus) => void;
+}) {
+  const { options } = useEnumOptions("task_status", TASK_STATUS_FALLBACK);
+  const { className } = useTaskStatusStyle()(task.status);
+  const locked = !editable || task.status === "completed";
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-[3px] text-xs font-semibold ${className}`}>
+    <select
+      aria-label="Task status"
+      value={task.status}
+      disabled={locked}
+      onChange={(e) => onChange(e.target.value as InteractionStatus)}
+      className={`h-7 rounded-full border-0 px-2 text-[11px] font-semibold outline-none focus:outline-2 focus:outline-[#7EE2A8] disabled:cursor-default ${className}`}
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
+  );
+}
+
+function MenuItem({ label, danger, onClick }: { label: string; danger?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={`block w-full px-3 py-2 text-left text-sm hover:bg-[#F3F3F5] ${danger ? "text-red-600" : "text-[#3A3E4A]"}`}
+    >
       {label}
-    </span>
+    </button>
   );
 }
 
 function TaskDetailModal({
-  task,
+  detail,
   employees,
   onClose,
   onChanged,
 }: {
-  task: LeadTask;
-  employees: { id: number; name: string }[];
+  detail: Detail;
+  employees: Employee[];
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { task, mode } = detail;
   return (
     <div
       role="dialog"
@@ -95,7 +137,6 @@ function TaskDetailModal({
     >
       <div className="absolute inset-0 bg-black/40" />
       <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-        {/* Modal header */}
         <div className="flex items-start justify-between gap-3 border-b border-[#EFEFF2] px-5 py-4">
           <div>
             <p className="mb-0.5 text-sm font-bold text-[#0E4D3A]">{task.lead_name}</p>
@@ -113,17 +154,20 @@ function TaskDetailModal({
           </button>
         </div>
 
-        {/* Task card + actions */}
         <div className="p-5">
           <ul>
             <FollowupCard task={task}>
-              <LeadTaskActions
-                task={task}
-                leadId={task.entity_id}
-                leadName={task.lead_name}
-                employees={employees}
-                onChanged={() => { onChanged(); onClose(); }}
-              />
+              {mode !== "idle" && (
+                <LeadTaskActions
+                  task={task}
+                  leadId={task.entity_id}
+                  leadName={task.lead_name}
+                  employees={employees}
+                  initialMode={mode}
+                  onCancel={onClose}
+                  onChanged={onChanged}
+                />
+              )}
             </FollowupCard>
           </ul>
         </div>
@@ -145,10 +189,13 @@ export default function TasksView() {
 
   const [search, setSearch]     = useState("");
   const [assignee, setAssignee] = useState<string>("");
-  const [employees, setEmployees] = useState<{ id: number; name: string }[]>([]);
-  const [detailTask, setDetailTask] = useState<LeadTask | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [menu, setMenu] = useState<ActionMenu | null>(null);
+  const [statusError, setStatusError] = useState("");
 
   const assignedTo = head && assignee ? Number(assignee) : null;
+  const { settings } = useFollowupSettings();
 
   const { labelOf: activityLabel } = useEnumOptions("activity_type", FALLBACK_TYPES);
   const { labelOf: priorityLabel } = useEnumOptions("task_priority", PRIORITY_FALLBACK);
@@ -175,6 +222,33 @@ export default function TasksView() {
   }
 
   const openLead = (leadId: number) => router.push(`/dashboard/leads?lead=${leadId}`);
+  const isAssignee = (task: LeadTask) => user != null && task.assigned_to === user.id;
+
+  function openMenu(e: MouseEvent<HTMLButtonElement>, task: LeadTask) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenu({ task, top: rect.bottom + 4, right: window.innerWidth - rect.right });
+  }
+
+  function pick(task: LeadTask, mode: TaskActionMode) {
+    setMenu(null);
+    setDetail({ task, mode });
+  }
+
+  async function changeStatus(task: LeadTask, status: InteractionStatus) {
+    if (!token) return;
+    if (status === "completed") {
+      setDetail({ task, mode: "complete" });
+      return;
+    }
+    setStatusError("");
+    try {
+      await updateInteraction(token, task.id, { status });
+      reload();
+    } catch (caught) {
+      setStatusError(caught instanceof ApiError ? caught.message : "Could not update the status. Try again.");
+    }
+  }
+
   const offline =
     error instanceof ApiError &&
     (error.kind === "offline" || error.kind === "network" || error.kind === "timeout");
@@ -182,6 +256,10 @@ export default function TasksView() {
   const currentBucket = BUCKETS.find((b) => b.key === bucket)!;
 
   const tableColumns = ["Lead", "Title", "Type", "Priority", "Status", "Due", ...(head ? ["Assigned To"] : [])];
+
+  const menuTask = menu?.task;
+  const menuOpen = menuTask !== undefined && menuTask.status !== "completed";
+  const menuCanReschedule = menuTask !== undefined && (head || (isAssignee(menuTask) && settings.allow_staff_reschedule));
 
   return (
     <div className="flex min-h-full flex-col bg-[#F4FBF7]">
@@ -199,7 +277,6 @@ export default function TasksView() {
         <section aria-label="Task list" className="flex flex-col rounded-[14px] border border-[#E7E7EA] bg-white">
           {/* Toolbar */}
           <div className="flex flex-col gap-3 border-b border-[#EFEFF2] p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
-            {/* Search */}
             <div className="relative">
               <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8F9C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
                 <circle cx="10.75" cy="10.75" r="6.25" /><path d="m16 16 4.25 4.25" />
@@ -213,14 +290,12 @@ export default function TasksView() {
               />
             </div>
 
-            {/* Filter dropdowns */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Bucket */}
+            <div className="flex shrink-0 items-center gap-2">
               <select
                 value={bucket}
                 onChange={(e) => selectBucket(e.target.value as LeadTaskBucket)}
                 aria-label="Task group"
-                className="h-[38px] rounded-[8px] border border-[#E1E1E6] bg-white px-3 text-sm text-[#1A1C21] outline-none focus:outline-2 focus:outline-[#7EE2A8]"
+                className="h-9 rounded-[8px] border border-[#E1E1E6] bg-white px-2.5 text-sm text-[#1A1C21] outline-none focus:outline-2 focus:outline-[#7EE2A8]"
               >
                 {BUCKETS.map((b) => (
                   <option key={b.key} value={b.key}>
@@ -229,22 +304,20 @@ export default function TasksView() {
                 ))}
               </select>
 
-              {/* Assignee (head only) */}
               {head && (
                 <select
                   value={assignee}
                   onChange={(e) => setAssignee(e.target.value)}
                   aria-label="Assigned to"
-                  className="h-[38px] rounded-[8px] border border-[#E1E1E6] bg-white px-3 text-sm text-[#1A1C21] outline-none focus:outline-2 focus:outline-[#7EE2A8]"
+                  className="h-9 rounded-[8px] border border-[#E1E1E6] bg-white px-2.5 text-sm text-[#1A1C21] outline-none focus:outline-2 focus:outline-[#7EE2A8]"
                 >
-                  <option value="">Everyone</option>
+                  <option value="">Employee</option>
                   {employees.map((e) => (
                     <option key={e.id} value={String(e.id)}>{e.name}</option>
                   ))}
                 </select>
               )}
 
-              {/* Clear filters */}
               {filtered && (
                 <button
                   type="button"
@@ -280,6 +353,7 @@ export default function TasksView() {
               </div>
             ) : (
               <>
+                {statusError && <p role="alert" className="px-4 pt-3 text-sm text-red-600">{statusError}</p>}
                 <div className="w-full overflow-x-auto">
                   <table className="w-max min-w-full border-collapse text-base [&_td]:whitespace-nowrap">
                     <thead className="bg-[#F7F7F9] text-left text-sm font-medium text-[#4B5060]">
@@ -296,7 +370,7 @@ export default function TasksView() {
                     </thead>
                     <tbody>
                       {isLoading ? (
-                        <SkeletonRows columns={tableColumns.length} />
+                        <SkeletonRows columns={tableColumns.length + 1} />
                       ) : items.length === 0 ? (
                         <tr>
                           <td colSpan={tableColumns.length + 1}>
@@ -332,10 +406,9 @@ export default function TasksView() {
                           return (
                             <tr
                               key={task.id}
-                              onClick={() => setDetailTask(task)}
+                              onClick={() => setDetail({ task, mode: "idle" })}
                               className="group cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB] [&_td]:py-3.5"
                             >
-                              {/* Lead */}
                               <td className="px-3">
                                 <div className="max-w-[200px]">
                                   <div className="truncate font-semibold text-[#1A1C21] underline decoration-transparent decoration-2 underline-offset-2 transition-colors group-hover:text-[#0E4D3A] group-hover:decoration-[#0E4D3A]">
@@ -347,7 +420,6 @@ export default function TasksView() {
                                 </div>
                               </td>
 
-                              {/* Title */}
                               <td className="px-3">
                                 {task.title ? (
                                   <span className="block max-w-[200px] truncate text-sm text-[#3A3E4A]">{task.title}</span>
@@ -356,26 +428,26 @@ export default function TasksView() {
                                 )}
                               </td>
 
-                              {/* Type */}
                               <td className="px-3">
                                 <span className="inline-flex items-center rounded-full bg-teal-50 px-2.5 py-[3px] text-xs font-semibold text-teal-700">
                                   {actType}
                                 </span>
                               </td>
 
-                              {/* Priority */}
                               <td className="px-3">
                                 <span className={`inline-flex items-center rounded-full px-2.5 py-[3px] text-xs font-semibold ${PRIORITY_BADGE[task.priority] ?? ""}`}>
                                   {priorityLabel(task.priority)}
                                 </span>
                               </td>
 
-                              {/* Status */}
-                              <td className="px-3">
-                                <StatusBadge status={task.status} />
+                              <td className="px-3" onClick={(e) => e.stopPropagation()}>
+                                <StatusSelect
+                                  task={task}
+                                  editable={isAssignee(task)}
+                                  onChange={(status) => void changeStatus(task, status)}
+                                />
                               </td>
 
-                              {/* Due */}
                               <td className="px-3">
                                 {task.due_at ? (
                                   <div className="text-xs">
@@ -391,24 +463,26 @@ export default function TasksView() {
                                 )}
                               </td>
 
-                              {/* Assigned To (head only) */}
                               {head && (
                                 <td className="px-3 text-sm text-[#3A3E4A]">
                                   {task.assigned_to_name ?? <span className="text-[#B4B8C2]">Unassigned</span>}
                                 </td>
                               )}
 
-                              {/* Action */}
                               <td
                                 className="sticky right-0 z-10 bg-white px-4 text-center transition-colors group-hover:bg-[#FAFAFB] shadow-[-8px_0_8px_-8px_rgba(16,24,40,0.18)]"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <button
                                   type="button"
-                                  onClick={() => openLead(task.entity_id)}
-                                  className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-[#E1E1E6] bg-white px-2.5 text-xs font-medium text-[#3A3E4A] hover:bg-[#F3F3F5]"
+                                  aria-label="Task actions"
+                                  aria-haspopup="menu"
+                                  onClick={(e) => openMenu(e, task)}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#E1E1E6] bg-white text-[#3A3E4A] hover:bg-[#F3F3F5]"
                                 >
-                                  View Lead
+                                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" />
+                                  </svg>
                                 </button>
                               </td>
                             </tr>
@@ -419,7 +493,6 @@ export default function TasksView() {
                   </table>
                 </div>
 
-                {/* Pagination / load more */}
                 {!isLoading && total > 0 && (
                   <nav
                     className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEFF2] px-3 py-3 sm:px-4 sm:py-3.5"
@@ -446,13 +519,29 @@ export default function TasksView() {
         </section>
       </div>
 
-      {/* Task detail modal — clicking a row opens this */}
-      {detailTask && (
+      {menu && menuTask && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} aria-hidden="true" />
+          <div
+            role="menu"
+            aria-label="Task actions"
+            className="fixed z-50 w-44 rounded-lg border border-[#E5E7EA] bg-white py-1 shadow-lg"
+            style={{ top: menu.top, right: menu.right }}
+          >
+            <MenuItem label="View Lead" onClick={() => { setMenu(null); openLead(menuTask.entity_id); }} />
+            {menuOpen && menuCanReschedule && <MenuItem label="Reschedule" onClick={() => pick(menuTask, "reschedule")} />}
+            {menuOpen && head && employees.length > 0 && <MenuItem label="Reassign" onClick={() => pick(menuTask, "reassign")} />}
+            {head && <MenuItem label="Delete" danger onClick={() => pick(menuTask, "delete")} />}
+          </div>
+        </>
+      )}
+
+      {detail && (
         <TaskDetailModal
-          task={detailTask}
+          detail={detail}
           employees={employees}
-          onClose={() => setDetailTask(null)}
-          onChanged={() => { reload(); setDetailTask(null); }}
+          onClose={() => setDetail(null)}
+          onChanged={() => { reload(); setDetail(null); }}
         />
       )}
     </div>

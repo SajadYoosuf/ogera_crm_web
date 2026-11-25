@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TasksView from "@/features/tasks/components/TasksView";
-import { listLeadTasks, type LeadTask, type LeadTaskList } from "@/lib/api/interactions";
+import { listLeadTasks, updateInteraction, type LeadTask, type LeadTaskList } from "@/lib/api/interactions";
 import { listAllEmployees } from "@/lib/api/employees";
 import { ApiError } from "@/lib/api/auth";
 
@@ -18,6 +18,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/api/interactions", async (orig) => ({
   ...(await orig<typeof import("@/lib/api/interactions")>()),
   listLeadTasks: vi.fn(),
+  updateInteraction: vi.fn(),
 }));
 vi.mock("@/lib/api/employees", async (orig) => ({
   ...(await orig<typeof import("@/lib/api/employees")>()),
@@ -43,11 +44,17 @@ function page(items: LeadTask[], summary = { today: 1, overdue: 3, upcoming: 2, 
   return { items, total: items.length, skip: 0, limit: 30, bucket: "today", summary };
 }
 
+async function openRowMenu() {
+  fireEvent.click(screen.getByRole("button", { name: "Task actions" }));
+  return screen.getByRole("menu");
+}
+
 beforeEach(() => {
   auth.user = { id: 3, name: "Anu", role: "sales_executive" };
   nav.params = new URLSearchParams();
   vi.mocked(listLeadTasks).mockResolvedValue(page([task()]));
   vi.mocked(listAllEmployees).mockResolvedValue({ employees: [{ id: 3, name: "Anu" }, { id: 4, name: "Raj" }] as never, total: 2 });
+  vi.mocked(updateInteraction).mockResolvedValue({} as never);
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -56,8 +63,7 @@ describe("TasksView", () => {
     render(<TasksView />);
     expect(await screen.findByText("Ravi Kumar")).toBeTruthy();
     expect(vi.mocked(listLeadTasks).mock.calls[0][1]).toMatchObject({ bucket: "today", assignedTo: null });
-    // Bucket dropdown shows live counts in the options
-    expect(screen.getByRole("option", { name: /Overdue \(3\)/ })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Overdue (3)" })).toBeTruthy();
     expect((screen.getByLabelText("Task group") as HTMLSelectElement).value).toBe("today");
   });
 
@@ -76,16 +82,80 @@ describe("TasksView", () => {
     expect(nav.replace).toHaveBeenCalledWith("/dashboard/tasks?tab=upcoming", { scroll: false });
   });
 
-  it("clicking a row opens the task detail modal", async () => {
+  it("clicking a row opens the task card without action buttons", async () => {
     render(<TasksView />);
     fireEvent.click(await screen.findByText("Ravi Kumar"));
     expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Mark complete" })).toBeNull();
   });
 
-  it("View Lead button in action column navigates to the lead", async () => {
+  it("the assignee changes status from the status dropdown", async () => {
     render(<TasksView />);
     await screen.findByText("Ravi Kumar");
-    fireEvent.click(screen.getByRole("button", { name: "View Lead" }));
+    const status = screen.getByRole("combobox", { name: "Task status" }) as HTMLSelectElement;
+    expect(status.disabled).toBe(false);
+    fireEvent.change(status, { target: { value: "inprogress" } });
+    await waitFor(() => expect(updateInteraction).toHaveBeenCalledWith("tok", 11, { status: "inprogress" }));
+  });
+
+  it("choosing Completed in the status dropdown opens the completion form", async () => {
+    render(<TasksView />);
+    await screen.findByText("Ravi Kumar");
+    fireEvent.change(screen.getByRole("combobox", { name: "Task status" }), { target: { value: "completed" } });
+    expect(await screen.findByRole("button", { name: "Mark complete" })).toBeTruthy();
+    expect(updateInteraction).not.toHaveBeenCalled();
+  });
+
+  it("only the assignee can change status; heads see it disabled", async () => {
+    auth.user = { id: 1, name: "Ada", role: "manager" };
+    render(<TasksView />);
+    await screen.findByText("Ravi Kumar");
+    expect((screen.getByRole("combobox", { name: "Task status" }) as HTMLSelectElement).disabled).toBe(true);
+  });
+
+  it("assigned staff menu has View Lead and Reschedule, but no Reassign or Delete", async () => {
+    render(<TasksView />);
+    await screen.findByText("Ravi Kumar");
+    const menu = await openRowMenu();
+    expect(within(menu).getByRole("menuitem", { name: "View Lead" })).toBeTruthy();
+    expect(within(menu).getByRole("menuitem", { name: "Reschedule" })).toBeTruthy();
+    expect(within(menu).queryByRole("menuitem", { name: "Reassign" })).toBeNull();
+    expect(within(menu).queryByRole("menuitem", { name: "Delete" })).toBeNull();
+  });
+
+  it("heads get Reschedule, Reassign and Delete in the menu", async () => {
+    auth.user = { id: 1, name: "Ada", role: "manager" };
+    render(<TasksView />);
+    await screen.findByText("Ravi Kumar");
+    const menu = await openRowMenu();
+    await waitFor(() => expect(within(menu).getByRole("menuitem", { name: "Reassign" })).toBeTruthy());
+    expect(within(menu).getByRole("menuitem", { name: "Reschedule" })).toBeTruthy();
+    expect(within(menu).getByRole("menuitem", { name: "Delete" })).toBeTruthy();
+  });
+
+  it("other staff see only View Lead in the menu and no status control", async () => {
+    auth.user = { id: 9, name: "Other", role: "sales_executive" };
+    render(<TasksView />);
+    await screen.findByText("Ravi Kumar");
+    expect((screen.getByRole("combobox", { name: "Task status" }) as HTMLSelectElement).disabled).toBe(true);
+    const menu = await openRowMenu();
+    expect(within(menu).getByRole("menuitem", { name: "View Lead" })).toBeTruthy();
+    expect(within(menu).queryByRole("menuitem", { name: "Reschedule" })).toBeNull();
+  });
+
+  it("menu Reschedule opens the reschedule form", async () => {
+    render(<TasksView />);
+    await screen.findByText("Ravi Kumar");
+    const menu = await openRowMenu();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Reschedule" }));
+    expect(await screen.findByRole("button", { name: "Save" })).toBeTruthy();
+  });
+
+  it("menu View Lead navigates to the lead", async () => {
+    render(<TasksView />);
+    await screen.findByText("Ravi Kumar");
+    const menu = await openRowMenu();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "View Lead" }));
     expect(nav.push).toHaveBeenCalledWith("/dashboard/leads?lead=5");
   });
 
