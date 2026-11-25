@@ -64,7 +64,7 @@ const formatPhone = (phone: string | null) => {
   return match ? `+91 ${match[1]} ${match[2]}` : phone;
 };
 
-const roleLabel = (role: string) => role.replaceAll("_", " ");
+const roleLabel = (role: string | null | undefined) => (role ?? "").replaceAll("_", " ");
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
 const formatDate = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
 /** Table format from the design: "09 Oct 2026, 11:15 am". */

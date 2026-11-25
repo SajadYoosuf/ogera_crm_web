@@ -78,12 +78,18 @@ function call<T>(accessToken: string, method: string, path: string, body?: unkno
 }
 
 /** GET /employees — one page. */
-export function listEmployees(accessToken: string, params: { skip?: number; limit?: number; role?: string; is_active?: boolean; search?: string } = {}) {
+/** Adds `role` from the backend's `role_slug`, so every screen gets a string. */
+function withRole(employee: Employee & { role_slug?: string | null }): Employee {
+  return { ...employee, role: employee.role ?? employee.role_slug ?? "" };
+}
+
+export async function listEmployees(accessToken: string, params: { skip?: number; limit?: number; role?: string; is_active?: boolean; search?: string } = {}) {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries({ skip: 0, limit: PAGE_SIZE, ...params })) {
     if (value !== undefined && value !== "") query.set(key, String(value));
   }
-  return call<EmployeeList>(accessToken, "GET", `/employees?${query}`);
+  const list = await call<EmployeeList>(accessToken, "GET", `/employees?${query}`);
+  return { ...list, items: list.items.map(withRole) };
 }
 
 /** Walks every page of GET /employees. The team is small, so filtering is done client-side. */
@@ -100,13 +106,13 @@ export async function listAllEmployees(accessToken: string): Promise<{ employees
 }
 
 /** GET /employees/{id} */
-export const getEmployee = (accessToken: string, id: number) => call<Employee>(accessToken, "GET", `/employees/${id}`);
+export const getEmployee = (accessToken: string, id: number) => call<Employee>(accessToken, "GET", `/employees/${id}`).then(withRole);
 
 /** POST /employees */
-export const createEmployee = (accessToken: string, input: EmployeeCreate) => call<Employee>(accessToken, "POST", "/employees", input);
+export const createEmployee = (accessToken: string, input: EmployeeCreate) => call<Employee>(accessToken, "POST", "/employees", input).then(withRole);
 
 /** PUT /employees/{id} — longer timeout because the backend sends a notification email synchronously. */
-export const updateEmployee = (accessToken: string, id: number, input: EmployeeUpdate) => call<Employee>(accessToken, "PUT", `/employees/${id}`, input, 25_000);
+export const updateEmployee = (accessToken: string, id: number, input: EmployeeUpdate) => call<Employee>(accessToken, "PUT", `/employees/${id}`, input, 25_000).then(withRole);
 
 /** DELETE /employees/{id} — soft delete, 204. */
 export const deleteEmployee = (accessToken: string, id: number) => call<void>(accessToken, "DELETE", `/employees/${id}`);
