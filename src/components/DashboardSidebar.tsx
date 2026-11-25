@@ -5,6 +5,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@/context/AuthContext";
+import NotificationBell from "@/features/notifications/NotificationBell";
+import { getInboxUnreadCount, INBOX_UNREAD_EVENT } from "@/features/whatsapp-inbox/api";
+import { listLeadTasks } from "@/lib/api/interactions";
+import { TASKS_CHANGED_EVENT } from "@/features/tasks/hooks/useLeadTasks";
+
+const UNREAD_POLL_MS = 30_000;
 
 interface SessionUser { name: string; email: string; role: string; }
 
@@ -45,6 +51,27 @@ const menuItems: MenuItem[] = [
     ),
   },
   {
+    id: "tasks",
+    label: "Tasks",
+    href: "/dashboard/tasks",
+    category: "MAIN",
+    icon: (
+      <>
+        <path d="M9 11l3 3 8-8" />
+        <path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" />
+      </>
+    ),
+  },
+  {
+    id: "whatsapp-inbox",
+    label: "WhatsApp",
+    href: "/dashboard/whatsapp-inbox",
+    category: "MAIN",
+    icon: (
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    ),
+  },
+  {
     id: "employees",
     label: "Employees",
     href: "/dashboard/employees",
@@ -53,7 +80,18 @@ const menuItems: MenuItem[] = [
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
     ),
   },
-
+  {
+    id: "settings",
+    label: "Settings",
+    href: "/dashboard/settings",
+    category: "FOOTER",
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+      </>
+    ),
+  },
 ];
 
 const categories = [
@@ -87,8 +125,10 @@ function setCollapsed(value: boolean) {
 }
 
 export default function DashboardSidebar() {
-  const { user, clearSession } = useAuth();
+  const { user, token, clearSession } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [unreadWa, setUnreadWa] = useState(0);
+  const [overdueTasks, setOverdueTasks] = useState(0);
   // Desktop only: collapsed shows an icon rail. Mobile always uses the full drawer.
   const collapsed = useSyncExternalStore(subscribeSidebar, readCollapsed, () => false);
   const pathname = usePathname();
@@ -108,6 +148,36 @@ export default function DashboardSidebar() {
     window.addEventListener("toggleMobileMenu", handleToggleMobileMenu);
     return () => window.removeEventListener("toggleMobileMenu", handleToggleMobileMenu);
   }, []);
+
+  // WhatsApp unread badge: poll while the tab is visible; the inbox page also pings on read/send.
+  useEffect(() => {
+    if (!token) return;
+    const load = () => { void getInboxUnreadCount(token).then((r) => setUnreadWa(r.count)).catch(() => undefined); };
+    const first = window.setTimeout(load, 0);
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") load(); }, UNREAD_POLL_MS);
+    window.addEventListener(INBOX_UNREAD_EVENT, load);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+      window.removeEventListener(INBOX_UNREAD_EVENT, load);
+    };
+  }, [token]);
+
+  // Overdue follow-ups badge on Tasks: poll while visible; the Tasks page pings after every change.
+  useEffect(() => {
+    if (!token) return;
+    const load = () => {
+      void listLeadTasks(token, { bucket: "overdue", limit: 1 }).then((r) => setOverdueTasks(r.summary.overdue)).catch(() => undefined);
+    };
+    const first = window.setTimeout(load, 0);
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") load(); }, UNREAD_POLL_MS * 4);
+    window.addEventListener(TASKS_CHANGED_EVENT, load);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+      window.removeEventListener(TASKS_CHANGED_EVENT, load);
+    };
+  }, [token]);
 
   const visibleMenuItems = menuItems;
 
@@ -129,7 +199,7 @@ export default function DashboardSidebar() {
         aria-current={isActive ? "page" : undefined}
         title={collapsed ? item.label : undefined}
         aria-label={collapsed ? item.label : undefined}
-        className={`flex h-10 items-center gap-2.5 rounded-[8px] px-2.5 text-sm transition-colors duration-150 ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
+        className={`relative flex h-10 items-center gap-2.5 rounded-[8px] px-2.5 text-sm transition-colors duration-150 ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
           isActive
             ? "border border-[#9ED8B8] bg-white/85 font-semibold text-[#1A1C21] shadow-[0_4px_16px_rgba(31,38,135,0.08)]"
             : "text-[#4B5060] hover:bg-white/60 hover:text-[#1A1C21]"
@@ -139,6 +209,22 @@ export default function DashboardSidebar() {
           {item.icon}
         </svg>
         <span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>{item.label}</span>
+        {item.id === "whatsapp-inbox" && unreadWa > 0 && (
+          <span
+            aria-label={`${unreadWa} conversations with unread messages`}
+            className={`ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#25D366] px-1 text-[10px] font-bold text-white ${collapsed ? "lg:absolute lg:right-1 lg:top-1 lg:h-2.5 lg:min-w-0 lg:w-2.5 lg:p-0 lg:text-[0px]" : ""}`}
+          >
+            {unreadWa > 99 ? "99+" : unreadWa}
+          </span>
+        )}
+        {item.id === "tasks" && overdueTasks > 0 && (
+          <span
+            aria-label={`${overdueTasks} overdue follow-ups`}
+            className={`ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ${collapsed ? "lg:absolute lg:right-1 lg:top-1 lg:h-2.5 lg:min-w-0 lg:w-2.5 lg:p-0 lg:text-[0px]" : ""}`}
+          >
+            {overdueTasks > 99 ? "99+" : overdueTasks}
+          </span>
+        )}
       </Link>
     );
   };
@@ -191,6 +277,10 @@ export default function DashboardSidebar() {
               <span className="block truncate text-[15px] font-bold leading-tight text-[#1A1C21]">{user?.name || "Ogera user"}</span>
               <span className="mt-px block truncate text-xs leading-tight text-[#6B7080]">{user?.email || user?.role?.replaceAll("_", " ") || "Staff"}</span>
             </span>
+          </div>
+          {/* Notifications: hidden on the collapsed desktop rail, where there is no room beside the avatar. */}
+          <div className={collapsed ? "lg:hidden" : ""}>
+            <NotificationBell align="left" />
           </div>
         </div>
 

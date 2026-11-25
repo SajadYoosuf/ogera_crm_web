@@ -59,6 +59,8 @@ export type SessionUser = {
   phone: string | null;
   /** The tenant/company the employee belongs to. */
   company: SessionCompany;
+  /** Role permissions map from the backend, e.g. {"leads":"crud","contacts":"cru"}. */
+  permissions?: Record<string, string> | null;
   /** The employee's own branch. New leads default to it, so the lead form shows it. */
   branch_id?: number | null;
 };
