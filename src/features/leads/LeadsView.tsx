@@ -22,6 +22,7 @@
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { canDo } from "@/lib/shared/roles";
 import { useLeadsList, type LeadFilters } from "@/features/leads/hooks/useLeadsList";
 import { useLeadConvert } from "@/features/leads/hooks/useLeadConvert";
 import LeadModal from "@/features/leads/components/LeadModal";
@@ -153,7 +154,9 @@ function EmptyState({ hasFilters, onClear, onCreate }: { hasFilters: boolean; on
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function LeadsView() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  // Admin/manager see the import and export tools; staff do not.
+  const canManage = canDo(user, "leads", "u");
   const list = useLeadsList();
   const [openLeadId, setOpenLeadId] = useState<number | null>(null);
   const [detailLeadId, setDetailLeadId] = useState<number | null>(null);
@@ -299,7 +302,8 @@ export default function LeadsView() {
           <h1 className="truncate text-[22px] font-bold tracking-[-0.01em] text-[#1A1C21] sm:text-[26px]">Leads</h1>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
-          <LeadsMoreMenu onImport={() => setIoDialog("import")} onExport={() => setIoDialog("export")} />
+          {/* Import and export are for admin/manager only; staff don't see the menu at all. */}
+          {canManage && <LeadsMoreMenu onImport={() => setIoDialog("import")} onExport={() => setIoDialog("export")} />}
           <button
             type="button" onClick={() => setIsBulkAssignOpen(true)}
             className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#0E4D3A] px-3 text-sm font-medium text-[#0E4D3A] hover:bg-[#0E4D3A]/5 transition-colors sm:px-4"
