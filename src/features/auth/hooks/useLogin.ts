@@ -36,6 +36,7 @@ export function useLogin() {
         // API returns role_slug; we store it as `role` for backward compat.
         role: employee.role_slug,
         phone: employee.phone,
+        branch_id: employee.branch_id ?? null,
         company: {
           id: company.id,
           name: company.name,

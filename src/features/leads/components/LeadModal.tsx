@@ -73,6 +73,12 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadId]);
 
+  // Create mode: set up the blank form once the modal opens, so it starts on the employee's own branch.
+  useEffect(() => {
+    if (leadId === null) editor.open();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function refreshLead() {
     if (!token || leadId === null) return;
     try {

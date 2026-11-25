@@ -75,6 +75,7 @@ export type LoginEmployee = {
   phone: string | null;
   role_id: number;
   role_slug: string;
+  branch_id?: number | null;
   is_active: 0 | 1;
   created_at: string;
   updated_at: string;

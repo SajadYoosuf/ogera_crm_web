@@ -55,7 +55,7 @@ const BLANK: LeadFormState = {
 };
 
 export function useLeadEditor(onSuccess: () => void) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<LeadFormState>(BLANK);
@@ -85,7 +85,8 @@ export function useLeadEditor(onSuccess: () => void) {
       });
     } else {
       setEditingId(null);
-      setForm(BLANK);
+      // New leads start on the employee's own branch, so the form shows the branch name instead of a placeholder.
+      setForm({ ...BLANK, branch_id: user?.branch_id ?? null });
     }
     setSaveError("");
     setIsOpen(true);
