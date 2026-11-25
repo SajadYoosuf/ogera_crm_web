@@ -16,6 +16,7 @@ import { ApiError } from "@/lib/api/auth";
 import { scheduleLeadTask } from "@/lib/api/interactions";
 import { useEnumOptions } from "@/hooks/useEnumOptions";
 import { listAllEmployees } from "@/lib/api/employees";
+import { isHeadRole } from "@/lib/shared/roles";
 
 type StaffMember = { id: number; name: string };
 
@@ -218,19 +219,21 @@ export default function LeadFollowupModal({ leadId, leadName, onSaved, onCancel 
             </div>
           </div>
 
-          {/* Assigned To */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Assigned To</label>
-            {!staffLoaded ? (
-              <p className="text-xs text-gray-400">Loading…</p>
-            ) : (
-              <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className={inputCls}>
-                {staff.map((s) => (
-                  <option key={s.id} value={String(s.id)}>{s.name}</option>
-                ))}
-              </select>
-            )}
-          </div>
+          {/* Assigned To — only head roles can pick another staff member; everyone else is assigned to themselves. */}
+          {isHeadRole(user?.role) && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Assigned To</label>
+              {!staffLoaded ? (
+                <p className="text-xs text-gray-400">Loading…</p>
+              ) : (
+                <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className={inputCls}>
+                  {staff.map((s) => (
+                    <option key={s.id} value={String(s.id)}>{s.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           {/* Notes */}
           <div>
