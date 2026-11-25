@@ -20,6 +20,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useLeadsList, type LeadFilters } from "@/features/leads/hooks/useLeadsList";
 import { useLeadConvert } from "@/features/leads/hooks/useLeadConvert";
@@ -156,6 +157,24 @@ export default function LeadsView() {
   const list = useLeadsList();
   const [openLeadId, setOpenLeadId] = useState<number | null>(null);
   const [detailLeadId, setDetailLeadId] = useState<number | null>(null);
+
+  // Deep link from a notification: /dashboard/leads?lead=42 opens that lead's detail.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const linkedLead = searchParams.get("lead");
+  const [handledLink, setHandledLink] = useState<string | null>(null);
+  if (linkedLead !== handledLink) {
+    setHandledLink(linkedLead);
+    const id = Number(linkedLead);
+    if (linkedLead && Number.isInteger(id) && id > 0) setDetailLeadId(id);
+  }
+  // The link is one-shot: once it has opened the detail, drop ?lead= from the URL. Otherwise coming back
+  // to this page later (back button, restored tab, refresh) would reopen that lead's detail by itself.
+  useEffect(() => {
+    if (linkedLead) router.replace(pathname);
+  }, [linkedLead, pathname, router]);
+  const closeDetail = () => setDetailLeadId(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
   const [ioDialog, setIoDialog] = useState<"import" | "export" | null>(null);
@@ -474,8 +493,8 @@ export default function LeadsView() {
         statuses={statuses}
         branches={branches}
         leadSources={leadSources}
-        onClose={() => setDetailLeadId(null)}
-        onConverted={(lead) => { setDetailLeadId(null); converter.openModal(lead.id, lead); }}
+        onClose={closeDetail}
+        onConverted={(lead) => { closeDetail(); converter.openModal(lead.id, lead); }}
         onChanged={() => { void list.loadLeads(); }}
       />
 
