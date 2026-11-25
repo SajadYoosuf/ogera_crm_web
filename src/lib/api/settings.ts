@@ -7,6 +7,8 @@ export const ENUM_CATEGORIES = [
   { key: "activity_type", label: "Activity types", noun: "activity type" },
   { key: "loss_reason", label: "Loss reasons", noun: "loss reason" },
   { key: "district", label: "Districts", noun: "district" },
+  { key: "task_status", label: "Task statuses", noun: "task status" },
+  { key: "task_priority", label: "Task priorities", noun: "task priority" },
 ] as const;
 export type EnumCategory = (typeof ENUM_CATEGORIES)[number]["key"];
 
@@ -26,7 +28,17 @@ export type EnumValue = {
 
 export type Company = { company_name: string; company_logo_url: string | null };
 
-export type RoleSummary = { id: number; slug: string; name: string; description: string | null; is_system: boolean; is_active: boolean; employee_count: number };
+export type RoleSummary = {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  is_system: boolean;
+  is_active: boolean;
+  see_all_records: boolean;
+  permissions: Record<string, string>;
+  employee_count: number;
+};
 
 
 // ---- Enum values ----
@@ -81,4 +93,4 @@ export const changePassword = (token: string, body: { current_password: string; 
   apiCall<{ message: string }>(token, "POST", "/auth/change-password", body);
 export const listRoles = (token: string) => apiCall<{ items: RoleSummary[]; total: number }>(token, "GET", "/roles");
 export const createRole = (token: string, body: { name: string; description?: string }) => apiCall<RoleSummary>(token, "POST", "/roles", body);
-export const updateRole = (token: string, id: number, body: { name?: string; description?: string; is_active?: boolean }) => apiCall<RoleSummary>(token, "PUT", `/roles/${id}`, body);
+export const updateRole = (token: string, id: number, body: { name?: string; description?: string; is_active?: boolean; permissions?: Record<string, string>; see_all_records?: boolean }) => apiCall<RoleSummary>(token, "PUT", `/roles/${id}`, body);
