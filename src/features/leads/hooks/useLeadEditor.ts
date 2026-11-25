@@ -32,14 +32,7 @@ export type LeadFormState = {
   status: LeadStatus;
   notes: string;
   tags: string;
-  /** YYYY-MM-DD string for the HTML date input — maps to created_at on new leads */
-  lead_date: string;
 };
-
-/** Today's calendar date in India, as YYYY-MM-DD. toISOString() would give the UTC date, which is a day behind before 05:30 IST. */
-export function todayDate(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
-}
 
 const BLANK: LeadFormState = {
   first_name: "",
@@ -51,7 +44,6 @@ const BLANK: LeadFormState = {
   status: "new",
   notes: "",
   tags: "",
-  lead_date: todayDate(),
 };
 
 export function useLeadEditor(onSuccess: () => void) {
@@ -75,13 +67,6 @@ export function useLeadEditor(onSuccess: () => void) {
         status: lead.status,
         notes: lead.notes ?? "",
         tags: lead.tags?.join(", ") ?? "",
-        // Show the lead's original creation date (without timezone shift)
-        lead_date: lead.created_at
-          ? (lead.created_at.endsWith("Z") || lead.created_at.includes("+")
-              ? lead.created_at
-              : lead.created_at + "Z"
-            ).slice(0, 10)
-          : todayDate(),
       });
     } else {
       setEditingId(null);
@@ -130,9 +115,6 @@ export function useLeadEditor(onSuccess: () => void) {
           first_name: form.first_name,
           phone: form.phone,
           source_id: form.source_id,
-          // Always send created_at so the date the user entered is used,
-          // not the moment the API call lands on the server.
-          created_at: form.lead_date + "T00:00:00Z",
         };
         if (form.last_name) body.last_name = form.last_name;
         if (form.address) body.address = form.address;

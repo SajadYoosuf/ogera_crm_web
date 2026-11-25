@@ -9,7 +9,7 @@
 
 import PhoneField from "@/components/PhoneField";
 import SelectField from "@/components/SelectField";
-import { todayDate, type LeadFormState } from "@/features/leads/hooks/useLeadEditor";
+import type { LeadFormState } from "@/features/leads/hooks/useLeadEditor";
 import type { LeadStatusOption } from "@/features/leads/api/leads";
 import type { BranchOption, LeadSource } from "@/features/contacts/api/contacts";
 
@@ -127,45 +127,16 @@ export default function LeadForm({ form, isEdit, statuses, branches, leadSources
         />
       </div>
 
-      {/* Tags + Lead date — 2-col on wider modal (create mode) */}
-      {!isEdit ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="lead-tags" className={labelClass}>Tags <span className="text-gray-400">(comma-separated)</span></label>
-            <input
-              id="lead-tags"
-              className={inputClass}
-              value={form.tags}
-              onChange={(e) => setField("tags", e.target.value)}
-              placeholder="e.g. hot, plumber, calicut"
-            />
-          </div>
-          <div>
-            <label htmlFor="lead-date" className={labelClass}>
-              Lead date <span className="text-gray-400">(for older leads)</span>
-            </label>
-            <input
-              id="lead-date"
-              type="date"
-              className={inputClass}
-              value={form.lead_date}
-              max={todayDate()}
-              onChange={(e) => setField("lead_date", e.target.value)}
-            />
-          </div>
-        </div>
-      ) : (
-        <div>
-          <label htmlFor="lead-tags" className={labelClass}>Tags <span className="text-gray-400">(comma-separated)</span></label>
-          <input
-            id="lead-tags"
-            className={inputClass}
-            value={form.tags}
-            onChange={(e) => setField("tags", e.target.value)}
-            placeholder="e.g. hot, plumber, calicut"
-          />
-        </div>
-      )}
+      <div>
+        <label htmlFor="lead-tags" className={labelClass}>Tags <span className="text-gray-400">(comma-separated)</span></label>
+        <input
+          id="lead-tags"
+          className={inputClass}
+          value={form.tags}
+          onChange={(e) => setField("tags", e.target.value)}
+          placeholder="e.g. hot, plumber, calicut"
+        />
+      </div>
     </div>
   );
 }

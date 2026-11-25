@@ -137,11 +137,10 @@ Manages the form state for creating a new lead or editing an existing one. The s
 | `status` | `status` | Edit mode only |
 | `notes` | `notes` | Optional |
 | `tags` | `tags` | Comma-separated string; split to array on submit |
-| `lead_date` | `created_at` | YYYY-MM-DD; sent as `{lead_date}T00:00:00Z` |
 
 **Tags:** The form stores tags as a plain comma-separated string (`"hot, plumber, calicut"`). On submit, it is split by comma, trimmed, and sent as `string[]`.
 
-**Lead date:** Allows the user to set a historical date for imported leads. The backend accepts `created_at` as an override and stores it. The date input is capped at today (`max={today}`).
+**Lead date:** Removed from the web create form (it used to let admin/manager backdate `created_at`). The web no longer sends `created_at`.
 
 ---
 

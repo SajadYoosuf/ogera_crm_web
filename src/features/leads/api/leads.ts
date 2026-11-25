@@ -119,8 +119,6 @@ export type LeadCreate = {
   tags?: string[];
   /** Omit to default to the creating employee's own branch; send a different id to pick another. */
   branch_id?: number | null;
-  /** ISO datetime override — set when importing historical leads to preserve the original date */
-  created_at?: string;
 };
 
 export type LeadUpdate = Partial<{
