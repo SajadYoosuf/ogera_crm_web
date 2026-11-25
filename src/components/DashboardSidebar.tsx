@@ -9,6 +9,7 @@ import NotificationBell from "@/features/notifications/NotificationBell";
 import { getInboxUnreadCount, INBOX_UNREAD_EVENT } from "@/features/whatsapp-inbox/api";
 import { listLeadTasks } from "@/lib/api/interactions";
 import { TASKS_CHANGED_EVENT } from "@/features/tasks/hooks/useLeadTasks";
+import { isHeadRole } from "@/lib/shared/roles";
 
 const UNREAD_POLL_MS = 30_000;
 
@@ -20,6 +21,8 @@ interface MenuItem {
   href: string;
   icon: React.ReactNode;
   category: "MAIN" | "ADMIN" | "FOOTER";
+  /** Shown only to head roles (admin, manager). */
+  headOnly?: boolean;
 }
 
 const menuItems: MenuItem[] = [
@@ -76,6 +79,7 @@ const menuItems: MenuItem[] = [
     label: "Employees",
     href: "/dashboard/employees",
     category: "ADMIN",
+    headOnly: true,
     icon: (
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
     ),
@@ -179,7 +183,7 @@ export default function DashboardSidebar() {
     };
   }, [token]);
 
-  const visibleMenuItems = menuItems;
+  const visibleMenuItems = menuItems.filter((item) => !item.headOnly || isHeadRole(user?.role));
 
   function logout() {
     clearSession();
