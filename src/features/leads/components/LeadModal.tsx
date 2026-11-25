@@ -22,6 +22,11 @@ import WhatsAppButton from "./WhatsAppButton";
 import LeadForm from "./LeadForm";
 import ErrorPopup from "@/components/ErrorPopup";
 import { useLeadEditor } from "@/features/leads/hooks/useLeadEditor";
+import { SkeletonLines } from "@/components/Spinner";
+
+function SkeletonLoading() {
+  return <SkeletonLines lines={5} className="mt-2" />;
+}
 
 type Props = {
   /** Set to open the modal in edit mode for this lead; null/undefined with isCreateOpen=false keeps it closed. */
@@ -141,7 +146,7 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, employees = 
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
-            {isLoading && <p className="text-sm text-gray-400">Loading…</p>}
+            {isLoading && <SkeletonLoading />}
             {fetchError && <p className="text-sm text-red-500">{fetchError}</p>}
 
             {/* Read-only summary row — status, score, WhatsApp. Only once the lead is loaded. */}

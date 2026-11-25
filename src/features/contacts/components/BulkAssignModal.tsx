@@ -22,6 +22,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getContactStats, bulkAssignContacts, type ContactBulkAssignRule } from "@/features/contacts/api/contacts";
 import { listEmployees, type Employee } from "@/lib/api/employees";
+import Spinner from "@/components/Spinner";
 
 // ── Pending rule — accumulates before the final submit ───────────────────────
 
@@ -234,7 +235,7 @@ export default function ContactsBulkAssignModal({ isOpen, onClose, onDone }: Pro
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
           {isLoading ? (
-            <div className="flex h-32 items-center justify-center text-sm text-gray-400">Loading…</div>
+            <div className="flex h-32 items-center justify-center gap-2"><Spinner size="sm" /><span className="text-sm text-gray-400">Loading…</span></div>
           ) : loadError ? (
             <div className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{loadError}</div>
           ) : totalUnassigned === 0 ? (

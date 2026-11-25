@@ -15,6 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import { listWhatsAppMessages, sendWhatsAppReply, type WhatsAppMessage } from "@/features/leads/api/leadSettings";
 import { markConversationRead } from "./api";
+import Spinner from "@/components/Spinner";
 
 type Mode = "text" | "template";
 
@@ -108,7 +109,11 @@ export default function MessageThread({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[#EFEAE2] px-4 py-4">
-        {loading && <p className="text-center text-sm text-gray-500">Loading…</p>}
+        {loading && (
+          <div className="flex items-center justify-center gap-2 py-4">
+            <Spinner size="sm" /><span className="text-sm text-gray-500">Loading messages…</span>
+          </div>
+        )}
         {loadError && (
           <div role="alert" className="mx-auto max-w-xs rounded-lg bg-white/90 px-4 py-3 text-center text-sm text-red-600">
             {loadError}

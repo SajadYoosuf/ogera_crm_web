@@ -38,8 +38,9 @@ import LeadExportModal from "@/features/leads/components/LeadExportModal";
 import FilterSelect from "@/components/FilterSelect";
 import DateRangePicker from "@/components/DateRangePicker";
 import type { FilterGroup } from "@/components/FilterPanel";
-import { updateLead, deleteLead, listLeadStatuses, type LeadStatus, type LeadStatusOption } from "@/features/leads/api/leads";
+import { updateLead, deleteLead, listLeadStatuses, getLead, type LeadStatus, type LeadStatusOption, type Lead } from "@/features/leads/api/leads";
 import LeadActionMenu from "@/features/leads/components/LeadActionMenu";
+import Spinner from "@/components/Spinner";
 import LeadActivityLogModal from "@/features/leads/components/LeadActivityLogModal";
 import LeadFollowupModal from "@/features/leads/components/LeadFollowupModal";
 import LeadDetailModal from "@/features/leads/components/LeadDetailModal";
@@ -160,6 +161,8 @@ export default function LeadsView() {
   const list = useLeadsList();
   const [openLeadId, setOpenLeadId] = useState<number | null>(null);
   const [detailLeadId, setDetailLeadId] = useState<number | null>(null);
+  const [preloadedLead, setPreloadedLead] = useState<Lead | null>(null);
+  const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
 
   // Deep link from a notification: /dashboard/leads?lead=42 opens that lead's detail.
   const searchParams = useSearchParams();
@@ -170,14 +173,29 @@ export default function LeadsView() {
   if (linkedLead !== handledLink) {
     setHandledLink(linkedLead);
     const id = Number(linkedLead);
-    if (linkedLead && Number.isInteger(id) && id > 0) setDetailLeadId(id);
+    if (linkedLead && Number.isInteger(id) && id > 0) void openLeadDetail(id);
   }
   // The link is one-shot: once it has opened the detail, drop ?lead= from the URL. Otherwise coming back
   // to this page later (back button, restored tab, refresh) would reopen that lead's detail by itself.
   useEffect(() => {
     if (linkedLead) router.replace(pathname);
   }, [linkedLead, pathname, router]);
-  const closeDetail = () => setDetailLeadId(null);
+  const closeDetail = () => { setDetailLeadId(null); setPreloadedLead(null); };
+
+  async function openLeadDetail(leadId: number) {
+    if (!token) return;
+    setLoadingDetailId(leadId);
+    try {
+      const lead = await getLead(token, leadId);
+      setPreloadedLead(lead);
+      setDetailLeadId(leadId);
+    } catch {
+      setPreloadedLead(null);
+      setDetailLeadId(leadId);
+    } finally {
+      setLoadingDetailId(null);
+    }
+  }
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
   const [ioDialog, setIoDialog] = useState<"import" | "export" | null>(null);
@@ -380,7 +398,7 @@ export default function LeadsView() {
                         list.leads.map((lead) => (
                           <tr
                             key={lead.id}
-                            onClick={() => setDetailLeadId(lead.id)}
+                            onClick={() => void openLeadDetail(lead.id)}
                             className="group cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB] [&_td]:py-3.5"
                           >
                             {/* Name — the row's own cursor-pointer isn't obvious enough on its own, so the
@@ -495,9 +513,20 @@ export default function LeadsView() {
         </section>
       </div>
 
+      {/* Full-screen loading overlay — appears while fetching lead data before the modal opens */}
+      {loadingDetailId !== null && (
+        <div className="fixed inset-0 z-[1050] flex items-center justify-center bg-[rgba(17,18,20,0.45)] backdrop-blur-[2px]">
+          <div className="flex flex-col items-center gap-3">
+            <Spinner size="lg" />
+            <span className="text-sm font-medium text-white/80">Loading lead…</span>
+          </div>
+        </div>
+      )}
+
       {/* 3-tab lead detail modal — opened by clicking a lead row */}
       <LeadDetailModal
         leadId={detailLeadId}
+        initialLead={preloadedLead}
         statuses={statuses}
         branches={branches}
         leadSources={leadSources}

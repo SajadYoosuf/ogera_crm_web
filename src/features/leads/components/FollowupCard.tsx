@@ -88,18 +88,36 @@ export function useTaskStatusStyle() {
   });
 }
 
-export function FollowupCard({ task: t, heading, onOpen, children }: {
+export function FollowupCard({ task: t, heading, onOpen, compact = false, children }: {
   task: Interaction;
   /** Shown above the title (the lead's name on the Tasks page). */
   heading?: ReactNode;
   /** Makes the card body a button, e.g. to open the lead. */
   onOpen?: () => void;
+  /** Only the type, title, assignee and due date and time. */
+  compact?: boolean;
   children?: ReactNode;
 }) {
   const statusStyle = useTaskStatusStyle()(t.status);
   const { labelOf: priorityLabel } = useEnumOptions("task_priority", PRIORITY_FALLBACK);
   const { labelOf: activityLabel } = useEnumOptions("activity_type");
   const minutes = overdueMinutes(t);
+
+  if (compact) {
+    return (
+      <li className="rounded-xl border border-[#EFEFF2] bg-[#FAFAFA] p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-teal-700">{typeLabel(t.activity_type, t.custom_label, activityLabel)}</span>
+          {t.title && <p className="text-sm font-semibold text-[#1A1C21]">{t.title}</p>}
+        </div>
+        <p className="mt-1.5 text-xs text-[#6B7080]">
+          {t.assigned_to_name ?? "Unassigned"}
+          {t.due_at && ` · Due ${formatDate(t.due_at)}, ${formatTime(t.due_at)}`}
+        </p>
+        {children}
+      </li>
+    );
+  }
   const isOverdue = minutes > 0;
   const actual = t.status === "completed" && t.actual_activity_type && t.actual_activity_type !== t.activity_type
     ? typeLabel(t.actual_activity_type, t.actual_custom_label, activityLabel)

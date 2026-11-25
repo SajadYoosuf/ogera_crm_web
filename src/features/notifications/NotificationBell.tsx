@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import { subscribeNotificationStream } from "./stream";
+import Spinner from "@/components/Spinner";
 import {
   dismissNotification,
   listNotifications,
@@ -152,7 +153,11 @@ export default function NotificationBell({ align = "right" }: { align?: "left" |
           </div>
           <div className="max-h-[60vh] overflow-y-auto">
             {error && <p role="alert" className="px-4 py-3 text-sm text-red-600">{error}</p>}
-            {loading && items.length === 0 && <p className="px-4 py-6 text-center text-sm text-gray-400">Loading…</p>}
+            {loading && items.length === 0 && (
+              <div className="flex items-center justify-center gap-2 px-4 py-6">
+                <Spinner size="sm" /><span className="text-sm text-gray-400">Loading…</span>
+              </div>
+            )}
             {!loading && !error && items.length === 0 && (
               <p className="px-4 py-10 text-center text-sm text-gray-500">You&apos;re all caught up.</p>
             )}

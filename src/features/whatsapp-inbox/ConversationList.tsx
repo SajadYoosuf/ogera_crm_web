@@ -4,6 +4,7 @@
 
 import { timeAgo } from "@/features/notifications/NotificationBell";
 import type { ConversationSummary } from "./api";
+import Spinner from "@/components/Spinner";
 
 function preview(c: ConversationSummary): string {
   const m = c.last_message;
@@ -44,7 +45,11 @@ export default function ConversationList({
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {loading && <p className="p-4 text-center text-sm text-gray-500">Loading…</p>}
+        {loading && (
+          <div className="flex items-center justify-center gap-2 p-4">
+            <Spinner size="sm" /><span className="text-sm text-gray-500">Loading conversations…</span>
+          </div>
+        )}
         {error && (
           <div role="alert" className="p-4 text-center text-sm text-red-600">
             {error}

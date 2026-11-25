@@ -24,6 +24,7 @@ import { listAllEmployees } from "@/lib/api/employees";
 import { isLeadHead } from "@/lib/shared/roles";
 import { useFollowupSettings } from "@/features/settings/hooks/useFollowupSettings";
 import { duePresets, isPast, localDate } from "@/features/leads/followupPresets";
+import Spinner from "@/components/Spinner";
 
 const FALLBACK_TYPES = staticOptions(ACTIVITY_TYPE_FALLBACK);
 
@@ -166,7 +167,7 @@ export default function LeadFollowupModal({ leadId, leadName, initial, onSaved, 
           <div>
             <span className="mb-2 block text-xs font-medium text-gray-600">Activity type</span>
             {!typesLoaded ? (
-              <p className="text-xs text-gray-400">Loading…</p>
+              <div className="flex items-center gap-1.5 py-1"><Spinner size="xs" /><span className="text-xs text-gray-400">Loading types…</span></div>
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {activityTypes.map((opt) => (
@@ -269,7 +270,7 @@ export default function LeadFollowupModal({ leadId, leadName, initial, onSaved, 
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-600">Assigned To</label>
               {!staffLoaded ? (
-                <p className="text-xs text-gray-400">Loading…</p>
+                <div className="flex items-center gap-1.5 py-1"><Spinner size="xs" /><span className="text-xs text-gray-400">Loading staff…</span></div>
               ) : (
                 <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className={inputCls}>
                   {staff.map((s) => (

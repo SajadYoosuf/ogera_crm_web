@@ -14,6 +14,7 @@ import { getLead, type Lead } from "@/features/leads/api/leads";
 import { isHeadRole } from "@/lib/shared/roles";
 import { fetchEmployees, selectEmployees, selectEmployeesStatus } from "@/store/lookupsSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import Spinner from "@/components/Spinner";
 import { assignConversation } from "./api";
 
 export default function LeadInfoPanel({
@@ -76,7 +77,11 @@ export default function LeadInfoPanel({
       </div>
     );
   }
-  if (!lead) return <p className="p-4 text-sm text-gray-500">Loading…</p>;
+  if (!lead) return (
+    <div className="flex items-center justify-center gap-2 p-4">
+      <Spinner size="sm" /><span className="text-sm text-gray-500">Loading…</span>
+    </div>
+  );
 
   const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || lead.phone || "Unknown";
   const assignable = employees.filter((e) => e.is_active && !e.deleted_at && !isHeadRole(e.role));

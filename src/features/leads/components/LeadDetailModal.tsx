@@ -25,10 +25,10 @@ import WhatsAppButton from "./WhatsAppButton";
 import LeadForm from "./LeadForm";
 import LeadActivityLogModal from "./LeadActivityLogModal";
 import LeadFollowupModal from "./LeadFollowupModal";
-import LeadTaskActions from "./LeadTaskActions";
 import { FollowupCard, formatDateTime, typeLabel } from "./FollowupCard";
 import ErrorPopup from "@/components/ErrorPopup";
 import { useFollowupSettings } from "@/features/settings/hooks/useFollowupSettings";
+import Spinner, { SkeletonLines, SpinnerRow } from "@/components/Spinner";
 
 type Tab = "details" | "activity" | "followups";
 
@@ -40,6 +40,8 @@ const TAB_LABELS: Record<Tab, string> = {
 
 type Props = {
   leadId: number | null;
+  /** Pre-fetched lead data — skips the initial fetch when provided. */
+  initialLead?: Lead | null;
   statuses: LeadStatusOption[];
   branches: BranchOption[];
   leadSources: LeadSource[];
@@ -55,14 +57,14 @@ export default function LeadDetailModal(props: Props) {
   return <LeadDetailDialog key={props.leadId} {...props} leadId={props.leadId} />;
 }
 
-function LeadDetailDialog({ leadId, statuses, branches, leadSources, employees = [], onClose, onConverted, onChanged }: Props & { leadId: number }) {
+function LeadDetailDialog({ leadId, initialLead, statuses, branches, leadSources, employees = [], onClose, onConverted, onChanged }: Props & { leadId: number }) {
   const { token, user } = useAuth();
   const head = canDo(user, "leads", "u");
   const { settings: followupSettings } = useFollowupSettings();
   const canCreateFollowup = isLeadHead(user) || followupSettings.allow_staff_create_followup;
   const [tab, setTab] = useState<Tab>("details");
-  const [lead, setLead] = useState<Lead | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [lead, setLead] = useState<Lead | null>(initialLead ?? null);
+  const [isLoading, setIsLoading] = useState(!initialLead);
   const [fetchError, setFetchError] = useState("");
   const [editing, setEditing] = useState(false);
 
@@ -123,14 +125,14 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, employees =
   }
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || initialLead) return;
     let cancelled = false;
     getLead(token, leadId)
       .then((data) => { if (!cancelled) setLead(data); })
       .catch((err) => { if (!cancelled) setFetchError(err instanceof ApiError ? err.message : "Could not load lead."); })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, [leadId, token]);
+  }, [leadId, token, initialLead]);
 
   useEffect(() => {
     void loadInteractions();
@@ -182,8 +184,8 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, employees =
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#EFEFF2] px-6 py-4">
           <div className="min-w-0 space-y-2">
-            <h2 id="lead-detail-title" className="truncate text-[19px] font-bold tracking-[-0.01em] text-[#1A1C21]">
-              {isLoading ? "Loading…" : leadName}
+            <h2 id="lead-detail-title" className="flex items-center gap-2 truncate text-[19px] font-bold tracking-[-0.01em] text-[#1A1C21]">
+              {isLoading ? <><Spinner size="sm" /><span className="text-[#8A8F9C]">Loading…</span></> : leadName}
             </h2>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#3A3E4A]">
               <span>{lead?.source_name ?? "No source"}</span>
@@ -262,7 +264,7 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, employees =
                   )}
                 </div>
 
-                {isLoading && <p className="text-sm text-gray-400">Loading…</p>}
+                {isLoading && <SkeletonLines lines={6} />}
                 {lead && !editing && <LeadDetails lead={lead} />}
                 {lead && editing && (
                   <>
@@ -283,7 +285,7 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, employees =
 
               <section className="min-w-0">
                 <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#6B7080]">Timeline</h3>
-                {listsLoading && <p className="text-sm text-gray-400">Loading…</p>}
+                {listsLoading && <SpinnerRow label="Loading timeline…" />}
                 {!listsLoading && timeline.length === 0 && (
                   <p className="rounded-xl border border-dashed border-[#DEE1E5] px-4 py-8 text-center text-sm text-gray-500">No history yet.</p>
                 )}
@@ -314,7 +316,7 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, employees =
                   New activity
                 </button>
               </div>
-              {listsLoading && <p className="text-sm text-gray-400">Loading…</p>}
+              {listsLoading && <SpinnerRow label="Loading activity…" />}
               {!listsLoading && logs.length === 0 && (
                 <p className="rounded-xl border border-dashed border-[#DEE1E5] px-4 py-8 text-center text-sm text-gray-500">No activity logged yet.</p>
               )}
@@ -337,16 +339,15 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, employees =
                   </button>
                 )}
               </div>
-              {listsLoading && <p className="text-sm text-gray-400">Loading…</p>}
+              {listsLoading && <SpinnerRow label="Loading follow-ups…" />}
               {!listsLoading && tasks.length === 0 && (
                 <p className="rounded-xl border border-dashed border-[#DEE1E5] px-4 py-8 text-center text-sm text-gray-500">No follow-ups scheduled.</p>
               )}
               {tasks.length > 0 && (
                 <ul className="space-y-3">
                   {tasks.map((t) => (
-                    <FollowupCard key={t.id} task={t}>
-                      <LeadTaskActions task={t} leadId={leadId} leadName={leadName} employees={isLeadHead(user) ? employees : []} onChanged={() => void loadInteractions()} />
-                    </FollowupCard>
+                    <FollowupCard key={t.id} task={t} compact />
+
                   ))}
                 </ul>
               )}

@@ -15,6 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import { ACTIVITY_TYPE_FALLBACK, logLeadActivity, type InteractionOutcome } from "@/lib/api/interactions";
 import { staticOptions, useEnumOptions } from "@/hooks/useEnumOptions";
+import Spinner from "@/components/Spinner";
 
 const FALLBACK_TYPES = staticOptions(ACTIVITY_TYPE_FALLBACK);
 const OUTCOMES: { value: InteractionOutcome; label: string }[] = [
@@ -84,7 +85,7 @@ export default function LeadActivityLogModal({ leadId, leadName, onSaved, onCanc
           <div>
             <span className="mb-2 block text-xs font-medium text-gray-600">Activity type</span>
             {!typesLoaded ? (
-              <p className="text-xs text-gray-400">Loading…</p>
+              <div className="flex items-center gap-1.5 py-1"><Spinner size="xs" /><span className="text-xs text-gray-400">Loading types…</span></div>
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {activityTypes.map((opt) => (
