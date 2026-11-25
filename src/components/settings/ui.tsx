@@ -57,7 +57,7 @@ export function Toast({ message, tone = "ok" }: { message: string; tone?: "ok" |
 /** A settings panel in the Settings design: white, hairline border, title row, then content. */
 export function Panel({ title, subtitle, status, children }: { title: string; subtitle?: string; status?: ReactNode; children: ReactNode }) {
   return (
-    <section className="space-y-4 rounded-[14px] border border-[#E5E7EA] bg-white p-5">
+    <section className="min-w-0 space-y-4 rounded-[14px] border border-[#E5E7EA] bg-white p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-bold text-[#1A1C21]">{title}</h2>
