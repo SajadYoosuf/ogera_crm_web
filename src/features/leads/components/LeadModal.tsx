@@ -20,6 +20,7 @@ import LeadStatusPill from "./LeadStatusPill";
 import LeadScoreBar from "./LeadScoreBar";
 import WhatsAppButton from "./WhatsAppButton";
 import LeadForm from "./LeadForm";
+import ErrorPopup from "@/components/ErrorPopup";
 import { useLeadEditor } from "@/features/leads/hooks/useLeadEditor";
 
 type Props = {
@@ -160,14 +161,7 @@ function LeadModalDialog({ leadId, statuses, branches, leadSources, onClose, onC
               <LeadForm form={editor.form} isEdit={isEdit} statuses={statuses} branches={branches} leadSources={leadSources} setField={editor.setField} />
             )}
 
-            {editor.saveError && (
-              <div role="alert" className="flex items-start gap-3 rounded-[10px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
-                </svg>
-                <span>{editor.saveError}</span>
-              </div>
-            )}
+            {editor.saveError && <ErrorPopup message={editor.saveError} onDismiss={editor.clearSaveError} />}
             {deleteError && (
               <div className="mt-1 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">
                 <span>{deleteError}</span>

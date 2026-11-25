@@ -24,6 +24,7 @@ import WhatsAppButton from "./WhatsAppButton";
 import LeadForm from "./LeadForm";
 import LeadActivityLogModal from "./LeadActivityLogModal";
 import LeadFollowupModal from "./LeadFollowupModal";
+import ErrorPopup from "@/components/ErrorPopup";
 
 type Tab = "details" | "activity" | "followups";
 
@@ -247,9 +248,7 @@ function LeadDetailDialog({ leadId, statuses, branches, leadSources, onClose, on
                 {lead && editing && (
                   <>
                     <LeadForm form={editor.form} isEdit statuses={statuses} branches={branches} leadSources={leadSources} setField={editor.setField} />
-                    {editor.saveError && (
-                      <p role="alert" className="mt-4 rounded-[10px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{editor.saveError}</p>
-                    )}
+                    {editor.saveError && <ErrorPopup message={editor.saveError} onDismiss={editor.clearSaveError} />}
                   </>
                 )}
               </section>

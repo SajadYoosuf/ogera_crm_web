@@ -150,5 +150,6 @@ export function useLeadEditor(onSuccess: () => void) {
     }
   }
 
-  return { isOpen, editingId, form, isSaving, saveError, open, close, setField, submit };
+  const clearSaveError = () => setSaveError("");
+  return { isOpen, editingId, form, isSaving, saveError, clearSaveError, open, close, setField, submit };
 }
