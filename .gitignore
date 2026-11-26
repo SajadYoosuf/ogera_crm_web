@@ -21,3 +21,4 @@
 
 # Local zip exports of design files
 *.zip
+.vercel
