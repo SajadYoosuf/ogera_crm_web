@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import DashboardView from "@/features/dashboard/DashboardView";
 
 export default function DashboardPage() {
-  redirect("/dashboard/leads");
+  return <DashboardView />;
 }
