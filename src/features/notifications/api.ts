@@ -42,3 +42,10 @@ export const dismissNotification = (token: string, id: number): Promise<void> =>
 /** POST /notifications/purge — removes read notifications older than 30 days. */
 export const purgeOldNotifications = (token: string): Promise<{ deleted: number }> =>
   apiCall<{ deleted: number }>(token, "POST", "/notifications/purge");
+
+/** POST /employees/me/fcm-token — register this browser's push token. */
+export const registerFcmToken = (token: string, fcmToken: string): Promise<{ ok: boolean }> =>
+  apiCall<{ ok: boolean }>(token, "POST", "/employees/me/fcm-token", {
+    token: fcmToken,
+    platform: "web",
+  });

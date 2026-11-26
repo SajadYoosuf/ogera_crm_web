@@ -21,10 +21,12 @@
  *   Gradually replace `sessionStorage.getItem("ogera_access_token")` with `useAuth().token`.
  */
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { store } from "@/store";
 import { resetLookups } from "@/store/lookupsSlice";
 import { invalidateEnumOptions } from "@/hooks/useEnumOptions";
+import { getOrRequestPushToken } from "@/lib/firebase";
+import { registerFcmToken } from "@/features/notifications/api";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -138,6 +140,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
+  const pushRegistered = useRef(false);
 
   // Read sessionStorage once after the first render (browser-only).
   useEffect(() => {
@@ -148,6 +151,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState({ status: "unauthenticated" });
     }
   }, []);
+
+  // Register push token once per session after login. Failures are silent —
+  // in-app notifications work regardless.
+  useEffect(() => {
+    if (state.status !== "authenticated" || pushRegistered.current) return;
+    pushRegistered.current = true;
+    const jwt = state.token;
+    void (async () => {
+      const fcmToken = await getOrRequestPushToken();
+      if (fcmToken) await registerFcmToken(jwt, fcmToken).catch(() => undefined);
+    })();
+  }, [state]);
 
   const setSession = useCallback((token: string, user: SessionUser) => {
     writeStorage(token, user);
