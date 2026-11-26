@@ -60,8 +60,8 @@ describe("toForm", () => {
 });
 
 describe("TYPE_TABS", () => {
-  it("has three tabs in order: all, consumer, partner", () => {
-    expect(TYPE_TABS.map((tab) => tab.value)).toEqual(["", "consumer", "partner"]);
+  it("has four tabs in order: all, consumer, partner, dealer", () => {
+    expect(TYPE_TABS.map((tab) => tab.value)).toEqual(["", "consumer", "partner", "dealer"]);
   });
 
   it("labels each tab correctly", () => {

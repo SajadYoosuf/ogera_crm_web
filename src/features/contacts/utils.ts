@@ -3,8 +3,8 @@ import type { ApiContact, ApiContactType, PartnerTypeOption } from "@/features/c
 export type Filters = { type: string; partnerType: string; source: string; district: string; assignedTo: string; createdBy: string; verified: string };
 export const NO_FILTERS: Filters = { type: "", partnerType: "", source: "", district: "", assignedTo: "", createdBy: "", verified: "" };
 export const PAGE_SIZE = 10;
-export const KIND_LABELS: Record<string, string> = { consumer: "Consumer", partner: "Partner" };
-export const TYPE_TABS = [{ value: "", label: "All Contacts" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }];
+export const KIND_LABELS: Record<string, string> = { consumer: "Consumer", partner: "Partner", dealer: "Dealer" };
+export const TYPE_TABS = [{ value: "", label: "All Contacts" }, { value: "consumer", label: "Consumer" }, { value: "partner", label: "Partner" }, { value: "dealer", label: "Dealer" }];
 export const professionLabel = (value: string) => value.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
 // Fallback until GET /contacts/partner-types answers; the backend reads these from contact_field_definitions.
 export const DEFAULT_PARTNER_TYPES: PartnerTypeOption[] = ["plumber", "engineer", "interior_designer", "architect", "contractor", "electrician"]
