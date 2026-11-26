@@ -55,20 +55,20 @@ export default function PipelineView() {
       const seq = ++requestSeq.current;
       setIsLoading(true);
       setError(null);
-      try {
-        const [stagesData, contactsData] = await Promise.all([
-          listPipelineStages(token, contactType),
-          listPipelineContacts(token, contactType, apiFilters),
-        ]);
-        if (seq !== requestSeq.current) return;
-        setStages(stagesData);
-        setContacts(contactsData);
-        setCounts((prev) => ({ ...prev, [contactType]: contactsData.length }));
-      } catch {
-        if (seq === requestSeq.current) setError("Failed to load pipeline. Please try again.");
-      } finally {
-        if (seq === requestSeq.current) setIsLoading(false);
-      }
+      // Settled separately: the stage columns must still show when only the contacts request fails.
+      const [stagesResult, contactsResult] = await Promise.allSettled([
+        listPipelineStages(token, contactType),
+        listPipelineContacts(token, contactType, apiFilters),
+      ]);
+      if (seq !== requestSeq.current) return;
+      const loadedContacts = contactsResult.status === "fulfilled" ? contactsResult.value : [];
+      // Cleared on failure, so another tab's columns are never left on screen.
+      setStages(stagesResult.status === "fulfilled" ? stagesResult.value : []);
+      setContacts(loadedContacts);
+      setCounts((prev) => ({ ...prev, [contactType]: loadedContacts.length }));
+      if (stagesResult.status === "rejected") setError("Failed to load pipeline. Please try again.");
+      else if (contactsResult.status === "rejected") setError("Failed to load contacts. Please try again.");
+      setIsLoading(false);
     },
     [token, apiFilters],
   );
@@ -142,7 +142,7 @@ export default function PipelineView() {
         )}
 
         {!isLoading && error && (
-          <div className="flex h-full items-center justify-center">
+          <div role="alert" className="mb-3 flex justify-center">
             <div className="rounded-xl border border-red-200 bg-red-50 px-6 py-4 text-sm text-red-700">
               {error}
               <button
@@ -156,7 +156,7 @@ export default function PipelineView() {
           </div>
         )}
 
-        {!isLoading && !error && (
+        {!isLoading && stages.length > 0 && (
           <PipelineBoard
             stages={stages}
             contacts={contacts}
@@ -165,6 +165,12 @@ export default function PipelineView() {
               void c;
             }}
           />
+        )}
+
+        {!isLoading && !error && stages.length === 0 && (
+          <p className="py-10 text-center text-sm text-[#6B7080]">
+            No stages are set up for this pipeline. An admin can add them in Settings.
+          </p>
         )}
       </div>
     </div>
