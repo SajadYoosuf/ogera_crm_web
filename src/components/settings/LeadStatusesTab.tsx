@@ -7,12 +7,14 @@
  *   - `new` and `converted` are locked (no delete, no hide).
  *   - At most 20 active statuses.
  *   - Names are unique, ignoring case.
+ *   - Names are at most 30 characters (the backend stores a slug of the name in a 30-character column).
  *   - Deleting a status that leads still use returns 409 (shown as the API's message).
  */
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
+  LEAD_STATUS_NAME_MAX,
   MAX_ACTIVE_STATUSES,
   createLeadStatus,
   deleteLeadStatus,
@@ -66,10 +68,11 @@ export default function LeadStatusesTab() {
   const atLimit = activeCount >= MAX_ACTIVE_STATUSES;
   const trimmed = name.trim();
   const duplicate = rows.some((r) => r.name.toLowerCase() === trimmed.toLowerCase());
+  const tooLong = trimmed.length > LEAD_STATUS_NAME_MAX;
   const nextOrder = rows.reduce((max, r) => Math.max(max, r.sort_order), 0) + 1;
 
   async function add() {
-    if (!trimmed || duplicate || atLimit) return;
+    if (!trimmed || duplicate || atLimit || tooLong) return;
     const ok = await run((t) => createLeadStatus(t, trimmed, nextOrder), `“${trimmed}” added.`);
     if (ok) setName("");
   }
@@ -95,13 +98,18 @@ export default function LeadStatusesTab() {
         status={<span className="text-xs font-semibold text-[#6B7080]">{activeCount} / {MAX_ACTIVE_STATUSES} active</span>}
       >
         <div className="flex flex-col gap-2 sm:flex-row">
-          <input aria-label="New status name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60}
+          <input aria-label="New status name" value={name} onChange={(e) => setName(e.target.value)} maxLength={LEAD_STATUS_NAME_MAX}
             onKeyDown={(e) => { if (e.key === "Enter") void add(); }}
             placeholder="e.g. Site visit done" className="h-10 flex-1 rounded-[8px] border border-[#E1E1E6] px-3 text-sm" />
-          <button type="button" className={accentButton} disabled={busy || !trimmed || duplicate || atLimit} onClick={() => void add()}>
+          <button type="button" className={accentButton} disabled={busy || !trimmed || duplicate || atLimit || tooLong} onClick={() => void add()}>
             <Icon>{icons.plus}</Icon> Add status
           </button>
         </div>
+        <p className={`text-xs ${tooLong ? "text-red-600" : "text-[#6B7080]"}`}>
+          {tooLong
+            ? `Status name must be ${LEAD_STATUS_NAME_MAX} characters or fewer. This one is ${trimmed.length}.`
+            : `Up to ${LEAD_STATUS_NAME_MAX} characters (${trimmed.length}/${LEAD_STATUS_NAME_MAX}). Use a short label, e.g. “Site visit done”.`}
+        </p>
         {duplicate && trimmed && <p className="text-xs text-red-600">A status with this name already exists.</p>}
         {atLimit && <p className="text-xs text-amber-700">You have {MAX_ACTIVE_STATUSES} active statuses — hide or delete one to add another.</p>}
 
@@ -120,10 +128,10 @@ export default function LeadStatusesTab() {
               <div className="min-w-0 flex-1">
                 {editingId === r.id ? (
                   <div className="flex gap-2">
-                    <input aria-label={`Rename ${r.name}`} value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={60}
+                    <input aria-label={`Rename ${r.name}`} value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={LEAD_STATUS_NAME_MAX}
                       className="h-9 flex-1 rounded-[8px] border border-[#E1E1E6] px-2 text-sm" />
                     <button type="button" className="h-9 rounded-[8px] bg-[#0E4D3A] px-3 text-xs font-semibold text-white disabled:opacity-50"
-                      disabled={busy || !editName.trim()}
+                      disabled={busy || !editName.trim() || editName.trim().length > LEAD_STATUS_NAME_MAX}
                       onClick={() => void run((t) => updateLeadStatus(t, r.id, { name: editName.trim() }), "Status renamed.").then((ok) => { if (ok) setEditingId(null); })}>
                       Save
                     </button>

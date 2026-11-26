@@ -20,6 +20,9 @@ export type LeadStatusRow = {
 /** The backend refuses a 21st active status. */
 export const MAX_ACTIVE_STATUSES = 20;
 
+/** Status names are capped at 30 characters: the backend stores a slug of the name in a 30-character column. */
+export const LEAD_STATUS_NAME_MAX = 30;
+
 export const listLeadStatusRows = (token: string): Promise<LeadStatusRow[]> =>
   apiCall<LeadStatusRow[]>(token, "GET", "/settings/lead-statuses");
 
