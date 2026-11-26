@@ -14,6 +14,7 @@
  */
 
 import { useState } from "react";
+import NavbarUserSection from "@/components/NavbarUserSection";
 import { useAuth } from "@/context/AuthContext";
 import { canDo, isLeadHead } from "@/lib/shared/roles";
 import GeneralTab from "./GeneralTab";
@@ -181,8 +182,9 @@ export default function SettingsView() {
 
   return (
     <div className="flex flex-1 flex-col bg-[#F4FBF7]">
-      <header className="sticky top-0 z-20 flex h-[72px] shrink-0 items-center border-b border-[#E7E7EA] bg-white pl-16 pr-6 lg:pl-7">
+      <header className="sticky top-0 z-20 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b border-[#E7E7EA] bg-white pl-16 pr-4 sm:pr-7 lg:pl-7">
         <h1 className="text-[22px] font-bold tracking-[-0.01em] text-[#1A1C21] sm:text-[26px]">Settings</h1>
+        <NavbarUserSection />
       </header>
 
       {/*

@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import NavbarUserSection from "@/components/NavbarUserSection";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import {
@@ -551,6 +552,7 @@ export default function EmployeesPage() {
             <Icon className="h-4 w-4 shrink-0">{icons.plus}</Icon>
             <span className="hidden sm:inline">Add Employee</span>
           </button>
+          <NavbarUserSection />
         </div>
       </header>
 

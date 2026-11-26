@@ -247,6 +247,20 @@ export default function DashboardSidebar() {
 
   return (
     <>
+      {/* Mobile hamburger: fixed top-left, only shown when the drawer is closed */}
+      {!isMobileMenuOpen && (
+        <button
+          type="button"
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="fixed top-[17px] left-4 z-[1000] lg:hidden p-2 text-slate-700 rounded-xl bg-white/90 shadow-sm hover:bg-gray-100 active:scale-95 transition-all"
+          aria-label="Open menu"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+      )}
+
       {/* Mobile overlay */}
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[999]" onClick={() => setIsMobileMenuOpen(false)} />

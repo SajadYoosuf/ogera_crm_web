@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import NavbarUserSection from "@/components/NavbarUserSection";
 import PhoneField from "@/components/PhoneField";
 import SearchPicker from "@/components/SearchPicker";
 import type { FilterGroup } from "@/components/FilterPanel";
@@ -172,6 +173,7 @@ export default function ContactsView() {
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             <span className="hidden sm:inline" aria-hidden="true">Add Contact</span>
           </button>
+          <NavbarUserSection />
         </div>
       </header>
 

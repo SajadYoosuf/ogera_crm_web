@@ -12,6 +12,7 @@
 
 import { useEffect, useState, type MouseEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import NavbarUserSection from "@/components/NavbarUserSection";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
 import { listAllEmployees } from "@/lib/api/employees";
@@ -273,6 +274,7 @@ export default function TasksView() {
             {head ? "Follow-ups across all leads" : "Your follow-ups across all your leads"}
           </p>
         </div>
+        <NavbarUserSection />
       </header>
 
       <div className="min-w-0 space-y-4 p-4 sm:px-7 sm:py-6">

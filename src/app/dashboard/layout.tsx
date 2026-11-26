@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import DashboardSidebar from "@/components/DashboardSidebar";
-import DashboardTopBar from "@/components/DashboardTopBar";
 
 const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
 
@@ -14,10 +13,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className={`${dmSans.className} flex h-screen bg-[radial-gradient(circle_at_0%_0%,#E7F5EE_0%,transparent_42%),radial-gradient(circle_at_100%_100%,#E0F2FE_0%,transparent_40%),#F4F4FA]`}>
       <DashboardSidebar />
-      <div className="flex flex-1 flex-col min-w-0">
-        <DashboardTopBar />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>
-      </div>
+      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden">{children}</main>
     </div>
   );
 }

@@ -21,6 +21,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import NavbarUserSection from "@/components/NavbarUserSection";
 import { useAuth } from "@/context/AuthContext";
 import { canDo } from "@/lib/shared/roles";
 import { useLeadsList, type LeadFilters } from "@/features/leads/hooks/useLeadsList";
@@ -38,7 +39,7 @@ import LeadExportModal from "@/features/leads/components/LeadExportModal";
 import FilterSelect from "@/components/FilterSelect";
 import DateRangePicker from "@/components/DateRangePicker";
 import type { FilterGroup } from "@/components/FilterPanel";
-import { updateLead, deleteLead, listLeadStatuses, getLead, type LeadStatus, type LeadStatusOption, type Lead } from "@/features/leads/api/leads";
+import { updateLead, deleteLead, bulkDeleteLeads, listLeadStatuses, getLead, type BulkDeleteLeadsFilters, type LeadStatus, type LeadStatusOption, type Lead } from "@/features/leads/api/leads";
 import LeadActionMenu from "@/features/leads/components/LeadActionMenu";
 import Spinner from "@/components/Spinner";
 import LeadActivityLogModal from "@/features/leads/components/LeadActivityLogModal";
@@ -299,12 +300,68 @@ export default function LeadsView() {
     }
   }
 
+  // Bulk delete: removes every lead matching the current filters and search (same rules as the list).
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState("");
+  const bulkDeleteCount = list.total;
+  const bulkDeleteDisabled = !list.hasFilters && !list.submittedSearch.trim();
+
+  function currentFilterPayload(): BulkDeleteLeadsFilters {
+    const f = list.filters;
+    return {
+      status: f.status || undefined,
+      source_id: f.source_id !== "" ? Number(f.source_id) : undefined,
+      assigned_to: f.assigned_to ? Number(f.assigned_to) : undefined,
+      date_from: f.date_from || undefined,
+      date_to: f.date_to || undefined,
+      search: list.submittedSearch.trim() || undefined,
+    };
+  }
+
+  async function confirmBulkDelete() {
+    if (!token) return;
+    setBulkDeleting(true);
+    setBulkDeleteError("");
+    try {
+      const { deleted } = await bulkDeleteLeads(token, currentFilterPayload());
+      setBulkDeleteOpen(false);
+      showToast(`Deleted ${deleted} ${deleted === 1 ? "lead" : "leads"}.`);
+      void list.loadLeads();
+    } catch (caught) {
+      setBulkDeleteError(caught instanceof Error ? caught.message : "Could not delete the leads. Please try again.");
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   const tableColumns = ["Name", "Source", "Branch", "Tags", "WhatsApp", "Status", ...(canManage ? ["Assigned"] : []), "Created by", "Score", "Created"];
 
   return (
     <div className="flex min-h-full flex-col bg-[#F4FBF7]">
       {/* aria-live region — announces async feedback to screen readers */}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{updateError}</div>
+
+      {/* Bulk delete confirmation — shows the live count of leads the current filters match */}
+      {bulkDeleteOpen && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/40 p-4">
+          <section className="w-full max-w-md rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="bulk-delete-title">
+            <div className="p-6">
+              <h2 id="bulk-delete-title" className="text-lg font-bold text-[#0a192f]">Delete {bulkDeleteCount.toLocaleString()} {bulkDeleteCount === 1 ? "lead" : "leads"}?</h2>
+              <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                This removes every lead that matches the current filters and search. The leads are hidden from the list. This cannot be undone from this page.
+              </p>
+              {bulkDeleteError && <p role="alert" className="mt-3 text-sm text-red-600">{bulkDeleteError}</p>}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-6 py-4">
+              <button type="button" onClick={() => setBulkDeleteOpen(false)} disabled={bulkDeleting} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-60">Cancel</button>
+              <button type="button" onClick={() => void confirmBulkDelete()} disabled={bulkDeleting || bulkDeleteCount === 0} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-60">
+                {bulkDeleting ? "Deleting…" : "Delete leads"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* Toast banner for inline update failures */}
       {updateError && (
@@ -339,6 +396,7 @@ export default function LeadsView() {
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             <span className="hidden sm:inline">Add Lead</span>
           </button>
+          <NavbarUserSection />
         </div>
       </header>
 
@@ -366,7 +424,13 @@ export default function LeadsView() {
                 emptyLabel="All time"
                 className="w-auto"
               />
-              <LeadsFilterMenu groups={filterGroups} onChange={handleFilterMenuChange} onClear={list.clearFilters} />
+              <LeadsFilterMenu
+                groups={filterGroups}
+                onChange={handleFilterMenuChange}
+                onClear={list.clearFilters}
+                onDeleteMatching={canManage ? () => { setBulkDeleteError(""); setBulkDeleteOpen(true); } : undefined}
+                deleteDisabled={bulkDeleteDisabled}
+              />
             </div>
           </div>
 
