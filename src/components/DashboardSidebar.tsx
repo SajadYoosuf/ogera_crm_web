@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@/context/AuthContext";
-import NotificationBell from "@/features/notifications/NotificationBell";
 import { getInboxUnreadCount, INBOX_UNREAD_EVENT } from "@/features/whatsapp-inbox/api";
 import { listLeadTasks } from "@/lib/api/interactions";
 import { TASKS_CHANGED_EVENT } from "@/features/tasks/hooks/useLeadTasks";
@@ -246,25 +245,8 @@ export default function DashboardSidebar() {
     );
   };
 
-  const accountInitial = user?.name ? user.name.charAt(0).toUpperCase() : "U";
-
   return (
     <>
-      {/* Mobile toggle - top left */}
-      {!isMobileMenuOpen && (
-        <div className="lg:hidden fixed top-4 left-4 z-50">
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="p-2.5 text-slate-700 bg-white rounded-xl shadow-md border border-gray-200 hover:bg-gray-100 active:scale-95 transition-all"
-            aria-label="Toggle menu"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M4 7h16M4 12h16M4 17h16" />
-            </svg>
-          </button>
-        </div>
-      )}
-
       {/* Mobile overlay */}
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[999]" onClick={() => setIsMobileMenuOpen(false)} />
@@ -284,21 +266,6 @@ export default function DashboardSidebar() {
           <button onClick={() => setIsMobileMenuOpen(false)} className="absolute right-3 top-3.5 lg:hidden p-2 text-slate-500 rounded-lg hover:bg-white/60 hover:text-slate-800 transition-all active:scale-95" aria-label="Close menu">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
-        </div>
-
-        {/* Admin account: avatar, name and email. */}
-        <div className={`flex shrink-0 items-center gap-2 px-3.5 ${collapsed ? "lg:justify-center lg:px-2" : ""}`}>
-          <div className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] px-1.5 pb-1.5 pt-0 ${collapsed ? "lg:flex-none lg:p-0" : ""}`} title={user?.name || "Ogera user"}>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#0E4D3A] to-[#1E7A5B] text-sm font-bold text-white shadow-[0_4px_12px_rgba(14,77,58,0.25)]">{accountInitial}</span>
-            <span className={`min-w-0 flex-1 ${collapsed ? "lg:hidden" : ""}`}>
-              <span className="block truncate text-[15px] font-bold leading-tight text-[#1A1C21]">{user?.name || "Ogera user"}</span>
-              <span className="mt-px block truncate text-xs leading-tight text-[#6B7080]">{user?.email || user?.role?.replaceAll("_", " ") || "Staff"}</span>
-            </span>
-          </div>
-          {/* Notifications: hidden on the collapsed desktop rail, where there is no room beside the avatar. */}
-          <div className={collapsed ? "lg:hidden" : ""}>
-            <NotificationBell align="left" />
-          </div>
         </div>
 
         {/* Menu */}
