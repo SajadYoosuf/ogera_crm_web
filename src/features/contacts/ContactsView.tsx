@@ -19,7 +19,7 @@ import { useContactsList } from "@/features/contacts/hooks/useContactsList";
 import { useContactEditor } from "@/features/contacts/hooks/useContactEditor";
 import { useAuth } from "@/context/AuthContext";
 import { type ApiContactType, type ContactFieldDefinition } from "@/features/contacts/api/contacts";
-import { KIND_LABELS, PAGE_SIZE, TYPE_TABS, type Contact, type ContactForm, type ContactSource } from "@/features/contacts/utils";
+import { KIND_LABELS, PAGE_SIZE, toCamel, TYPE_TABS, type Contact, type ContactForm, type ContactSource } from "@/features/contacts/utils";
 
 // Contacts design: purple accent, pastel avatars and a 1px-border table card.
 const ACCENT_BUTTON = "bg-[#0E4D3A] text-white transition-colors hover:bg-[#0E4D3A]";
@@ -55,7 +55,7 @@ export default function ContactsView() {
   const {
     editor, openEditor, closeEditor, updateForm, saveContact, searchReferral, sourceValue,
     deleteTarget, setDeleteTarget, deleteContact, isSaving, formError, setFormError, selectedReferral, setSelectedReferral,
-  } = useContactEditor({ leadSources, onSaved: loadContacts });
+  } = useContactEditor({ leadSources, onSaved: loadContacts, consumerFields, partnerFields });
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const [ioDialog, setIoDialog] = useState<"import" | "export" | null>(null);
@@ -83,9 +83,7 @@ export default function ContactsView() {
     ] : []),
   ];
 
-  // Convert snake_case field_name to camelCase ContactForm key: "tank_type" → "tankType"
-  const toCamel = (s: string) => s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
-  const INPUT_CLS = "h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]";
+  const INPUT_CLS ="h-[42px] w-full rounded-[8px] border border-[#DEE1E5] bg-white px-3 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]";
 
   // Renders one field from contact_field_definitions dynamically.
   // field_type drives the input: "dropdown" → SelectField, "number" → number input, "text" → text input.

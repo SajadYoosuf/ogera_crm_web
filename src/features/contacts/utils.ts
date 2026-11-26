@@ -22,6 +22,8 @@ export const DEFAULT_TANK_TYPES = [
   { value: "steel", label: "Steel" },
   { value: "other", label: "Other" },
 ];
+export const toCamel = (s: string) => s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase() as string);
+
 export type ContactSource = string;
 
 export interface Contact {
@@ -36,6 +38,9 @@ export interface ContactForm {
   branchId: number | null;
   address: string; district: string; houseStage: string; tankType: string; tankCapacity: string; tankAge: string;
   partnerType: string; workArea: string; referredByContactId: number | null; assignedTo: string;
+  /** Dealer fields (only used when contactType is 'dealer'). Strings, as typed; converted on save. */
+  dealerBusinessName: string; dealerGstin: string; dealerType: string; dealerTownCity: string; dealerPinCode: string;
+  dealerAssignedRep: string; dealerCreditLimit: string; dealerOutstandingBalance: string;
   /** Optional free-text note about this contact. */
   note: string;
 }
@@ -45,6 +50,8 @@ export const blankContact: ContactForm = {
   branchId: null,
   address: "", district: "", houseStage: "", tankType: "", tankCapacity: "", tankAge: "",
   partnerType: "", workArea: "", referredByContactId: null, assignedTo: "",
+  dealerBusinessName: "", dealerGstin: "", dealerType: "", dealerTownCity: "", dealerPinCode: "",
+  dealerAssignedRep: "", dealerCreditLimit: "", dealerOutstandingBalance: "",
   note: "",
 };
 export const fromApi = (contact: ApiContact): Contact => ({
@@ -71,6 +78,8 @@ export const toForm = (contact: Contact): ContactForm => ({
   partnerType: contact.partnerType ?? "", workArea: "",
   referredByContactId: null,
   assignedTo: contact.assignedToId === undefined ? "" : String(contact.assignedToId),
+  dealerBusinessName: "", dealerGstin: "", dealerType: "", dealerTownCity: "", dealerPinCode: "",
+  dealerAssignedRep: "", dealerCreditLimit: "", dealerOutstandingBalance: "",  // filled from detail load in useContactEditor
   note: "",  // filled from detail load in useContactEditor
 });
 
