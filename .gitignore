@@ -10,6 +10,9 @@
 /playwright-report-live/
 /test-results-live/
 
+# Firebase service account keys (secret; keep them outside the repository)
+*firebase-adminsdk*.json
+
 # Dependencies and build output (generated, never commit)
 /node_modules/
 /.next/
