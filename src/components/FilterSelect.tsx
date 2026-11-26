@@ -14,10 +14,12 @@ function Icon({ children, className = "w-4 h-4" }: { children: ReactNode; classN
  * Styled single-select dropdown (native <select> popups can't be themed).
  * `clearable`: with no option chosen the button shows only the label, and picking the chosen option again clears it (value "").
  */
-export default function FilterSelect({ label, value, onChange, options, icon, className = "w-full sm:w-60", compact = false, hideLabel = false, clearable = false, fit = false }: {
+export default function FilterSelect({ label, value, onChange, options, icon, className = "w-full sm:w-60", compact = false, hideLabel = false, clearable = false, fit = false, plain = false }: {
   label: string; value: string; onChange: (value: string) => void; options: FilterOption[]; icon?: ReactNode; className?: string; compact?: boolean; hideLabel?: boolean; clearable?: boolean;
   /** Button sized to its content at the design's 38px height, with no minimum width. */
   fit?: boolean;
+  /** Toolbar look shared with the page tabs and search box: 38px, regular weight, muted label, no bold values. */
+  plain?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -45,7 +47,9 @@ export default function FilterSelect({ label, value, onChange, options, icon, cl
         aria-expanded={open}
         aria-label={current ? `${label}: ${current.label}` : label}
         onClick={() => setOpen((previous) => !previous)}
-        className={fit
+        className={plain
+          ? `flex h-[38px] w-full items-center justify-between gap-2 whitespace-nowrap rounded-[8px] border bg-white px-3 text-sm font-medium text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] ${open ? "border-[#0E4D3A]" : "border-[#E1E1E6]"}`
+          : fit
           ? `flex h-[38px] w-auto items-center gap-1.5 whitespace-nowrap rounded-[8px] border bg-white px-3 text-sm font-medium text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] ${open ? "border-[#0E4D3A]" : "border-[#DEE1E5]"}`
           : compact
           ? `flex h-11 w-full min-w-40 items-center justify-between gap-2 rounded-xl border bg-white px-3.5 text-sm shadow-xs transition-colors hover:border-slate-400 ${open ? "border-[#0E4D3A] ring-2 ring-[#0E4D3A]/15" : "border-slate-300"}`
@@ -53,8 +57,8 @@ export default function FilterSelect({ label, value, onChange, options, icon, cl
       >
         <span className="flex min-w-0 items-center gap-2">
           {!compact && icon && <span className="text-gray-400"><Icon>{icon}</Icon></span>}
-          {!hideLabel && <span className={compact ? "text-slate-500" : "font-medium text-gray-400"}>{label}</span>}
-          {current && <span className={`truncate capitalize ${compact ? "font-semibold text-slate-900" : "font-bold text-gray-900"}`}>{current.label}</span>}
+          {!hideLabel && <span className={plain ? "whitespace-nowrap text-[#6B7080]" : compact ? "text-slate-500" : "font-medium text-gray-400"}>{label}</span>}
+          {current && <span className={`truncate capitalize ${plain ? "text-[#1A1C21]" : compact ? "font-semibold text-slate-900" : "font-bold text-gray-900"}`}>{current.label}</span>}
         </span>
         <Icon className={`w-4 h-4 shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6" /></Icon>
       </button>

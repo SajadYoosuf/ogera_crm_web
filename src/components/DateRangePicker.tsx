@@ -47,10 +47,12 @@ type Props = { label: string; from: string; to: string; onChange: (from: string,
   /** Start with the calendar open, for a picker that appears because the user just chose to pick dates. */
   defaultOpen?: boolean;
   /** What the button says while no dates are chosen. */
-  emptyLabel?: string };
+  emptyLabel?: string;
+  /** Toolbar look shared with the page tabs and search box: 38px, regular weight, muted label. */
+  plain?: boolean };
 
 /** One control for a date range: presets, a calendar where two clicks pick the start and the end, and a clear action. */
-export default function DateRangePicker({ label, from, to, onChange, className = "w-full sm:w-64", bare = false, allowFuture = false, presets: customPresets, clearable = true, defaultOpen = false, emptyLabel = "All time" }: Props) {
+export default function DateRangePicker({ label, from, to, onChange, className = "w-full sm:w-64", bare = false, allowFuture = false, presets: customPresets, clearable = true, defaultOpen = false, emptyLabel = "All time", plain = false }: Props) {
   const today = istToday();
   const [open, setOpen] = useState(defaultOpen);
   const [view, setView] = useState(() => leftMonthFor(from, today));
@@ -130,11 +132,13 @@ export default function DateRangePicker({ label, from, to, onChange, className =
   return (
     <div ref={rootRef} className={`relative ${className}`}>
       <button type="button" onClick={toggle} aria-haspopup="dialog" aria-expanded={open} aria-label={`${label}: ${summary}`}
-        className={`flex w-full min-h-11 items-center justify-between gap-2 rounded-xl border bg-white px-3.5 text-sm shadow-xs transition-colors hover:border-gray-300 ${open ? "border-[#0E4D3A] ring-2 ring-[#0E4D3A]/15" : "border-gray-200"}`}>
+        className={plain
+          ? `flex h-[38px] w-full items-center justify-between gap-2 whitespace-nowrap rounded-[8px] border bg-white px-3 text-sm font-medium text-[#3A3E4A] transition-colors hover:bg-[#F3F3F5] ${open ? "border-[#0E4D3A]" : "border-[#E1E1E6]"}`
+          : `flex w-full min-h-11 items-center justify-between gap-2 rounded-xl border bg-white px-3.5 text-sm shadow-xs transition-colors hover:border-gray-300 ${open ? "border-[#0E4D3A] ring-2 ring-[#0E4D3A]/15" : "border-gray-200"}`}>
         <span className="flex min-w-0 items-center gap-2">
-          <svg className="h-4 w-4 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>
-          {!bare && <span className="font-medium text-gray-400">{label}</span>}
-          <span className={`truncate ${bare ? "font-medium" : "font-bold"} ${hasValue ? "text-gray-900" : "text-gray-700"}`}>{summary}</span>
+          <svg className="h-4 w-4 shrink-0 text-[#8A8F9C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>
+          {!bare && <span className={plain ? "whitespace-nowrap text-[#6B7080]" : "font-medium text-gray-400"}>{label}</span>}
+          <span className={`truncate ${plain ? (hasValue ? "text-[#1A1C21]" : "text-[#6B7080]") : bare ? "font-medium" : "font-bold"} ${plain ? "" : hasValue ? "text-gray-900" : "text-gray-700"}`}>{summary}</span>
         </span>
         {hasValue && clearable ? (
           <span role="button" tabIndex={0} aria-label="Clear dates" onClick={(event) => { event.stopPropagation(); onChange("", ""); }}
