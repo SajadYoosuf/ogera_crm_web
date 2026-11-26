@@ -13,9 +13,11 @@ import ContactsMoreMenu from "@/features/contacts/components/ContactsMoreMenu";
 import ContactsFilterMenu from "@/features/contacts/components/ContactsFilterMenu";
 import ContactsSortMenu from "@/features/contacts/components/ContactsSortMenu";
 import ContactsBulkAssignModal from "@/features/contacts/components/BulkAssignModal";
+import ContactDetailModal from "@/features/contacts/components/ContactDetailModal";
 import { useContactLookups } from "@/features/contacts/hooks/useContactLookups";
 import { useContactsList } from "@/features/contacts/hooks/useContactsList";
 import { useContactEditor } from "@/features/contacts/hooks/useContactEditor";
+import { useAuth } from "@/context/AuthContext";
 import { type ApiContactType, type ContactFieldDefinition } from "@/features/contacts/api/contacts";
 import { KIND_LABELS, PAGE_SIZE, TYPE_TABS, type Contact, type ContactForm, type ContactSource } from "@/features/contacts/utils";
 
@@ -45,7 +47,7 @@ function pageItems(page: number, totalPages: number): (number | "…")[] {
 
 /** Contacts screen: layout and derived options. State and API calls live in the contacts hooks. */
 export default function ContactsView() {
-  const { leadSources, partnerTypes, consumerFields, partnerFields, districtNames, employees, canAssign, branches } = useContactLookups();
+  const { leadSources, partnerTypes, consumerFields, partnerFields, dealerFields, districtNames, employees, canAssign, branches } = useContactLookups();
   const {
     contacts, total, totalPages, typeCounts, page, setPage, search, setSearch, submittedSearch, filters, hasFilters, sort,
     isLoading, error, loadContacts, changeFilter, changeType, changeSort, clearFilters, clearSearchAndFilters,
@@ -54,8 +56,11 @@ export default function ContactsView() {
     editor, openEditor, closeEditor, updateForm, saveContact, searchReferral, sourceValue,
     deleteTarget, setDeleteTarget, deleteContact, isSaving, formError, setFormError, selectedReferral, setSelectedReferral,
   } = useContactEditor({ leadSources, onSaved: loadContacts });
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [ioDialog, setIoDialog] = useState<"import" | "export" | null>(null);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
+  const [detailContact, setDetailContact] = useState<Contact | null>(null);
   const submitSearch = (event: FormEvent<HTMLFormElement>) => event.preventDefault();
   const goToPage = (next: number) => { setPage(next); };
 
@@ -299,7 +304,7 @@ export default function ContactsView() {
                     {contacts.map((contact) => {
                       const label = contact.name || contact.phone;
                       return (
-                        <tr key={contact.id} onClick={() => openEditor(contact)} className="group cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB] [&_td]:py-3.5">
+                        <tr key={contact.id} onClick={() => setDetailContact(contact)} className="group cursor-pointer border-t border-[#EFEFF2] transition-colors hover:bg-[#FAFAFB] [&_td]:py-3.5">
                           <td className="px-3">
                             <div className="flex items-center gap-2.5">
                               <span aria-hidden="true" className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${avatarTone(contact)}`}>{initialOf(contact)}</span>
@@ -330,7 +335,7 @@ export default function ContactsView() {
                           )}
                           <td className="whitespace-nowrap px-3"><VerifiedBadge contact={contact} /></td>
                           <td className={`sticky right-0 z-10 bg-white px-4 text-center transition-colors group-hover:bg-[#FAFAFB] ${STICKY_EDGE}`} onClick={(event) => event.stopPropagation()}>
-                            <ContactRowMenu label={label} onEdit={() => openEditor(contact)} onDelete={() => { setFormError(""); setDeleteTarget(contact); }} />
+                            <ContactRowMenu label={label} onEdit={() => { setDetailContact(null); openEditor(contact); }} onDelete={() => { setFormError(""); setDeleteTarget(contact); }} />
                           </td>
                         </tr>
                       );
@@ -342,7 +347,7 @@ export default function ContactsView() {
               <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:hidden">
                 {contacts.map((contact) => (
                   <article key={contact.id} className="relative rounded-xl border border-[#E7E7EA] bg-white transition-colors hover:border-[#7EE2A8]">
-                    <button type="button" onClick={() => openEditor(contact)} className="block w-full rounded-xl p-4 text-left focus-visible:outline-2 focus-visible:outline-[#0E4D3A]">
+                    <button type="button" onClick={() => setDetailContact(contact)} className="block w-full rounded-xl p-4 text-left focus-visible:outline-2 focus-visible:outline-[#0E4D3A]">
                       <div className="flex items-center gap-3">
                         <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${avatarTone(contact)}`}>{initialOf(contact)}</span>
                         <div className="min-w-0 flex-1 pr-14">
@@ -366,7 +371,7 @@ export default function ContactsView() {
                       </div>
                     </button>
                     <div className="absolute right-3 top-3.5 flex gap-1">
-                      <button type="button" onClick={() => openEditor(contact)} aria-label={`Edit ${contact.name || contact.phone}`} title="Edit" className="rounded-md p-1.5 text-[#8A8F9C] transition-colors hover:bg-[#E7F5EE] hover:text-[#0E4D3A]">
+                      <button type="button" onClick={() => { setDetailContact(null); openEditor(contact); }} aria-label={`Edit ${contact.name || contact.phone}`} title="Edit" className="rounded-md p-1.5 text-[#8A8F9C] transition-colors hover:bg-[#E7F5EE] hover:text-[#0E4D3A]">
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                       </button>
                       <button type="button" onClick={() => { setFormError(""); setDeleteTarget(contact); }} aria-label={`Delete ${contact.name || contact.phone}`} title="Delete" className="rounded-md p-1.5 text-[#8A8F9C] transition-colors hover:bg-rose-50 hover:text-rose-600">
@@ -406,6 +411,13 @@ export default function ContactsView() {
         </section>
       </div>
 
+      <ContactDetailModal
+        contact={detailContact}
+        onClose={() => setDetailContact(null)}
+        onEdit={(c) => { setDetailContact(null); openEditor(c); }}
+        onDelete={(c) => { setDetailContact(null); setFormError(""); setDeleteTarget(c); }}
+      />
+
       {editor && (
         <div
           className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-[rgba(17,18,20,0.45)] backdrop-blur-[3px]"
@@ -443,9 +455,9 @@ export default function ContactsView() {
                 {/* Type tabs — new contacts only; badge for edit */}
                 {!editor.contact ? (
                   <div role="tablist" aria-label="Contact type" className="flex gap-0.5 rounded-[9px] bg-[#F3F3F5] p-[3px]">
-                    {(["consumer", "partner"] as const).map((type) => {
+                    {(["consumer", "partner", "dealer"] as const).map((type) => {
                       const active = editor.values.contactType === type;
-                      const labels = { consumer: "Consumer", partner: "Partner" } as const;
+                      const labels = { consumer: "Consumer", partner: "Partner", dealer: "Dealer" } as const;
                       return (
                         <button
                           key={type} type="button" role="tab" aria-selected={active}
@@ -528,6 +540,82 @@ export default function ContactsView() {
                     className="w-full resize-none rounded-[8px] border border-[#DEE1E5] bg-white px-3 py-2.5 text-[14px] text-[#1A1C21] placeholder:text-[#B4B8C2] outline-none transition-colors focus:border-[#0E7A4F] focus:ring-[3px] focus:ring-[rgba(14,122,79,0.12)]"
                   />
                 </div>
+
+                {/* Dealer-specific fields. Money inputs show for admins only; the rep picker needs the employee list. */}
+                {editor.values.contactType === "dealer" && (() => {
+                  const dealerTypeDef = dealerFields.find((field) => field.field_name === "dealer_type");
+                  const dealerTypeOptions = dealerTypeDef?.options ?? [];
+                  const dealerTypeValue = editor.values.dealerType;
+                  const repOptions = assigneeOptions.filter((opt) => opt.value !== "");
+                  return (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2 flex flex-col gap-1.5">
+                        <label htmlFor="ac-dealer-business" className="text-[13px] font-semibold text-[#3A3F46]">Business name</label>
+                        <input id="ac-dealer-business" type="text" autoComplete="off" value={editor.values.dealerBusinessName}
+                          onChange={(e) => updateForm("dealerBusinessName", e.target.value)} className={INPUT_CLS} />
+                      </div>
+                      {dealerTypeDef ? (
+                        <SelectField
+                          label="Dealer type"
+                          value={dealerTypeValue}
+                          onChange={(value) => updateForm("dealerType", value)}
+                          placeholder="Not recorded"
+                          options={[
+                            { value: "", label: "Not recorded" },
+                            ...(dealerTypeValue && !dealerTypeOptions.includes(dealerTypeValue) ? [{ value: dealerTypeValue, label: dealerTypeValue }] : []),
+                            ...dealerTypeOptions.map((o) => ({ value: o, label: o.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") })),
+                          ]}
+                        />
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          <label htmlFor="ac-dealer-type" className="text-[13px] font-semibold text-[#3A3F46]">Dealer type</label>
+                          <input id="ac-dealer-type" type="text" autoComplete="off" value={dealerTypeValue}
+                            onChange={(e) => updateForm("dealerType", e.target.value)} className={INPUT_CLS} />
+                        </div>
+                      )}
+                      <div className="flex flex-col gap-1.5">
+                        <label htmlFor="ac-dealer-gstin" className="text-[13px] font-semibold text-[#3A3F46]">GSTIN</label>
+                        <input id="ac-dealer-gstin" type="text" autoComplete="off" value={editor.values.dealerGstin}
+                          onChange={(e) => updateForm("dealerGstin", e.target.value)} className={INPUT_CLS} />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label htmlFor="ac-dealer-town" className="text-[13px] font-semibold text-[#3A3F46]">Town / City</label>
+                        <input id="ac-dealer-town" type="text" autoComplete="off" value={editor.values.dealerTownCity}
+                          onChange={(e) => updateForm("dealerTownCity", e.target.value)} className={INPUT_CLS} />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label htmlFor="ac-dealer-pin" className="text-[13px] font-semibold text-[#3A3F46]">Pin code</label>
+                        <input id="ac-dealer-pin" type="text" inputMode="numeric" autoComplete="off" value={editor.values.dealerPinCode}
+                          onChange={(e) => updateForm("dealerPinCode", e.target.value)} className={INPUT_CLS} />
+                      </div>
+                      {canAssign && repOptions.length > 0 && (
+                        <div className="col-span-2">
+                          <SelectField
+                            label="Assigned rep"
+                            value={editor.values.dealerAssignedRep}
+                            onChange={(value) => updateForm("dealerAssignedRep", value)}
+                            placeholder="Not assigned"
+                            options={[{ value: "", label: "Not assigned" }, ...repOptions]}
+                          />
+                        </div>
+                      )}
+                      {isAdmin && (
+                        <>
+                          <div className="flex flex-col gap-1.5">
+                            <label htmlFor="ac-dealer-credit" className="text-[13px] font-semibold text-[#3A3F46]">Credit limit (₹)</label>
+                            <input id="ac-dealer-credit" type="number" min="0" step="0.01" inputMode="decimal" autoComplete="off" value={editor.values.dealerCreditLimit}
+                              onChange={(e) => updateForm("dealerCreditLimit", e.target.value)} className={INPUT_CLS} />
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <label htmlFor="ac-dealer-outstanding" className="text-[13px] font-semibold text-[#3A3F46]">Outstanding balance (₹)</label>
+                            <input id="ac-dealer-outstanding" type="number" min="0" step="0.01" inputMode="decimal" autoComplete="off" value={editor.values.dealerOutstandingBalance}
+                              onChange={(e) => updateForm("dealerOutstandingBalance", e.target.value)} className={INPUT_CLS} />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Consumer-specific fields: rendered dynamically from contact_field_definitions */}
                 {editor.values.contactType === "consumer" && consumerFields.length > 0 && (
