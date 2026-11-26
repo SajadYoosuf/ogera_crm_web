@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TasksView from "@/features/tasks/components/TasksView";
-import { listLeadTasks, updateInteraction, type LeadTask, type LeadTaskList } from "@/lib/api/interactions";
+import { listLeadTasks, reassignLeadTask, updateInteraction, type LeadTask, type LeadTaskList } from "@/lib/api/interactions";
 import { listAllEmployees } from "@/lib/api/employees";
 import { ApiError } from "@/lib/api/auth";
 
@@ -19,6 +19,7 @@ vi.mock("@/lib/api/interactions", async (orig) => ({
   ...(await orig<typeof import("@/lib/api/interactions")>()),
   listLeadTasks: vi.fn(),
   updateInteraction: vi.fn(),
+  reassignLeadTask: vi.fn(),
 }));
 vi.mock("@/lib/api/employees", async (orig) => ({
   ...(await orig<typeof import("@/lib/api/employees")>()),
@@ -87,6 +88,23 @@ describe("TasksView", () => {
     fireEvent.click(await screen.findByText("Ravi Kumar"));
     expect(await screen.findByRole("dialog")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Mark complete" })).toBeNull();
+  });
+
+  it("after an admin reassigns, the table shows the new assignee without a reload", async () => {
+    auth.user = { id: 1, name: "Ada", role: "manager" };
+    vi.mocked(listLeadTasks)
+      .mockResolvedValueOnce(page([task({ assigned_to: 3, assigned_to_name: "Anu" })]))
+      .mockResolvedValue(page([task({ assigned_to: 4, assigned_to_name: "Raj" })]));
+    vi.mocked(reassignLeadTask).mockResolvedValue({} as never);
+    render(<TasksView />);
+    await screen.findByText("Ravi Kumar");
+    await waitFor(() => expect(document.querySelector("tbody")?.textContent).toContain("Anu"));
+    fireEvent.click(screen.getByRole("button", { name: "Task actions" }));
+    fireEvent.click(within(screen.getByRole("menu")).getByRole("menuitem", { name: "Reassign" }));
+    fireEvent.change(await screen.findByLabelText("New assignee"), { target: { value: "4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reassign" }));
+    await waitFor(() => expect(reassignLeadTask).toHaveBeenCalledWith("tok", 5, 11, 4));
+    await waitFor(() => expect(document.querySelector("tbody")?.textContent).toContain("Raj"));
   });
 
   it("the assignee changes status from the status dropdown", async () => {
