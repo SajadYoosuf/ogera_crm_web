@@ -248,16 +248,43 @@ export type PipelineContact = {
   created_at: string;
 };
 
-/** Fetch all contacts of one type for the pipeline board (no pagination — board needs all). */
+/** Filters the pipeline board sends to GET /contacts. Empty values are left out of the query. */
+export type PipelineFilters = {
+  search?: string;
+  lead_source_id?: number;
+  assigned_to?: number;
+  branch_id?: number;
+  created_from?: string;
+  created_to?: string;
+};
+
+/**
+ * Fetch all contacts of one type for the pipeline board, after the given filters.
+ * The backend caps `limit` at 100 per request, so pages are fetched until every row is loaded.
+ */
 export async function listPipelineContacts(
   accessToken: string,
   contactType: string,
+  filters: PipelineFilters = {},
 ): Promise<PipelineContact[]> {
-  const query = new URLSearchParams({ contact_type: contactType, limit: "500", skip: "0" });
-  const data = await request<{ items: ApiContact[]; total: number }>(`/contacts?${query}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  return data.items as unknown as PipelineContact[];
+  const PAGE_SIZE = 100;
+  const all: ApiContact[] = [];
+  let skip = 0;
+  let total = Number.POSITIVE_INFINITY;
+  while (skip < total) {
+    const query = new URLSearchParams({ contact_type: contactType, limit: String(PAGE_SIZE), skip: String(skip) });
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== "") query.set(key, String(value));
+    }
+    const data = await request<ContactList>(`/contacts?${query}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    all.push(...data.items);
+    total = data.total;
+    if (data.items.length === 0) break;
+    skip += data.items.length;
+  }
+  return all as unknown as PipelineContact[];
 }
 
 /** Calls a protected /contacts route with request/response logging and session-aware errors. */

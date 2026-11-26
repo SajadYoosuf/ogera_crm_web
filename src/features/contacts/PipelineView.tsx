@@ -1,54 +1,92 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import type { FilterOption } from "@/components/FilterSelect";
 import PipelineTabBar, { type PipelineTab } from "./components/PipelineTabBar";
 import PipelineBoard from "./components/PipelineBoard";
+import PipelineFilterBar, { NO_PIPELINE_FILTERS, type PipelineFilterValues } from "./components/PipelineFilterBar";
+import { useContactLookups } from "./hooks/useContactLookups";
 import {
   listPipelineStages,
   listPipelineContacts,
+  type PipelineFilters,
   type PipelineStageItem,
   type PipelineContact,
 } from "./api/contacts";
 
+const SEARCH_DELAY_MS = 300;
+
 export default function PipelineView() {
   const { token } = useAuth();
+  const { leadSources, branches, employees, canAssign } = useContactLookups();
   const [tab, setTab] = useState<PipelineTab>("consumer");
+  const [filters, setFilters] = useState<PipelineFilterValues>(NO_PIPELINE_FILTERS);
+  const [submittedSearch, setSubmittedSearch] = useState("");
   const [stages, setStages] = useState<PipelineStageItem[]>([]);
   const [contacts, setContacts] = useState<PipelineContact[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [counts, setCounts] = useState<Record<PipelineTab, number>>({ consumer: 0, partner: 0, dealer: 0 });
+  const requestSeq = useRef(0);
+
+  const hasFilters = Object.values(filters).some(Boolean);
+
+  // Search waits for a short pause after typing, so the board is not reloaded on every key.
+  useEffect(() => {
+    const term = filters.search.trim();
+    const timer = window.setTimeout(() => setSubmittedSearch(term), SEARCH_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [filters.search]);
+
+  const apiFilters = useMemo<PipelineFilters>(() => ({
+    search: submittedSearch || undefined,
+    lead_source_id: filters.source ? Number(filters.source) : undefined,
+    assigned_to: filters.assignedTo ? Number(filters.assignedTo) : undefined,
+    branch_id: filters.branch ? Number(filters.branch) : undefined,
+    created_from: filters.from || undefined,
+    created_to: filters.to || undefined,
+  }), [submittedSearch, filters.source, filters.assignedTo, filters.branch, filters.from, filters.to]);
 
   const load = useCallback(
     async (contactType: PipelineTab) => {
       if (!token) return;
+      // Only the newest request may update the board, so a slow earlier response cannot overwrite newer filters.
+      const seq = ++requestSeq.current;
       setIsLoading(true);
       setError(null);
       try {
         const [stagesData, contactsData] = await Promise.all([
           listPipelineStages(token, contactType),
-          listPipelineContacts(token, contactType),
+          listPipelineContacts(token, contactType, apiFilters),
         ]);
+        if (seq !== requestSeq.current) return;
         setStages(stagesData);
         setContacts(contactsData);
         setCounts((prev) => ({ ...prev, [contactType]: contactsData.length }));
       } catch {
-        setError("Failed to load pipeline. Please try again.");
+        if (seq === requestSeq.current) setError("Failed to load pipeline. Please try again.");
       } finally {
-        setIsLoading(false);
+        if (seq === requestSeq.current) setIsLoading(false);
       }
     },
-    [token],
+    [token, apiFilters],
   );
 
   useEffect(() => {
-    void load(tab);
+    const timer = window.setTimeout(() => { void load(tab); }, 0);
+    return () => window.clearTimeout(timer);
   }, [load, tab]);
 
   const handleTabChange = (next: PipelineTab) => {
     setTab(next);
   };
+
+  const sourceOptions: FilterOption[] = leadSources.map((item) => ({ value: String(item.id), label: item.name }));
+  const branchOptions: FilterOption[] = branches.map((item) => ({ value: String(item.id), label: item.name }));
+  const employeeOptions: FilterOption[] = employees
+    .filter((employee) => employee.is_active)
+    .map((employee) => ({ value: String(employee.id), label: employee.name }));
 
   return (
     <div className="flex flex-col h-full">
@@ -63,6 +101,17 @@ export default function PipelineView() {
         </div>
       </div>
 
+      {/* Filter header: search, created date, lead source, branch, employee */}
+      <PipelineFilterBar
+        values={filters}
+        onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
+        onClear={() => setFilters(NO_PIPELINE_FILTERS)}
+        sourceOptions={sourceOptions}
+        branchOptions={branchOptions}
+        employeeOptions={employeeOptions}
+        canAssign={canAssign}
+      />
+
       {/* Count row */}
       <div className="shrink-0 flex items-center gap-6 px-6 py-3 border-b border-gray-100">
         <span className="text-sm text-[#6B7080]">
@@ -72,6 +121,9 @@ export default function PipelineView() {
           <span className="text-sm text-[#6B7080]">
             <span className="font-semibold text-[#1A1C21]">{stages.length}</span> stages
           </span>
+        )}
+        {!isLoading && !error && hasFilters && contacts.length === 0 && (
+          <span className="text-sm text-[#6B7080]">No contacts match these filters.</span>
         )}
       </div>
 
