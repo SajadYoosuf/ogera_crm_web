@@ -109,6 +109,13 @@ export type ApiContactDetail = {
   lead_source_id: number | null;
   consumer_profile?: { id: number; contact_id: number; data: Record<string, unknown> } | null;
   partner_profile?: { id: number; contact_id: number; data: Record<string, unknown> } | null;
+  dealer_profile?: {
+    id: number; contact_id: number;
+    business_name: string | null; gstin: string | null; dealer_type: string | null; town_city: string | null; pin_code: string | null;
+    assigned_rep: number | null; assigned_rep_name: string | null;
+    credit_limit: number | null; outstanding_balance: number | null;
+    data: Record<string, unknown>;
+  } | null;
   /** Free-text note. Null when none has been entered. */
   notes?: string | null;
 };
@@ -125,14 +132,27 @@ export type ContactInput = {
   assigned_to?: number;
   consumer_profile?: { data: Record<string, unknown> };
   partner_profile?: { data: Record<string, unknown> };
+  dealer_profile?: DealerProfileInput;
   /** Free-text note. Omit to keep unchanged, null to clear, string to set. */
   notes?: string | null;
+};
+
+/** Dealer profile as sent on create/update. Money fields are sent by admins only; omit them otherwise. */
+export type DealerProfileInput = {
+  business_name?: string | null;
+  gstin?: string | null;
+  dealer_type?: string | null;
+  town_city?: string | null;
+  pin_code?: string | null;
+  assigned_rep?: number | null;
+  credit_limit?: number;
+  outstanding_balance?: number;
 };
 
 /** One field definition row from GET /contact-field-definitions. */
 export type ContactFieldDefinition = {
   id: number;
-  entity_type: "consumer" | "partner";
+  entity_type: "consumer" | "partner" | "dealer";
   field_name: string;       // key stored in profile data (e.g. "tank_type")
   field_label: string | null; // display label (e.g. "Tank Type")
   field_type: "text" | "dropdown" | "number" | "boolean";
@@ -142,8 +162,8 @@ export type ContactFieldDefinition = {
   is_active: boolean;
 };
 
-/** GET /contact-field-definitions/{entity_type} — fields to render for consumer or partner profile. */
-export async function listContactFieldDefinitions(accessToken: string, entityType: "consumer" | "partner"): Promise<ContactFieldDefinition[]> {
+/** GET /contact-field-definitions/{entity_type} — fields to render for a consumer, partner or dealer profile. */
+export async function listContactFieldDefinitions(accessToken: string, entityType: "consumer" | "partner" | "dealer"):Promise<ContactFieldDefinition[]> {
   try {
     return await request<ContactFieldDefinition[]>(`/contact-field-definitions/${entityType}`, { headers: { Authorization: `Bearer ${accessToken}` } });
   } catch {

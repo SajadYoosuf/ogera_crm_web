@@ -10,7 +10,7 @@ import { useAuth } from "@/context/AuthContext";
  * useContactLookups — loads all reference data the contacts screens need.
  *
  * WHAT IT LOADS:
- *   - consumerFields / partnerFields: field definitions from GET /contact-field-definitions
+ *   - consumerFields / partnerFields / dealerFields: field definitions from GET /contact-field-definitions
  *     These tell the form which fields to render, what type they are (dropdown/number/text),
  *     and what dropdown options are valid. This replaces the old hardcoded DEFAULT_HOUSE_STAGES
  *     and DEFAULT_TANK_TYPES approach.
@@ -36,6 +36,7 @@ export function useContactLookups() {
   const [partnerTypes, setPartnerTypes] = useState<PartnerTypeOption[]>([]);
   const [consumerFields, setConsumerFields] = useState<ContactFieldDefinition[]>([]);
   const [partnerFields, setPartnerFields] = useState<ContactFieldDefinition[]>([]);
+  const [dealerFields, setDealerFields] = useState<ContactFieldDefinition[]>([]);
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employeesFailed, setEmployeesFailed] = useState(false);
@@ -48,6 +49,7 @@ export function useContactLookups() {
     listPartnerTypes(token).then(setPartnerTypes).catch(() => {});
     listContactFieldDefinitions(token, "consumer").then(setConsumerFields).catch(() => {});
     listContactFieldDefinitions(token, "partner").then(setPartnerFields).catch(() => {});
+    listContactFieldDefinitions(token, "dealer").then(setDealerFields).catch(() => {});
     listBranches(token).then(setBranches).catch(() => {});
   }, [token]);
 
@@ -61,5 +63,5 @@ export function useContactLookups() {
   // Kerala districts are the standard list; not managed via field definitions.
   const districtNames = useMemo(() => KERALA_DISTRICTS, []);
 
-  return { leadSources, partnerTypes, consumerFields, partnerFields, branches, districtNames, employees, canAssign };
+  return { leadSources, partnerTypes, consumerFields, partnerFields, dealerFields, branches, districtNames, employees, canAssign };
 }
