@@ -250,6 +250,20 @@ export const updateLead = (token: string, leadId: number, body: LeadUpdate): Pro
 export const deleteLead = (token: string, leadId: number): Promise<void> =>
   apiCall<void>(token, "DELETE", `/leads/${leadId}`);
 
+/** Same filters as GET /leads. The backend refuses an empty set, so pass at least one. */
+export type BulkDeleteLeadsFilters = {
+  status?: string;
+  source_id?: number;
+  assigned_to?: number;
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+};
+
+/** POST /leads/bulk-delete — soft-deletes every lead matching the filters (admin/manager). */
+export const bulkDeleteLeads = (token: string, filters: BulkDeleteLeadsFilters): Promise<{ deleted: number }> =>
+  apiCall<{ deleted: number }>(token, "POST", "/leads/bulk-delete", filters);
+
 export type ConvertLeadBody = {
   contact_type: "consumer" | "partner";
   partner_type?: string;

@@ -12,8 +12,12 @@ import { usePopoverFit } from "@/hooks/usePopoverFit";
  * several separate dropdowns for width. The created-date range is a separate
  * button in the toolbar (before this one), not part of this panel.
  */
-export default function LeadsFilterMenu({ groups, onChange, onClear }: {
+export default function LeadsFilterMenu({ groups, onChange, onClear, onDeleteMatching, deleteDisabled = false }: {
   groups: FilterGroup[]; onChange: (key: string, value: string) => void; onClear: () => void;
+  /** Admin/manager only. When given, the panel shows "Delete matching leads". */
+  onDeleteMatching?: () => void;
+  /** True when no filter or search is set, so the bulk delete is not offered. */
+  deleteDisabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -65,6 +69,19 @@ export default function LeadsFilterMenu({ groups, onChange, onClear }: {
               </div>
             ))}
           </div>
+          {onDeleteMatching && (
+            <div className="mt-5 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                disabled={deleteDisabled}
+                onClick={() => { setOpen(false); onDeleteMatching(); }}
+                className="h-10 w-full rounded-xl border border-rose-200 bg-white text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Delete matching leads
+              </button>
+              {deleteDisabled && <p className="mt-2 text-xs text-slate-500">Set a filter or search first, so you don&apos;t delete every lead.</p>}
+            </div>
+          )}
           <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
             <button type="button" onClick={onClear} disabled={activeCount === 0} className="text-sm font-semibold text-slate-500 transition-colors hover:text-slate-800 disabled:opacity-40">
               Reset all

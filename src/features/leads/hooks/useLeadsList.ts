@@ -104,7 +104,7 @@ export function useLeadsList() {
 
   return {
     leads, total, totalPages, page, setPage,
-    search, setSearch, filters, hasFilters,
+    search, setSearch, submittedSearch, filters, hasFilters,
     isLoading, error, loadLeads, changeFilter, setDateRange, clearFilters,
   };
 }
