@@ -23,9 +23,11 @@ import IntegrationsTab from "./IntegrationsTab";
 import WhatsAppTab from "./WhatsAppTab";
 import TemplatesTab from "./TemplatesTab";
 import LeadStatusesTab from "./LeadStatusesTab";
+import ContactFieldsTab from "./ContactFieldsTab";
+import PipelineStagesTab from "./PipelineStagesTab";
 import FollowupsSettingsTab from "@/features/settings/components/FollowupsSettingsTab";
 
-export type SettingsTabKey = "general" | "account" | "team" | "integrations" | "whatsapp" | "templates" | "lead_statuses" | "followups";
+export type SettingsTabKey = "general" | "account" | "team" | "integrations" | "whatsapp" | "templates" | "lead_statuses" | "followups" | "contact_fields" | "pipeline_stages";
 
 type SectionItem = {
   key: SettingsTabKey;
@@ -125,6 +127,33 @@ const SECTIONS: SectionItem[] = [
     ),
   },
   {
+    key: "contact_fields",
+    label: "Contact Fields",
+    description: "Consumer & partner profile fields",
+    module: "team",
+    icon: (
+      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="8" y1="13" x2="16" y2="13" />
+        <line x1="8" y1="17" x2="12" y2="17" />
+      </svg>
+    ),
+  },
+  {
+    key: "pipeline_stages",
+    label: "Pipeline Stages",
+    description: "Kanban columns per contact type",
+    module: "team",
+    icon: (
+      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="4" height="18" rx="1" />
+        <rect x="10" y="3" width="4" height="12" rx="1" />
+        <rect x="17" y="3" width="4" height="15" rx="1" />
+      </svg>
+    ),
+  },
+  {
     key: "followups",
     label: "Follow-ups",
     description: "Timings, reminders & task statuses",
@@ -203,6 +232,8 @@ export default function SettingsView() {
           {current === "whatsapp" && <WhatsAppTab />}
           {current === "templates" && <TemplatesTab />}
           {current === "lead_statuses" && <LeadStatusesTab />}
+          {current === "contact_fields" && <ContactFieldsTab />}
+          {current === "pipeline_stages" && <PipelineStagesTab />}
           {current === "followups" && <FollowupsSettingsTab />}
         </div>
       </div>
