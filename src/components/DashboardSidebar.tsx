@@ -45,6 +45,19 @@ const menuItems: MenuItem[] = [
     ),
   },
   {
+    id: "pipeline",
+    label: "Pipeline",
+    href: "/dashboard/pipeline",
+    category: "MAIN",
+    icon: (
+      <>
+        <rect x="3" y="3" width="4" height="18" rx="1" />
+        <rect x="10" y="3" width="4" height="13" rx="1" />
+        <rect x="17" y="3" width="4" height="8" rx="1" />
+      </>
+    ),
+  },
+  {
     id: "leads",
     label: "Leads",
     href: "/dashboard/leads",

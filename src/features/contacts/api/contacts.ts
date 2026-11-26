@@ -2,7 +2,7 @@ import { API_BASE_URL, ApiError, request } from "@/lib/api/auth";
 import { trace } from "@/lib/api/devlog";
 
 /** Mirrors the Contacts section of the parent API.md. */
-export type ApiContactType = "consumer" | "partner";
+export type ApiContactType = "consumer" | "partner" | "dealer";
 
 type NameRef = { id: number; name: string };
 
@@ -181,6 +181,83 @@ export async function listBranches(accessToken: string): Promise<BranchOption[]>
   } catch {
     return [];
   }
+}
+
+// ── Pipeline ─────────────────────────────────────────────────────────────────
+
+export type PipelineStageItem = {
+  id: number;
+  slug: string;
+  label: string;
+  order_index: number;
+  contact_type: string;
+};
+
+/** GET /pipeline/stages?contact_type=consumer|partner|dealer — ordered board columns. */
+export async function listPipelineStages(accessToken: string, contactType: string): Promise<PipelineStageItem[]> {
+  return request<PipelineStageItem[]>(`/pipeline/stages?contact_type=${contactType}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+/** GET /contacts/stage — alias: returns current stage for a contact (from /contacts list lead_stage). */
+export type ContactStageInfo = {
+  stage_id: number;
+  stage_slug: string;
+  stage_name: string;
+  contact_type: string;
+  changed_at: string | null;
+};
+
+/** GET /contacts/{id}/stage */
+export async function getContactStage(accessToken: string, contactId: number): Promise<ContactStageInfo | null> {
+  try {
+    return await request<ContactStageInfo>(`/contacts/${contactId}/stage`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+/** POST /contacts/{id}/stage — move contact to a stage. */
+export async function setContactStage(
+  accessToken: string,
+  contactId: number,
+  stageId: number,
+  opts?: { loss_reason?: string; loss_notes?: string; awareness_note?: string },
+): Promise<void> {
+  await request<unknown>(`/contacts/${contactId}/stage`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ stage_id: stageId, ...opts }),
+  });
+}
+
+// ── Contacts for pipeline board ───────────────────────────────────────────────
+
+/** Minimal shape for the pipeline board (all contacts for a type with their current stage). */
+export type PipelineContact = {
+  id: number;
+  name: string;
+  phone: string;
+  district: string;
+  assigned_to: { id: number; name: string } | null;
+  lead_stage: { stage_id: number; stage_slug: string; stage_name: string; changed_at: string } | null;
+  created_at: string;
+};
+
+/** Fetch all contacts of one type for the pipeline board (no pagination — board needs all). */
+export async function listPipelineContacts(
+  accessToken: string,
+  contactType: string,
+): Promise<PipelineContact[]> {
+  const query = new URLSearchParams({ contact_type: contactType, limit: "500", skip: "0" });
+  const data = await request<{ items: ApiContact[]; total: number }>(`/contacts?${query}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return data.items as unknown as PipelineContact[];
 }
 
 /** Calls a protected /contacts route with request/response logging and session-aware errors. */
