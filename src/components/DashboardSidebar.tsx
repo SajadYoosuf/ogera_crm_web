@@ -168,30 +168,48 @@ export default function DashboardSidebar() {
   // WhatsApp unread badge: poll while the tab is visible; the inbox page also pings on read/send.
   useEffect(() => {
     if (!token) return;
-    const load = () => { void getInboxUnreadCount(token).then((r) => setUnreadWa(r.count)).catch(() => undefined); };
+    // Guard: skip the request when the device is offline or the tab is hidden.
+    // This prevents cascading 401s on spotty mobile networks and avoids waking
+    // the backend for users who have switched away from the tab.
+    const shouldFetch = () => navigator.onLine && document.visibilityState === "visible";
+    const load = () => {
+      if (!shouldFetch()) return;
+      void getInboxUnreadCount(token).then((r) => setUnreadWa(r.count)).catch(() => undefined);
+    };
     const first = window.setTimeout(load, 0);
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") load(); }, UNREAD_POLL_MS);
+    const timer = window.setInterval(load, UNREAD_POLL_MS);
+    // Also reload immediately when coming back online or the tab becomes visible.
     window.addEventListener(INBOX_UNREAD_EVENT, load);
+    window.addEventListener("online", load);
+    document.addEventListener("visibilitychange", load);
     return () => {
       window.clearTimeout(first);
       window.clearInterval(timer);
       window.removeEventListener(INBOX_UNREAD_EVENT, load);
+      window.removeEventListener("online", load);
+      document.removeEventListener("visibilitychange", load);
     };
   }, [token]);
 
-  // Overdue follow-ups badge on Tasks: poll while visible; the Tasks page pings after every change.
+  // Overdue follow-ups badge on Tasks: poll while visible and online; the Tasks page pings after every change.
   useEffect(() => {
     if (!token) return;
+    const shouldFetch = () => navigator.onLine && document.visibilityState === "visible";
     const load = () => {
+      if (!shouldFetch()) return;
       void listLeadTasks(token, { bucket: "overdue", limit: 1 }).then((r) => setOverdueTasks(r.summary.overdue)).catch(() => undefined);
     };
     const first = window.setTimeout(load, 0);
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") load(); }, UNREAD_POLL_MS * 4);
+    const timer = window.setInterval(load, UNREAD_POLL_MS * 4);
     window.addEventListener(TASKS_CHANGED_EVENT, load);
+    window.addEventListener("online", load);
+    document.addEventListener("visibilitychange", load);
     return () => {
       window.clearTimeout(first);
       window.clearInterval(timer);
       window.removeEventListener(TASKS_CHANGED_EVENT, load);
+      window.removeEventListener("online", load);
+      document.removeEventListener("visibilitychange", load);
     };
   }, [token]);
 
@@ -267,8 +285,14 @@ export default function DashboardSidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-screen w-[248px] ${collapsed ? "lg:w-[72px]" : "lg:w-[248px]"} bg-white text-[#4B5060] z-[1001] flex flex-col border-r border-gray-200 shadow-[0_8px_32px_rgba(31,38,135,0.10)] lg:shadow-none transition-[transform,width] duration-300 lg:translate-x-0 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed top-0 left-0 h-dvh w-[248px] ${collapsed ? "lg:w-[72px]" : "lg:w-[248px]"} bg-white text-[#4B5060] z-[1001] flex flex-col border-r border-gray-200 shadow-[0_8px_32px_rgba(31,38,135,0.10)] lg:shadow-none transition-[transform,width] duration-300 lg:translate-x-0 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
+        {/*
+          One scroll area for the whole rail (brand, menu, footer). If the window is short, the sidebar scrolls as one
+          block, so Settings no longer hides the rest of the menu. The collapse handle stays outside this wrapper,
+          because the wrapper clips overflow and the handle sits half outside the rail.
+        */}
+        <div className="flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden">
         {/* Brand row: Ogera logo with the CRM label, centred. The mobile close button sits in the corner. */}
         <div className={`relative flex shrink-0 items-center px-4 pb-2.5 pt-5 ${collapsed ? "lg:px-2" : ""}`}>
           <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-2.5 px-1.5 py-0.5 ${collapsed ? "lg:hidden" : ""}`}>
@@ -283,7 +307,7 @@ export default function DashboardSidebar() {
         </div>
 
         {/* Menu */}
-        <nav className={`flex-1 space-y-[22px] overflow-y-auto overflow-x-hidden px-3.5 pt-[22px] pb-4 ${collapsed ? "lg:px-2" : ""}`}>
+        <nav className={`flex-1 space-y-[22px] px-3.5 pt-[22px] pb-4 [@media(max-height:760px)]:space-y-3 [@media(max-height:760px)]:pt-2 ${collapsed ? "lg:px-2" : ""}`}>
           {categories.map((cat) => {
             const items = visibleMenuItems.filter((item) => item.category === cat.key);
             if (items.length === 0) return null;
@@ -297,21 +321,8 @@ export default function DashboardSidebar() {
           })}
         </nav>
 
-        {/* Desktop collapse handle: a small round button centred on the right edge, half inside and half outside */}
-        <button
-          type="button"
-          onClick={() => setCollapsed(!collapsed)}
-          className="hidden lg:flex absolute top-[13px] -right-[19px] z-10 items-center justify-center w-[38px] h-[38px] rounded-full bg-white border border-gray-200 text-gray-500 shadow-sm hover:text-[#0E4D3A] hover:border-blue-200 transition-colors"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d={collapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} />
-          </svg>
-        </button>
-
         {/* Footer: Log out (notifications live in the dashboard header) */}
-        <div className="shrink-0 space-y-1 px-3.5 pb-4">
+        <div className="shrink-0 space-y-1 px-3.5 pb-4 [@media(max-height:760px)]:pb-2">
           {visibleMenuItems.filter((item) => item.category === "FOOTER").map(renderLink)}
           <button
             type="button"
@@ -327,6 +338,20 @@ export default function DashboardSidebar() {
             <span className={collapsed ? "lg:hidden" : ""}>Log out</span>
           </button>
         </div>
+        </div>
+
+        {/* Desktop collapse handle: a small round button centred on the right edge, half inside and half outside */}
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          className="hidden lg:flex absolute top-[13px] -right-[19px] z-10 items-center justify-center w-[38px] h-[38px] rounded-full bg-white border border-gray-200 text-gray-500 shadow-sm hover:text-[#0E4D3A] hover:border-blue-200 transition-colors"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d={collapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} />
+          </svg>
+        </button>
       </aside>
 
       {/* Desktop offset spacer: follows the sidebar width */}

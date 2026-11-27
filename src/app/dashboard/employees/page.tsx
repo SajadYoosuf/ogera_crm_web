@@ -270,7 +270,7 @@ function EmployeeFormDialog({ employee, viewer, roles, onClose, onSaved }: {
         onSaved(`${values.name.trim()} was added to the team.`);
       }
     } catch (caught) {
-      if (caught instanceof ApiError && caught.kind === "invalid_credentials") { router.push("/"); return; }
+      // 401 is handled globally (SESSION_EXPIRED_EVENT → gate redirect). Just show the error state briefly.
       setError(caught instanceof ApiError ? caught.message : "Employee could not be saved. Please try again.");
     } finally { setIsSaving(false); }
   }
@@ -502,7 +502,7 @@ export default function EmployeesPage() {
       setToast(`${deleteTarget.name} was removed.`);
       setDeleteTarget(null); setSelected(null); void load("employee deleted");
     } catch (error) {
-      if (error instanceof ApiError && error.kind === "invalid_credentials") { router.push("/"); return; }
+      // 401 is handled globally (SESSION_EXPIRED_EVENT → gate redirect). Just show the error state briefly.
       setDeleteError(error instanceof ApiError ? error.message : "Employee could not be deleted. Please try again.");
     } finally { setIsDeleting(false); }
   }

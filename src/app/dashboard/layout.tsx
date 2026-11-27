@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
+import DashboardAuthGate from "@/components/DashboardAuthGate";
 import DashboardSidebar from "@/components/DashboardSidebar";
 
 const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
@@ -10,10 +11,14 @@ export const metadata: Metadata = {
 };
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // h-dvh (not h-screen): on phones and Chrome with its toolbar showing, 100vh is taller than the visible area,
+  // which pushed the bottom of the sidebar and the page out of reach.
   return (
-    <div className={`${dmSans.className} flex h-screen bg-[radial-gradient(circle_at_0%_0%,#E7F5EE_0%,transparent_42%),radial-gradient(circle_at_100%_100%,#E0F2FE_0%,transparent_40%),#F4F4FA]`}>
-      <DashboardSidebar />
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden">{children}</main>
-    </div>
+    <DashboardAuthGate>
+      <div className={`${dmSans.className} flex h-dvh bg-[radial-gradient(circle_at_0%_0%,#E7F5EE_0%,transparent_42%),radial-gradient(circle_at_100%_100%,#E0F2FE_0%,transparent_40%),#F4F4FA]`}>
+        <DashboardSidebar />
+        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden">{children}</main>
+      </div>
+    </DashboardAuthGate>
   );
 }

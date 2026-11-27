@@ -6,7 +6,6 @@
  * follow-up forms the other pages already use.
  */
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import DateRangePicker from "@/components/DateRangePicker";
 import { istToday, shiftDate } from "@/components/DatePicker";
@@ -37,7 +36,7 @@ const VIEWS: Record<ViewKey, (props: ViewProps) => ReactNode> = {
 const select = "!min-h-11 !w-auto min-w-0 flex-1 sm:!min-h-[38px] sm:flex-none";
 
 export default function DashboardView() {
-  const { user, clearSession } = useAuth();
+  const { user } = useAuth();
   const head = isLeadHead(user);
   const [period, setPeriod] = useState<DashboardPeriodKey>("30d");
   const [range, setRange] = useState({ from: "", to: "" });
@@ -50,16 +49,9 @@ export default function DashboardView() {
   });
 
   const online = useOnlineStatus();
-  const router = useRouter();
-  const signedOut = error instanceof ApiError && error.kind === "invalid_credentials";
-  // Retrying helps with connection and server trouble, not with "you may not see this".
+  // 401 → SESSION_EXPIRED_EVENT → AuthProvider.clearSession → DashboardAuthGate redirects to /?expired=1.
+  // No manual clearSession + router.push here — that races with the gate and skips the banner.
   const canRetry = !(error instanceof ApiError) || error.retryable;
-
-  useEffect(() => {
-    if (!signedOut) return;
-    clearSession();
-    router.push("/");
-  }, [signedOut, clearSession, router]);
 
   useEffect(() => {
     const refresh = () => { void reload(); };

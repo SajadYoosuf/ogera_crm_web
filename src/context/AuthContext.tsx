@@ -27,6 +27,7 @@ import { resetLookups } from "@/store/lookupsSlice";
 import { invalidateEnumOptions } from "@/hooks/useEnumOptions";
 import { getOrRequestPushToken } from "@/lib/firebase";
 import { registerFcmToken } from "@/features/notifications/api";
+import { SESSION_EXPIRED_EVENT } from "@/lib/api/auth";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -177,6 +178,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     store.dispatch(resetLookups());
     invalidateEnumOptions();
   }, []);
+
+  // Any authenticated call that comes back 401 ends the session here, so every page leaves the
+  // dashboard (through the gate) instead of showing "unable to load" with a dead token.
+  useEffect(() => {
+    window.addEventListener(SESSION_EXPIRED_EVENT, clearSession);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, clearSession);
+  }, [clearSession]);
 
   const value: AuthContextValue = {
     token: state.status === "authenticated" ? state.token : null,

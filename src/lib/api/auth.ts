@@ -199,6 +199,15 @@ export async function request<T>(path: string, init: RequestInit = {}, timeoutMs
 }
 
 /**
+ * Fired on window when an authenticated call gets a 401 (token expired or revoked).
+ * AuthProvider clears the session on it; DashboardAuthGate sends the user to sign-in
+ * with an `?expired=1` hint so the login page can explain why.
+ *
+ * The name is intentionally generic — no brand name — so it works across any tenant.
+ */
+export const SESSION_EXPIRED_EVENT = "crm:session-expired";
+
+/**
  * Authenticated API call with standard 401/403 remapping.
  * Use this in every API module instead of duplicating the auth-header boilerplate.
  */
@@ -224,7 +233,13 @@ export async function apiCall<T>(
     );
   } catch (error) {
     if (error instanceof ApiError) {
-      if (error.status === 401) throw new ApiError("invalid_credentials", "Your session has expired. Please sign in again.", 401);
+      if (error.status === 401) {
+        // Dispatch the expiry event so AuthProvider clears the session once, centrally.
+        // DashboardAuthGate then navigates to the sign-in page — no need for pages to do it.
+        if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+        // Re-throw so the page's loading/error state reflects the failure (shows nothing while redirecting).
+        throw new ApiError("invalid_credentials", "Your session has expired. Please sign in again.", 401);
+      }
       if (error.status === 403) throw new ApiError("forbidden", "You don't have permission to do that.", 403);
     }
     throw error;

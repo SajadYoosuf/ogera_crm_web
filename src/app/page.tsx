@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FormEvent, useLayoutEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLogin } from "@/features/auth/hooks/useLogin";
 import { dmSans, notoMalayalam, sora } from "@/lib/auth-fonts";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -72,6 +72,20 @@ export default function Home() {
   const [showPassword, setShowPassword] = useState(false);
   const [language, setLanguage] = useState<Language>("en");
   const [validationMessage, setValidationMessage] = useState("");
+
+  // Detect /?expired=1 — set by DashboardAuthGate when a 401 auto-logout happened.
+  // Read once from the URL on the first render (lazy initializer, runs only in the browser).
+  // A separate effect cleans the param so a manual page refresh doesn't re-show the banner.
+  const [sessionExpiredBanner] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("expired") === "1";
+  });
+  useEffect(() => {
+    if (!sessionExpiredBanner) return;
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete("expired");
+    window.history.replaceState({}, "", clean.toString());
+  }, [sessionExpiredBanner]);
 
   const brandRef = useRef<HTMLElement>(null);
   const sideRef = useRef<HTMLElement>(null);
@@ -202,6 +216,25 @@ export default function Home() {
               <button type="button" className="login-no-access-back" onClick={() => reset()}>
                 {language === "ml" ? "മടങ്ങുക" : "Back to sign in"}
               </button>
+            </div>
+          )}
+
+          {sessionExpiredBanner && (
+            <div
+              className="mb-3 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-sm text-amber-800"
+              role="alert"
+              aria-live="assertive"
+            >
+              <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>
+                {language === "ml"
+                  ? "നിങ്ങളുടെ സെഷൻ കഴിഞ്ഞു. തുടരാൻ വീണ്ടും സൈൻ ഇൻ ചെയ്യുക."
+                  : "Your session expired. Please sign in again to continue."}
+              </span>
             </div>
           )}
 
