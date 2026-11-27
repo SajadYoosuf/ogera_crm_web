@@ -14,7 +14,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api/auth";
-import { subscribeNotificationStream } from "./stream";
 import Spinner from "@/components/Spinner";
 import {
   dismissNotification,
@@ -25,6 +24,7 @@ import {
   type AppNotification,
 } from "./api";
 
+const POLL_MS = 60_000;
 
 export function timeAgo(iso: string, now: number = Date.now()): string {
   const then = new Date(iso.endsWith("Z") || iso.includes("+") ? iso : `${iso}Z`).getTime();
@@ -63,13 +63,19 @@ export default function NotificationBell({ align = "right" }: { align?: "left" |
     }
   }, [token]);
 
-  // Live: the server pushes each new notification over a stream, and the list refreshes on every push.
-  // onConnected reloads on each (re)connect, so anything sent while disconnected is picked up.
+  // Polling, not the live stream (./stream.ts): the serverless backend cuts a stream off at 300 s and
+  // each open one keeps querying the database. Returning to the tab reloads at once.
   useEffect(() => {
     if (!token) return;
+    const refresh = () => { if (document.visibilityState === "visible") void load(); };
     const first = window.setTimeout(() => { void load(); }, 0);
-    const stop = subscribeNotificationStream(token, () => { void load(); }, () => { void load(); });
-    return () => { window.clearTimeout(first); stop(); };
+    const timer = window.setInterval(refresh, POLL_MS);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [token, load]);
 
   // Close on outside click / Escape.

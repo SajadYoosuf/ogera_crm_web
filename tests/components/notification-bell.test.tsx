@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import NotificationBell, { timeAgo } from "@/features/notifications/NotificationBell";
 import {
@@ -87,6 +87,53 @@ describe("NotificationBell", () => {
     render(<NotificationBell />);
     fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
     expect(await screen.findByText(/all caught up/)).toBeTruthy();
+  });
+});
+
+describe("NotificationBell polling", () => {
+  let visibility: DocumentVisibilityState;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    visibility = "visible";
+    vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
+  });
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+
+  const wait = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+  it("loads on mount and then once every 60 seconds", async () => {
+    render(<NotificationBell />);
+    await wait(0);
+    expect(listNotifications).toHaveBeenCalledTimes(1);
+    await wait(59_999);
+    expect(listNotifications).toHaveBeenCalledTimes(1);
+    await wait(1);
+    expect(listNotifications).toHaveBeenCalledTimes(2);
+    await wait(60_000);
+    expect(listNotifications).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not poll a hidden tab and reloads as soon as it is visible again", async () => {
+    render(<NotificationBell />);
+    await wait(0);
+    visibility = "hidden";
+    fireEvent(document, new Event("visibilitychange"));
+    await wait(180_000);
+    expect(listNotifications).toHaveBeenCalledTimes(1);
+    visibility = "visible";
+    fireEvent(document, new Event("visibilitychange"));
+    await wait(0);
+    expect(listNotifications).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops polling after it is removed", async () => {
+    const { unmount } = render(<NotificationBell />);
+    await wait(0);
+    unmount();
+    fireEvent(document, new Event("visibilitychange"));
+    await wait(180_000);
+    expect(listNotifications).toHaveBeenCalledTimes(1);
   });
 });
 
