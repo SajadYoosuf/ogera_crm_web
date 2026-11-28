@@ -150,7 +150,8 @@ export default function ContactsView() {
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
   const hasNonTypeFilters = Object.entries(filters).some(([k, v]) => k !== "type" && Boolean(v));
-  const genuinelyEmpty = (typeCounts[filters.type || ""] ?? -1) === 0 && !submittedSearch && !hasNonTypeFilters;
+  // Decided by this user's own list total, not the company-wide tab badge: an employee with no contacts of their own has total 0 here.
+  const genuinelyEmpty = total === 0 && !submittedSearch && !hasNonTypeFilters;
   const emptyTypeLabel = filters.type ? (KIND_LABELS[filters.type] ?? filters.type) : "";
 
   return (
