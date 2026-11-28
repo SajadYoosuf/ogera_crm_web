@@ -1,9 +1,9 @@
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://ogera-crm-backend.vercel.app").replace(/\/+$/, "");
+export const API_BASE_URL = `${(process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://ogera-crm-backend.vercel.app").replace(/\/+$/, "")}/api/v1`;
 
 // Shown once in the browser console so a deployment can be checked: which backend is this build calling,
 // and was NEXT_PUBLIC_API_BASE_URL set when it was built (otherwise it falls back to the production API).
 if (typeof window !== "undefined") {
-  console.info(`[Ogera CRM] API base URL: ${API_BASE_URL}${process.env.NEXT_PUBLIC_API_BASE_URL ? "" : " (NEXT_PUBLIC_API_BASE_URL was not set at build time)"}`);
+  console.info(`[Ogera CRM] API base URL: ${API_BASE_URL}${process.env.NEXT_PUBLIC_API_BASE_URL ? "" : " (NEXT_PUBLIC_API_BASE_URL was not set at build time — using production fallback)"}`);
 }
 
 // Drop any stored value that still points at the local dev backend (port 8000), so an old
