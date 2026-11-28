@@ -77,7 +77,7 @@ export default function WhatsAppInboxView() {
   const selected = conversations.find((c) => c.lead_id === selectedId) ?? null;
 
   return (
-    <div className="flex h-screen min-h-0 flex-col pt-16 lg:pt-0">
+    <div className="flex h-dvh min-h-0 flex-col pt-16 lg:pt-0">
       <header className="flex shrink-0 items-center gap-3 border-b border-[#EFEFF2] bg-white px-4 py-3">
         {selectedId !== null && (
           <button type="button" onClick={() => setSelectedId(null)} aria-label="Back to conversations"

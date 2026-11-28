@@ -208,7 +208,7 @@ export default function ContactsBulkAssignModal({ isOpen, onClose, onDone }: Pro
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl bg-white shadow-2xl max-h-[90vh] flex flex-col"
+        className="w-full max-w-lg rounded-2xl bg-white shadow-2xl max-h-[90dvh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

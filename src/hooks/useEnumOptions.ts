@@ -6,28 +6,48 @@ import { useAuth } from "@/context/AuthContext";
 
 const STALE_MS = 5 * 60 * 1000;
 
-type Entry = { items: EnumValue[]; fetchedAt: number };
-const cache = new Map<EnumCategory, Entry>();
-const inflight = new Map<EnumCategory, Promise<void>>();
+type Entry = { items: EnumValue[]; fetchedAt: number; token: string };
+// Keyed by `${token}:${category}` so a re-login as a different tenant never shows stale labels.
+const cache = new Map<string, Entry>();
+const inflight = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((listener) => listener());
 
+function cacheKey(token: string, category: EnumCategory) { return `${token}:${category}`; }
+
 function load(category: EnumCategory, token: string) {
-  const entry = cache.get(category);
-  if ((entry && Date.now() - entry.fetchedAt < STALE_MS) || inflight.has(category)) return;
+  const key = cacheKey(token, category);
+  const entry = cache.get(key);
+  if ((entry && Date.now() - entry.fetchedAt < STALE_MS) || inflight.has(key)) return;
   const request = listEnum(token, category)
-    .then((items) => { cache.set(category, { items, fetchedAt: Date.now() }); emit(); })
+    .then((items) => { cache.set(key, { items, fetchedAt: Date.now(), token }); emit(); })
     .catch(() => { /* keep the last list (or the caller's fallback); the next mount retries */ })
-    .finally(() => inflight.delete(category));
-  inflight.set(category, request);
+    .finally(() => inflight.delete(key));
+  inflight.set(key, request);
 }
 
 /** Label from the cache without subscribing; callers that render it also call `useEnumOptions` so they update once loaded. */
-export const cachedLabel = (category: EnumCategory, value: string) => cache.get(category)?.items.find((item) => item.value === value)?.label;
+export const cachedLabel = (category: EnumCategory, value: string, token?: string) => {
+  if (token) return cache.get(cacheKey(token, category))?.items.find((item) => item.value === value)?.label;
+  // Fallback: scan all entries for this category (used by callers that don't have token handy).
+  for (const [key, entry] of cache) {
+    if (key.endsWith(`:${category}`)) {
+      const found = entry.items.find((item) => item.value === value)?.label;
+      if (found) return found;
+    }
+  }
+  return undefined;
+};
 
-/** Forget cached options so the next form open refetches (called after Settings changes them). */
+/** Forget cached options so the next form open refetches (called after Settings changes them or on logout). */
 export function invalidateEnumOptions(category?: EnumCategory) {
-  if (category) cache.delete(category); else cache.clear();
+  if (category) {
+    for (const key of cache.keys()) { if (key.endsWith(`:${category}`)) cache.delete(key); }
+    for (const key of inflight.keys()) { if (key.endsWith(`:${category}`)) inflight.delete(key); }
+  } else {
+    cache.clear();
+    inflight.clear();
+  }
   emit();
 }
 
@@ -39,7 +59,11 @@ const subscribe = (listener: () => void) => { listeners.add(listener); return ()
  */
 export function useEnumOptions(category: EnumCategory, fallback: EnumValue[] = []) {
   const { token } = useAuth();
-  const entry = useSyncExternalStore(subscribe, () => cache.get(category), () => undefined);
+  const entry = useSyncExternalStore(
+    subscribe,
+    () => (token ? cache.get(cacheKey(token, category)) : undefined),
+    () => undefined,
+  );
 
   useEffect(() => {
     if (token) load(category, token);

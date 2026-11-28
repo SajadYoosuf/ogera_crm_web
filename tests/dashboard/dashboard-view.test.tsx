@@ -5,7 +5,7 @@ import DashboardView from "@/features/dashboard/DashboardView";
 import { getDashboardSummary, type DashboardSummary, type QueueItem } from "@/features/dashboard/api/dashboard";
 import { niceMax } from "@/features/dashboard/components/Charts";
 import { agoText, dueText, whatsAppUrl } from "@/features/dashboard/format";
-import { ApiError } from "@/lib/api/auth";
+import { ApiError, SESSION_EXPIRED_EVENT } from "@/lib/api/auth";
 
 const auth = vi.hoisted(() => ({ user: { id: 3, name: "Anu", role: "sales_executive" } as Record<string, unknown>, clearSession: vi.fn() }));
 const nav = vi.hoisted(() => ({ push: vi.fn() }));
@@ -177,12 +177,23 @@ describe("DashboardView", () => {
     expect(await screen.findByText("Ravi Kumar")).toBeTruthy();
   });
 
-  it("signs the person out when the session has expired", async () => {
-    vi.mocked(getDashboardSummary).mockRejectedValueOnce(new ApiError("invalid_credentials", "Your session has expired.", 401));
+  it("dispatches the session-expired event and shows no retry when the token is rejected", async () => {
+    const dispatched: Event[] = [];
+    const spy = (e: Event) => dispatched.push(e);
+    window.addEventListener(SESSION_EXPIRED_EVENT, spy);
+
+    // The real apiCall dispatches SESSION_EXPIRED_EVENT on 401; simulate that here since
+    // getDashboardSummary is mocked and never calls apiCall.
+    vi.mocked(getDashboardSummary).mockImplementationOnce(() => {
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+      return Promise.reject(new ApiError("invalid_credentials", "Your session has expired.", 401));
+    });
     render(<DashboardView />);
 
-    await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/"));
-    expect(auth.clearSession).toHaveBeenCalled();
+    await waitFor(() => expect(dispatched).toHaveLength(1));
+    window.removeEventListener(SESSION_EXPIRED_EVENT, spy);
+    // 401 is not retryable — no "Try again" button, same as 403
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Try again" })).toBeNull());
   });
 
   it("offers no retry when access is refused", async () => {

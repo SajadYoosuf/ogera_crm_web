@@ -157,7 +157,7 @@ export default function NotificationBell({ align = "right" }: { align?: "left" |
               Mark all read
             </button>
           </div>
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[60dvh] overflow-y-auto">
             {error && <p role="alert" className="px-4 py-3 text-sm text-red-600">{error}</p>}
             {loading && items.length === 0 && (
               <div className="flex items-center justify-center gap-2 px-4 py-6">

@@ -177,6 +177,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // starts with a clean store rather than the previous user's data.
     store.dispatch(resetLookups());
     invalidateEnumOptions();
+    // Reset so the next authenticated user on this tab registers their own FCM token.
+    pushRegistered.current = false;
   }, []);
 
   // Any authenticated call that comes back 401 ends the session here, so every page leaves the

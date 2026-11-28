@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/lib/api/auth";
+import { API_BASE_URL, SESSION_EXPIRED_EVENT } from "@/lib/api/auth";
 
 /**
  * Live notifications over server-sent events (GET /notifications/stream).
@@ -30,6 +30,10 @@ export function subscribeNotificationStream(
         cache: "no-store",
         signal: controller.signal,
       });
+      if (res.status === 401) {
+        window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+        return;
+      }
       if (!res.ok || !res.body) throw new Error(`notification stream ${res.status}`);
       delay = 1000;
       onConnected?.();
